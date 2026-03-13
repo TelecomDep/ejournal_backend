@@ -2,16 +2,22 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
+	"github.com/golang-jwt/jwt/v5"
+	"os"
+	"time"
+
+	zmq "github.com/pebbe/zmq4"
 	"log"
 	"sync"
 	"syscall"
-
-	zmq "github.com/pebbe/zmq4"
 )
 
 type Request struct {
 	ID     string          `json:"id"`
 	Action string          `json:"action"`
+	Token  string          `json:"token,omitempty"`
 	Data   json.RawMessage `json:"data"`
 }
 
@@ -22,7 +28,32 @@ type Response struct {
 	Error  string `json:"error"`
 }
 
+type LoginData struct {
+	Login    string `json:"login"`
+	Password string `json:"password"`
+}
+
+type User struct {
+	UserID string
+	Login  string
+	Pass   string
+}
+
+var jwtSecret []byte
+var sessionStore sync.Map
+var users sync.Map
+
+var userCounter int
+
 func main() {
+
+	secret := os.Getenv("JWT_SECRET")
+	if secret == "" {
+		log.Fatal("JWT_SECRET not set")
+	}
+
+	jwtSecret = []byte(secret)
+
 	port := "20206"
 	workersCount := 16
 	frontAddr := "tcp://0.0.0.0:" + port
@@ -130,14 +161,103 @@ func handleRequest(raw string) Response {
 
 	switch req.Action {
 	case "ping":
-		return Response{ID: req.ID, OK: true, Result: map[string]any{"pong": true}}
+		return Response{
+			ID:     req.ID,
+			OK:     true,
+			Result: map[string]any{"pong": true}}
 	case "register":
-		return Response{ID: req.ID, OK: true, Result: map[string]any{"status": "registered"}}
+		var data LoginData
+		if err := json.Unmarshal(req.Data, &data); err != nil {
+			return Response{OK: false, Error: "EROR reg: " + err.Error()}
+		}
+
+		_, exist := users.Load(data.Login)
+		if exist {
+			return Response{
+				ID:    req.ID,
+				OK:    false,
+				Error: "user exist",
+			}
+		}
+
+		userCounter++
+		userID := fmt.Sprintf("user-%d", userCounter)
+
+		user := User{
+			UserID: userID,
+			Login:  data.Login,
+			Pass:   data.Password,
+		}
+
+		users.Store(userID, user)
+
+		return Response{
+			ID: req.ID,
+			OK: true,
+			Result: map[string]any{"user_id": userID,
+				"login": data.Login}}
+
 	case "login":
-		return Response{ID: req.ID, OK: true, Result: map[string]any{"token": "JWT"}}
+		var data LoginData
+		err := json.Unmarshal(req.Data, &data)
+		if err != nil {
+			return Response{OK: false, Error: "EROR_login: " + err.Error()}
+		}
+		if data.Login != "admin" || data.Password != "admin" {
+			return Response{OK: false, Error: "EROR_login: wrong password or login"}
+		}
+
+		userId := data.Login //переделать
+
+		return Response{
+			ID:     req.ID,
+			OK:     true,
+			Result: map[string]any{"token": "JWT"}}
 	default:
-		return Response{ID: req.ID, OK: false, Error: "unknown_action: " + req.Action}
+		return Response{
+			ID:    req.ID,
+			OK:    false,
+			Error: "unknown_action: " + req.Action}
 
 	}
+
+}
+
+func generateJWT(userID string) (string, error) {
+	cl := jwt.MapClaims{
+		"user_id": userID,
+		"exp":     time.Now().Add(time.Hour * 12).Unix(), //12 часлсв до истечения токена
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, cl)
+
+	return token.SignedString(jwtSecret)
+}
+
+func isok_JWT(tokenString string) (string, error) {
+	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (any, error) {
+		return jwtSecret, nil
+	})
+
+	if err != nil {
+		return "", err
+	}
+
+	if !token.Valid {
+		return "", errors.New("token is not valid")
+	}
+
+	cl, ok := token.Claims.(jwt.MapClaims)
+
+	if !ok {
+		return "", err
+	}
+
+	userID, ok := cl["user_id"].(string)
+
+	if !ok {
+		return "", fmt.Errorf("no user id found in claims")
+	}
+	return userID, nil
 
 }
