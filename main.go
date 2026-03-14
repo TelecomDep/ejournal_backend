@@ -40,8 +40,8 @@ type User struct {
 }
 
 var jwtSecret []byte
-var sessionStore sync.Map
-var users sync.Map
+var sessionStore sync.Map //храним сессии юзеров
+var users sync.Map        // храним юзеров (скоро будет в бд)
 
 var userCounter int
 
@@ -203,16 +203,35 @@ func handleRequest(raw string) Response {
 		if err != nil {
 			return Response{OK: false, Error: "EROR_login: " + err.Error()}
 		}
-		if data.Login != "admin" || data.Password != "admin" {
-			return Response{OK: false, Error: "EROR_login: wrong password or login"}
+		//if data.Login != "admin" || data.Password != "admin" {
+		//	return Response{OK: false, Error: "EROR_login: wrong password or login"}
+		//}
+
+		val, ok := users.Load(data.Login)
+		if !ok {
+			return Response{ID: req.ID, OK: false, Error: "user does not exist"}
 		}
 
-		userId := data.Login //переделать
+		user := val.(User)
+
+		if user.Pass != data.Password {
+			return Response{ID: req.ID, OK: false, Error: "wrong password"}
+		}
+
+		token, err := generateJWT(user.UserID) //на всяк случай по юзайди
+		if err != nil {
+			return Response{OK: false, Error: "EROR_generateJWT: " + err.Error()}
+		}
+
+		sessionStore.Store(token, user)
 
 		return Response{
-			ID:     req.ID,
-			OK:     true,
-			Result: map[string]any{"token": "JWT"}}
+			ID: req.ID,
+			OK: true,
+			Result: map[string]any{"token": token,
+				"user_ID": user.UserID,
+				"login":   user.Login,
+			}}
 	default:
 		return Response{
 			ID:    req.ID,
@@ -234,7 +253,7 @@ func generateJWT(userID string) (string, error) {
 	return token.SignedString(jwtSecret)
 }
 
-func isok_JWT(tokenString string) (string, error) {
+func isok_JWT(tokenString string) (string, error) { //на будущее в новые кейсы
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (any, error) {
 		return jwtSecret, nil
 	})
