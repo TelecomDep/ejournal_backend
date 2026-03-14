@@ -189,7 +189,7 @@ func handleRequest(raw string) Response {
 			Pass:   data.Password,
 		}
 
-		users.Store(userID, user)
+		users.Store(data.Login, user)
 
 		return Response{
 			ID: req.ID,
