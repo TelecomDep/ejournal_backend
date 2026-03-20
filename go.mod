@@ -5,7 +5,6 @@ go 1.21
 require (
 	github.com/gofiber/fiber/v2 v2.52.12
 	github.com/golang-jwt/jwt/v5 v5.3.1
-	github.com/pebbe/zmq4 v1.4.0
 )
 
 require (
