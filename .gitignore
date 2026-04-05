@@ -38,4 +38,8 @@ desktop.ini
 # Temporary files
 tmp/
 temp/
+## Local weekly reports
+#weekly_reports/
 .codex
+
+
