@@ -1,0 +1,11 @@
+services:
+  ejournal-backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ejournal-backend
+    env_file:
+      - .env
+    ports:
+      - "${APP_PORT:-8888}:${APP_PORT:-8888}"
+    restart: unless-stopped

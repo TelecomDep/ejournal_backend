@@ -19,6 +19,7 @@ coverage.out
 # Environment and secrets
 .env
 .env.*
+!.env.example
 
 # IDE/editor
 .idea/
@@ -37,3 +38,4 @@ desktop.ini
 # Temporary files
 tmp/
 temp/
+.codex

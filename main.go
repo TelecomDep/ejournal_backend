@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"os"
 	"runtime"
 	"strings"
 	"sync"
@@ -70,13 +69,11 @@ var userCounter atomic.Int64
 var lessonCounter atomic.Int64
 var requestQueue chan requestJob
 var attendanceMarks sync.Map // key: lesson_id:student_id, value: time.Time
+var appConfig AppConfig
 
 func main() {
-	secret := os.Getenv("JWT_SECRET")
-	if secret == "" {
-		log.Fatal("JWT_SECRET not set")
-	}
-	jwtSecret = []byte(secret)
+	appConfig = loadConfig()
+	jwtSecret = []byte(appConfig.JWTSecret)
 
 	workersCount := runtime.NumCPU() * 2
 	if workersCount < 1 {
@@ -251,11 +248,7 @@ func createAttendanceLinkByTeacher(sessionToken string, data AttendanceCreateDat
 		return Response{OK: false, Error: "failed to generate invite token"}
 	}
 
-	siteBaseURL := strings.TrimSpace(os.Getenv("SITE_BASE_URL"))
-	if siteBaseURL == "" {
-		siteBaseURL = "http://localhost:3000"
-	}
-	url := fmt.Sprintf("%s/attendance/join?token=%s", strings.TrimRight(siteBaseURL, "/"), inviteToken)
+	url := fmt.Sprintf("%s/attendance/join?token=%s", strings.TrimRight(appConfig.SiteBaseURL, "/"), inviteToken)
 
 	return Response{
 		OK: true,

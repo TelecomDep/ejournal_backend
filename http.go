@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"time"
 
@@ -19,7 +20,7 @@ func startHTTPServer() {
 	app := fiber.New()
 
 	app.Use(cors.New(cors.Config{
-		AllowOrigins: "http://localhost:3000,http://127.0.0.1:3000",
+		AllowOrigins: appConfig.CORSAllowOrigins,
 		AllowMethods: "GET,POST,OPTIONS",
 		AllowHeaders: "Origin, Content-Type, Accept, Authorization",
 	}))
@@ -31,8 +32,9 @@ func startHTTPServer() {
 	app.Post("/api/teacher/attendance-link", teacherAttendanceLinkHandler)
 	app.Post("/api/student/attendance/confirm", studentAttendanceConfirmHandler)
 
-	log.Println("Starting HTTP server on :8888")
-	if err := app.Listen(":8888"); err != nil {
+	addr := fmt.Sprintf(":%s", appConfig.AppPort)
+	log.Printf("Starting HTTP server on %s", addr)
+	if err := app.Listen(addr); err != nil {
 		log.Fatalf("HTTP server failed: %v", err)
 	}
 }

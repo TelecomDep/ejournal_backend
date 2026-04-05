@@ -13,20 +13,28 @@
 
 ## Стек
 
-- Go `1.21+`
+- Go `1.26.1`
 - `github.com/gofiber/fiber/v2`
 - `github.com/golang-jwt/jwt/v5`
 
 ## Быстрый старт
 
-1. Установите переменные окружения:
+1. Создайте `.env` из шаблона:
 
-```powershell
-$env:JWT_SECRET="super-secret-key"
-$env:SITE_BASE_URL="http://localhost:3000"
+```bash
+cp .env.example .env
 ```
 
-2. Запустите сервис:
+2. Установите переменные окружения (или отредактируйте `.env`):
+
+```powershell
+$env:JWT_SECRET="поменяй---------------------------------"
+$env:SITE_BASE_URL="http://localhost:3000"
+$env:APP_PORT="8888"
+$env:CORS_ALLOW_ORIGINS="http://localhost:3000,http://127.0.0.1:3000"
+```
+
+3. Запустите сервис:
 
 ```powershell
 go run .
@@ -39,6 +47,38 @@ go run .
 - `JWT_SECRET` (обязательно): ключ подписи JWT
 - `SITE_BASE_URL` (необязательно): базовый URL фронтенда для формирования ссылки приглашения  
   По умолчанию: `http://localhost:3000`
+- `APP_PORT` (необязательно): порт HTTP-сервера  
+  По умолчанию: `8888`
+- `CORS_ALLOW_ORIGINS` (необязательно): список origin через запятую для CORS  
+  По умолчанию: `http://localhost:3000,http://127.0.0.1:3000`
+
+## Docker
+
+Сборка образа:
+
+```bash
+docker build -t ejournal-backend .
+```
+
+Запуск контейнера с env-файлом:
+
+```bash
+docker run -d --name ejournal-backend --env-file .env -p 8888:8888 ejournal-backend
+```
+
+## Docker Compose
+
+Запуск:
+
+```bash
+docker compose up -d --build
+```
+
+Остановка:
+
+```bash
+docker compose down
+```
 
 ## API
 
@@ -108,6 +148,7 @@ curl -X POST http://localhost:8888/login \
 # Profile
 curl http://localhost:8888/profile \
   -H "Authorization: Bearer <TOKEN>"
+  #вставьте токен который выдался выше после логина
 ```
 
 ## Структура проекта
