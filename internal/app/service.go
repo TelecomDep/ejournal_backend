@@ -1,17 +1,16 @@
-package main
+package app
 
 import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
-	"runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type Request struct {
@@ -62,48 +61,43 @@ type requestJob struct {
 	resultCh   chan Response
 }
 
-var jwtSecret []byte
-var sessionStore sync.Map
-var users sync.Map
-var userCounter atomic.Int64
-var lessonCounter atomic.Int64
-var requestQueue chan requestJob
-var attendanceMarks sync.Map // key: lesson_id:student_id, value: time.Time
-var appConfig AppConfig
-
-func main() {
-	appConfig = loadConfig()
-	jwtSecret = []byte(appConfig.JWTSecret)
-
-	workersCount := runtime.NumCPU() * 2
-	if workersCount < 1 {
-		workersCount = 1
-	}
-
-	startWorkerPool(workersCount)
-	log.Printf("Internal worker pool started with %d workers", workersCount)
-	startHTTPServer()
+type Service struct {
+	jwtSecret       []byte
+	siteBaseURL     string
+	sessionStore    sync.Map
+	users           sync.Map
+	userCounter     atomic.Int64
+	lessonCounter   atomic.Int64
+	requestQueue    chan requestJob
+	attendanceMarks sync.Map
 }
 
-func startWorkerPool(workersCount int) {
-	requestQueue = make(chan requestJob, 1024)
+func NewService(jwtSecret, siteBaseURL string) *Service {
+	return &Service{
+		jwtSecret:   []byte(strings.TrimSpace(jwtSecret)),
+		siteBaseURL: strings.TrimSpace(siteBaseURL),
+	}
+}
+
+func (s *Service) StartWorkerPool(workersCount int) {
+	s.requestQueue = make(chan requestJob, 1024)
 	for i := 0; i < workersCount; i++ {
 		go func() {
-			for job := range requestQueue {
-				job.resultCh <- handleRequest(job.rawRequest)
+			for job := range s.requestQueue {
+				job.resultCh <- s.handleRequest(job.rawRequest)
 			}
 		}()
 	}
 }
 
-func dispatchRequest(raw string, timeout time.Duration) (Response, error) {
+func (s *Service) DispatchRequest(raw string, timeout time.Duration) (Response, error) {
 	job := requestJob{
 		rawRequest: raw,
 		resultCh:   make(chan Response, 1),
 	}
 
 	select {
-	case requestQueue <- job:
+	case s.requestQueue <- job:
 	case <-time.After(timeout):
 		return Response{}, errors.New("server is busy")
 	}
@@ -116,13 +110,13 @@ func dispatchRequest(raw string, timeout time.Duration) (Response, error) {
 	}
 }
 
-func nextUserID() string {
-	id := userCounter.Add(1)
+func (s *Service) nextUserID() string {
+	id := s.userCounter.Add(1)
 	return fmt.Sprintf("user-%d", id)
 }
 
-func nextLessonID() string {
-	id := lessonCounter.Add(1)
+func (s *Service) nextLessonID() string {
+	id := s.lessonCounter.Add(1)
 	return fmt.Sprintf("lesson-%d", id)
 }
 
@@ -140,18 +134,18 @@ func normalizeAuthHeader(token string) string {
 	return strings.TrimSpace(token)
 }
 
-func userBySessionToken(token string) (User, error) {
+func (s *Service) userBySessionToken(token string) (User, error) {
 	token = normalizeAuthHeader(token)
 	if token == "" {
 		return User{}, errors.New("missing token")
 	}
 
-	_, err := isok_JWT(token)
+	_, err := s.validateJWT(token)
 	if err != nil {
 		return User{}, errors.New("invalid token")
 	}
 
-	val, ok := sessionStore.Load(token)
+	val, ok := s.sessionStore.Load(token)
 	if !ok {
 		return User{}, errors.New("session not found")
 	}
@@ -159,8 +153,8 @@ func userBySessionToken(token string) (User, error) {
 	return val.(User), nil
 }
 
-func profileByToken(token string) Response {
-	user, err := userBySessionToken(token)
+func (s *Service) profileByToken(token string) Response {
+	user, err := s.userBySessionToken(token)
 	if err != nil {
 		return Response{OK: false, Error: err.Error()}
 	}
@@ -175,7 +169,7 @@ func profileByToken(token string) Response {
 	}
 }
 
-func generateAttendanceInviteToken(lessonID, teacherID string, expiresMinutes int) (string, time.Time, error) {
+func (s *Service) generateAttendanceInviteToken(lessonID, teacherID string, expiresMinutes int) (string, time.Time, error) {
 	if expiresMinutes <= 0 {
 		expiresMinutes = 15
 	}
@@ -195,7 +189,7 @@ func generateAttendanceInviteToken(lessonID, teacherID string, expiresMinutes in
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	signed, err := token.SignedString(jwtSecret)
+	signed, err := token.SignedString(s.jwtSecret)
 	if err != nil {
 		return "", time.Time{}, err
 	}
@@ -203,14 +197,14 @@ func generateAttendanceInviteToken(lessonID, teacherID string, expiresMinutes in
 	return signed, exp, nil
 }
 
-func parseAttendanceInviteToken(inviteToken string) (*AttendanceInviteClaims, error) {
+func (s *Service) parseAttendanceInviteToken(inviteToken string) (*AttendanceInviteClaims, error) {
 	inviteToken = strings.TrimSpace(inviteToken)
 	if inviteToken == "" {
 		return nil, errors.New("missing invite token")
 	}
 
 	parsed, err := jwt.ParseWithClaims(inviteToken, &AttendanceInviteClaims{}, func(token *jwt.Token) (any, error) {
-		return jwtSecret, nil
+		return s.jwtSecret, nil
 	})
 	if err != nil {
 		return nil, errors.New("invalid invite token")
@@ -233,8 +227,8 @@ func parseAttendanceInviteToken(inviteToken string) (*AttendanceInviteClaims, er
 	return claims, nil
 }
 
-func createAttendanceLinkByTeacher(sessionToken string, data AttendanceCreateData) Response {
-	teacher, err := userBySessionToken(sessionToken)
+func (s *Service) createAttendanceLinkByTeacher(sessionToken string, data AttendanceCreateData) Response {
+	teacher, err := s.userBySessionToken(sessionToken)
 	if err != nil {
 		return Response{OK: false, Error: err.Error()}
 	}
@@ -242,13 +236,13 @@ func createAttendanceLinkByTeacher(sessionToken string, data AttendanceCreateDat
 		return Response{OK: false, Error: "forbidden: teacher role required"}
 	}
 
-	lessonID := nextLessonID()
-	inviteToken, expiresAt, err := generateAttendanceInviteToken(lessonID, teacher.UserID, data.ExpiresMinutes)
+	lessonID := s.nextLessonID()
+	inviteToken, expiresAt, err := s.generateAttendanceInviteToken(lessonID, teacher.UserID, data.ExpiresMinutes)
 	if err != nil {
 		return Response{OK: false, Error: "failed to generate invite token"}
 	}
 
-	url := fmt.Sprintf("%s/attendance/join?token=%s", strings.TrimRight(appConfig.SiteBaseURL, "/"), inviteToken)
+	url := fmt.Sprintf("%s/attendance/join?token=%s", strings.TrimRight(s.siteBaseURL, "/"), inviteToken)
 
 	return Response{
 		OK: true,
@@ -264,8 +258,8 @@ func createAttendanceLinkByTeacher(sessionToken string, data AttendanceCreateDat
 	}
 }
 
-func confirmAttendanceByStudent(sessionToken string, data AttendanceConfirmData) Response {
-	student, err := userBySessionToken(sessionToken)
+func (s *Service) confirmAttendanceByStudent(sessionToken string, data AttendanceConfirmData) Response {
+	student, err := s.userBySessionToken(sessionToken)
 	if err != nil {
 		return Response{OK: false, Error: err.Error()}
 	}
@@ -273,14 +267,14 @@ func confirmAttendanceByStudent(sessionToken string, data AttendanceConfirmData)
 		return Response{OK: false, Error: "forbidden: student role required"}
 	}
 
-	claims, err := parseAttendanceInviteToken(data.InviteToken)
+	claims, err := s.parseAttendanceInviteToken(data.InviteToken)
 	if err != nil {
 		return Response{OK: false, Error: err.Error()}
 	}
 
 	markKey := claims.LessonID + ":" + student.UserID
 	markedAt := time.Now().UTC()
-	_, loaded := attendanceMarks.LoadOrStore(markKey, markedAt)
+	_, loaded := s.attendanceMarks.LoadOrStore(markKey, markedAt)
 	if loaded {
 		return Response{OK: false, Error: "attendance already confirmed"}
 	}
@@ -297,7 +291,7 @@ func confirmAttendanceByStudent(sessionToken string, data AttendanceConfirmData)
 	}
 }
 
-func handleRequest(raw string) Response {
+func (s *Service) handleRequest(raw string) Response {
 	var req Request
 	if err := json.Unmarshal([]byte(raw), &req); err != nil {
 		return Response{OK: false, Error: "EROR: " + err.Error()}
@@ -316,14 +310,19 @@ func handleRequest(raw string) Response {
 			return Response{ID: req.ID, OK: false, Error: "EROR reg: " + err.Error()}
 		}
 
-		_, exist := users.Load(data.Login)
+		_, exist := s.users.Load(data.Login)
 		if exist {
 			return Response{ID: req.ID, OK: false, Error: "user exist"}
 		}
 
-		userID := nextUserID()
-		user := User{UserID: userID, Login: data.Login, Pass: data.Password, Role: normalizeRole(data.Role)}
-		users.Store(data.Login, user)
+		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(data.Password), bcrypt.DefaultCost)
+		if err != nil {
+			return Response{ID: req.ID, OK: false, Error: "failed to hash password"}
+		}
+
+		userID := s.nextUserID()
+		user := User{UserID: userID, Login: data.Login, Pass: string(hashedPassword), Role: normalizeRole(data.Role)}
+		s.users.Store(data.Login, user)
 
 		return Response{
 			ID: req.ID,
@@ -341,22 +340,22 @@ func handleRequest(raw string) Response {
 			return Response{ID: req.ID, OK: false, Error: "EROR_login: " + err.Error()}
 		}
 
-		val, ok := users.Load(data.Login)
+		val, ok := s.users.Load(data.Login)
 		if !ok {
 			return Response{ID: req.ID, OK: false, Error: "user does not exist"}
 		}
 
 		user := val.(User)
-		if user.Pass != data.Password {
+		if err := bcrypt.CompareHashAndPassword([]byte(user.Pass), []byte(data.Password)); err != nil {
 			return Response{ID: req.ID, OK: false, Error: "wrong password"}
 		}
 
-		token, err := generateJWT(user.UserID)
+		token, err := s.generateJWT(user.UserID)
 		if err != nil {
 			return Response{ID: req.ID, OK: false, Error: "EROR_generateJWT: " + err.Error()}
 		}
 
-		sessionStore.Store(token, user)
+		s.sessionStore.Store(token, user)
 		return Response{
 			ID: req.ID,
 			OK: true,
@@ -368,7 +367,7 @@ func handleRequest(raw string) Response {
 			},
 		}
 	case "profile":
-		resp := profileByToken(req.Token)
+		resp := s.profileByToken(req.Token)
 		resp.ID = req.ID
 		return resp
 	case "create_attendance_link":
@@ -376,7 +375,7 @@ func handleRequest(raw string) Response {
 		if err := json.Unmarshal(req.Data, &data); err != nil {
 			return Response{ID: req.ID, OK: false, Error: "invalid create_attendance_link payload"}
 		}
-		resp := createAttendanceLinkByTeacher(req.Token, data)
+		resp := s.createAttendanceLinkByTeacher(req.Token, data)
 		resp.ID = req.ID
 		return resp
 	case "confirm_attendance":
@@ -384,7 +383,7 @@ func handleRequest(raw string) Response {
 		if err := json.Unmarshal(req.Data, &data); err != nil {
 			return Response{ID: req.ID, OK: false, Error: "invalid confirm_attendance payload"}
 		}
-		resp := confirmAttendanceByStudent(req.Token, data)
+		resp := s.confirmAttendanceByStudent(req.Token, data)
 		resp.ID = req.ID
 		return resp
 	default:
@@ -392,19 +391,19 @@ func handleRequest(raw string) Response {
 	}
 }
 
-func generateJWT(userID string) (string, error) {
+func (s *Service) generateJWT(userID string) (string, error) {
 	cl := jwt.MapClaims{
 		"user_id": userID,
 		"exp":     time.Now().Add(time.Hour * 12).Unix(),
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, cl)
-	return token.SignedString(jwtSecret)
+	return token.SignedString(s.jwtSecret)
 }
 
-func isok_JWT(tokenString string) (string, error) {
+func (s *Service) validateJWT(tokenString string) (string, error) {
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (any, error) {
-		return jwtSecret, nil
+		return s.jwtSecret, nil
 	})
 	if err != nil {
 		return "", err

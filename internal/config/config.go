@@ -1,4 +1,4 @@
-package main
+package config
 
 import (
 	"log"
@@ -13,7 +13,7 @@ type AppConfig struct {
 	CORSAllowOrigins string
 }
 
-func loadConfig() AppConfig {
+func Load() AppConfig {
 	cfg := AppConfig{
 		JWTSecret:        strings.TrimSpace(os.Getenv("JWT_SECRET")),
 		SiteBaseURL:      getEnv("SITE_BASE_URL", "http://localhost:3000"),

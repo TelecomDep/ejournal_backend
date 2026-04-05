@@ -37,7 +37,7 @@ $env:CORS_ALLOW_ORIGINS="http://localhost:3000,http://127.0.0.1:3000"
 3. Запустите сервис:
 
 ```powershell
-go run .
+go run ./cmd/server
 ```
 
 Сервер стартует на `http://localhost:8888`.
@@ -153,6 +153,8 @@ curl http://localhost:8888/profile \
 
 ## Структура проекта
 
-- `main.go` - доменная логика, JWT, роли, worker pool
-- `http.go` - HTTP-слой и маршруты
+- `cmd/server/main.go` - точка входа приложения
+- `internal/app/service.go` - доменная логика, JWT, роли, worker pool
+- `internal/httpserver/server.go` - HTTP-слой и маршруты
+- `internal/config/config.go` - загрузка конфигурации из env
 - `go.mod` / `go.sum` - зависимости
