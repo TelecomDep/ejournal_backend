@@ -51,6 +51,22 @@ go run ./cmd/server
   По умолчанию: `8888`
 - `CORS_ALLOW_ORIGINS` (необязательно): список origin через запятую для CORS  
   По умолчанию: `http://localhost:3000,http://127.0.0.1:3000`
+- `DB_DSN` (необязательно): строка подключения PostgreSQL.  
+  Пример: `postgres://postgres:postgres@localhost:5432/ejournal?sslmode=disable`
+
+Если `DB_DSN` не задан, сервис работает как раньше (in-memory).  
+Если `DB_DSN` задан, при старте проверяется подключение к Postgres.
+
+## Goose миграции
+
+Добавлена миграция схемы БД: `migrations/20260412152000_init_parser_schema.sql`.
+
+Пример запуска:
+
+```bash
+go install github.com/pressly/goose/v3/cmd/goose@latest
+goose -dir migrations postgres "postgres://postgres:postgres@localhost:5432/ejournal?sslmode=disable" up
+```
 
 ## Docker
 
@@ -157,4 +173,6 @@ curl http://localhost:8888/profile \
 - `internal/app/service.go` - доменная логика, JWT, роли, worker pool
 - `internal/httpserver/server.go` - HTTP-слой и маршруты
 - `internal/config/config.go` - загрузка конфигурации из env
+- `internal/db/*` - слой доступа к PostgreSQL (store + репозитории)
+- `migrations/*` - goose-миграции БД
 - `go.mod` / `go.sum` - зависимости
