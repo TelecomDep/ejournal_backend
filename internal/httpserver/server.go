@@ -46,6 +46,7 @@ func (s *Server) Start() {
 	fiberApp.Get("/profile", s.profileHandler)
 
 	fiberApp.Post("/api/teacher/attendance-link", s.teacherAttendanceLinkHandler)
+	fiberApp.Post("/api/teacher/attendance/session", s.teacherAttendanceLinkHandler)
 	fiberApp.Post("/api/student/attendance/confirm", s.studentAttendanceConfirmHandler)
 
 	addr := fmt.Sprintf(":%s", s.cfg.AppPort)

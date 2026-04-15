@@ -131,12 +131,40 @@ docker compose down
 
 `POST /api/teacher/attendance-link`
 
+или алиас для мобильного/веб-приложения:
+
+`POST /api/teacher/attendance/session`
+
 ```json
 {
   "lesson_name": "Networks",
   "expires_minutes": 20
 }
 ```
+
+Пример успешного ответа:
+
+```json
+{
+  "id": "http-attendance-link",
+  "ok": true,
+  "result": {
+    "lesson_id": "lesson-1",
+    "lesson_name": "Networks",
+    "invite_token": "<token>",
+    "url": "http://localhost:3000/attendance/join?token=<token>",
+    "join_url": "http://localhost:3000/attendance/join?token=<token>",
+    "qr_payload": "http://localhost:3000/attendance/join?token=<token>",
+    "teacher_id": "user-1",
+    "expires_at": "2026-04-15T15:00:00Z",
+    "expires_minutes": 20
+  }
+}
+```
+
+Поля для приложения:
+- `join_url` — ссылка, которую можно открыть в WebView/браузере
+- `qr_payload` — строка для генерации QR-кода
 
 ### 5) Подтвердить посещаемость (student)
 

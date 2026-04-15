@@ -72,6 +72,16 @@ type Service struct {
 	attendanceMarks sync.Map
 }
 
+func normalizeInviteTTL(expiresMinutes int) int {
+	if expiresMinutes <= 0 {
+		return 15
+	}
+	if expiresMinutes > 180 {
+		return 180
+	}
+	return expiresMinutes
+}
+
 func NewService(jwtSecret, siteBaseURL string) *Service {
 	return &Service{
 		jwtSecret:   []byte(strings.TrimSpace(jwtSecret)),
@@ -170,12 +180,7 @@ func (s *Service) profileByToken(token string) Response {
 }
 
 func (s *Service) generateAttendanceInviteToken(lessonID, teacherID string, expiresMinutes int) (string, time.Time, error) {
-	if expiresMinutes <= 0 {
-		expiresMinutes = 15
-	}
-	if expiresMinutes > 180 {
-		expiresMinutes = 180
-	}
+	expiresMinutes = normalizeInviteTTL(expiresMinutes)
 
 	exp := time.Now().Add(time.Duration(expiresMinutes) * time.Minute)
 	claims := AttendanceInviteClaims{
@@ -235,25 +240,32 @@ func (s *Service) createAttendanceLinkByTeacher(sessionToken string, data Attend
 	if teacher.Role != "teacher" {
 		return Response{OK: false, Error: "forbidden: teacher role required"}
 	}
+	lessonName := strings.TrimSpace(data.LessonName)
+	if lessonName == "" {
+		return Response{OK: false, Error: "lesson_name is required"}
+	}
+	effectiveTTL := normalizeInviteTTL(data.ExpiresMinutes)
 
 	lessonID := s.nextLessonID()
-	inviteToken, expiresAt, err := s.generateAttendanceInviteToken(lessonID, teacher.UserID, data.ExpiresMinutes)
+	inviteToken, expiresAt, err := s.generateAttendanceInviteToken(lessonID, teacher.UserID, effectiveTTL)
 	if err != nil {
 		return Response{OK: false, Error: "failed to generate invite token"}
 	}
 
-	url := fmt.Sprintf("%s/attendance/join?token=%s", strings.TrimRight(s.siteBaseURL, "/"), inviteToken)
+	joinURL := fmt.Sprintf("%s/attendance/join?token=%s", strings.TrimRight(s.siteBaseURL, "/"), inviteToken)
 
 	return Response{
 		OK: true,
 		Result: map[string]any{
 			"lesson_id":       lessonID,
-			"lesson_name":     data.LessonName,
+			"lesson_name":     lessonName,
 			"invite_token":    inviteToken,
-			"url":             url,
+			"url":             joinURL,
+			"join_url":        joinURL,
+			"qr_payload":      joinURL,
 			"teacher_id":      teacher.UserID,
 			"expires_at":      expiresAt.UTC().Format(time.RFC3339),
-			"expires_minutes": data.ExpiresMinutes,
+			"expires_minutes": effectiveTTL,
 		},
 	}
 }
