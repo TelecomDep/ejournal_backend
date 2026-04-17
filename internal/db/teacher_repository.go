@@ -19,6 +19,10 @@ func NewTeacherRepository(pool *pgxpool.Pool) *TeacherRepository {
 }
 
 func (r *TeacherRepository) Create(ctx context.Context, teacher Teacher) (Teacher, error) {
+	if teacher.ID <= 0 {
+		return Teacher{}, fmt.Errorf("teacher id is required")
+	}
+
 	teacher.Name = strings.TrimSpace(teacher.Name)
 	teacher.JobTitle = strings.TrimSpace(teacher.JobTitle)
 	if teacher.Name == "" {
@@ -28,9 +32,10 @@ func (r *TeacherRepository) Create(ctx context.Context, teacher Teacher) (Teache
 	var out Teacher
 	err := r.pool.QueryRow(
 		ctx,
-		`INSERT INTO teachers (name, lectern_id, job_title)
-		 VALUES ($1, $2, $3)
+		`INSERT INTO teachers (teacher_id, role, name, lectern_id, job_title)
+		 VALUES ($1, 'teacher', $2, $3, $4)
 		 RETURNING teacher_id, name, lectern_id, job_title`,
+		teacher.ID,
 		teacher.Name,
 		teacher.LecternID,
 		teacher.JobTitle,

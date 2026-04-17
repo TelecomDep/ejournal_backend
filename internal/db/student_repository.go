@@ -19,6 +19,10 @@ func NewStudentRepository(pool *pgxpool.Pool) *StudentRepository {
 }
 
 func (r *StudentRepository) Create(ctx context.Context, student Student) (Student, error) {
+	if student.ID <= 0 {
+		return Student{}, fmt.Errorf("student id is required")
+	}
+
 	student.StudentName = strings.TrimSpace(student.StudentName)
 	if student.StudentName == "" {
 		return Student{}, fmt.Errorf("student name is required")
@@ -27,9 +31,10 @@ func (r *StudentRepository) Create(ctx context.Context, student Student) (Studen
 	var out Student
 	err := r.pool.QueryRow(
 		ctx,
-		`INSERT INTO students (student_name, group_id)
-		 VALUES ($1, $2)
+		`INSERT INTO students (student_id, role, student_name, group_id)
+		 VALUES ($1, 'student', $2, $3)
 		 RETURNING student_id, student_name, group_id`,
+		student.ID,
 		student.StudentName,
 		student.GroupID,
 	).Scan(&out.ID, &out.StudentName, &out.GroupID)

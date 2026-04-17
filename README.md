@@ -51,11 +51,10 @@ go run ./cmd/server
   По умолчанию: `8888`
 - `CORS_ALLOW_ORIGINS` (необязательно): список origin через запятую для CORS  
   По умолчанию: `http://localhost:3000,http://127.0.0.1:3000`
-- `DB_DSN` (необязательно): строка подключения PostgreSQL.  
+- `DB_DSN` (обязательно): строка подключения PostgreSQL.  
   Пример: `postgres://postgres:postgres@localhost:5432/ejournal?sslmode=disable`
 
-Если `DB_DSN` не задан, сервис работает как раньше (in-memory).  
-Если `DB_DSN` задан, при старте проверяется подключение к Postgres.
+Сервис работает только с PostgreSQL: `register/login/profile` и посещаемость пишутся/читаются из БД.
 
 ## Goose миграции
 
@@ -90,10 +89,29 @@ docker run -d --name ejournal-backend --env-file .env -p 8888:8888 ejournal-back
 docker compose up -d --build
 ```
 
+Что происходит при старте:
+- поднимается `postgres`
+- ожидается `healthcheck` БД
+- запускается `migrate` и применяет `goose up`
+- только после успешной миграции стартует `ejournal-backend`
+- автоматически создаются тестовые пользователи:
+  - `teacher_test` / `123456`
+  - `student_test` / `123456`
+- автоматически создается тестовый предмет:
+  - `subject_index=TEST-001`, `name=Networks`
+
+Данные Postgres сохраняются в именованном volume `pgdata`.
+
 Остановка:
 
 ```bash
 docker compose down
+```
+
+Полное удаление БД-данных (осторожно):
+
+```bash
+docker compose down -v
 ```
 
 ## API
@@ -137,10 +155,13 @@ docker compose down
 
 ```json
 {
+  "subject_id": 1,
   "lesson_name": "Networks",
   "expires_minutes": 20
 }
 ```
+
+`subject_id` обязателен при работе с Postgres.
 
 Пример успешного ответа:
 
@@ -149,13 +170,14 @@ docker compose down
   "id": "http-attendance-link",
   "ok": true,
   "result": {
-    "lesson_id": "lesson-1",
+    "lesson_id": "1",
+    "subject_id": 1,
     "lesson_name": "Networks",
     "invite_token": "<token>",
     "url": "http://localhost:3000/attendance/join?token=<token>",
     "join_url": "http://localhost:3000/attendance/join?token=<token>",
     "qr_payload": "http://localhost:3000/attendance/join?token=<token>",
-    "teacher_id": "user-1",
+    "teacher_id": "1",
     "expires_at": "2026-04-15T15:00:00Z",
     "expires_minutes": 20
   }

@@ -1,5 +1,15 @@
 package db
 
+import "time"
+
+type User struct {
+	ID           int32     `json:"id"`
+	Login        string    `json:"login"`
+	PasswordHash string    `json:"-"`
+	Role         string    `json:"role"`
+	CreatedAt    time.Time `json:"created_at"`
+}
+
 type Lectern struct {
 	ID   int32  `json:"lectern_id"`
 	Code string `json:"code"`
@@ -63,4 +73,18 @@ type Student struct {
 	ID          int32  `json:"student_id"`
 	StudentName string `json:"student_name"`
 	GroupID     *int32 `json:"group_id,omitempty"`
+}
+
+type AttendanceSession struct {
+	ID        int32     `json:"session_id"`
+	TeacherID int32     `json:"teacher_id"`
+	SubjectID int32     `json:"subject_id"`
+	ExpiresAt time.Time `json:"expires_at"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+type AttendanceMark struct {
+	SessionID int32     `json:"session_id"`
+	StudentID int32     `json:"student_id"`
+	MarkedAt  time.Time `json:"marked_at"`
 }

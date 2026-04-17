@@ -1,14 +1,15 @@
 package app
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
-	"sync"
-	"sync/atomic"
 	"time"
 
+	"github.com/TelecomDep/ejournal_backend/internal/db"
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -34,6 +35,7 @@ type LoginData struct {
 }
 
 type User struct {
+	ID     int32
 	UserID string
 	Login  string
 	Pass   string
@@ -41,7 +43,8 @@ type User struct {
 }
 
 type AttendanceCreateData struct {
-	LessonName     string `json:"lesson_name"`
+	SubjectID      int32  `json:"subject_id"`
+	LessonName     string `json:"lesson_name,omitempty"`
 	ExpiresMinutes int    `json:"expires_minutes"`
 }
 
@@ -62,14 +65,10 @@ type requestJob struct {
 }
 
 type Service struct {
-	jwtSecret       []byte
-	siteBaseURL     string
-	sessionStore    sync.Map
-	users           sync.Map
-	userCounter     atomic.Int64
-	lessonCounter   atomic.Int64
-	requestQueue    chan requestJob
-	attendanceMarks sync.Map
+	jwtSecret    []byte
+	siteBaseURL  string
+	store        *db.Store
+	requestQueue chan requestJob
 }
 
 func normalizeInviteTTL(expiresMinutes int) int {
@@ -82,10 +81,11 @@ func normalizeInviteTTL(expiresMinutes int) int {
 	return expiresMinutes
 }
 
-func NewService(jwtSecret, siteBaseURL string) *Service {
+func NewService(jwtSecret, siteBaseURL string, store *db.Store) *Service {
 	return &Service{
 		jwtSecret:   []byte(strings.TrimSpace(jwtSecret)),
 		siteBaseURL: strings.TrimSpace(siteBaseURL),
+		store:       store,
 	}
 }
 
@@ -120,22 +120,14 @@ func (s *Service) DispatchRequest(raw string, timeout time.Duration) (Response, 
 	}
 }
 
-func (s *Service) nextUserID() string {
-	id := s.userCounter.Add(1)
-	return fmt.Sprintf("user-%d", id)
-}
-
-func (s *Service) nextLessonID() string {
-	id := s.lessonCounter.Add(1)
-	return fmt.Sprintf("lesson-%d", id)
-}
-
 func normalizeRole(role string) string {
 	role = strings.ToLower(strings.TrimSpace(role))
-	if role == "teacher" {
-		return "teacher"
+	switch role {
+	case "teacher", "admin":
+		return role
+	default:
+		return "student"
 	}
-	return "student"
 }
 
 func normalizeAuthHeader(token string) string {
@@ -144,23 +136,44 @@ func normalizeAuthHeader(token string) string {
 	return strings.TrimSpace(token)
 }
 
+func (s *Service) dbContext() (context.Context, context.CancelFunc) {
+	return context.WithTimeout(context.Background(), 5*time.Second)
+}
+
 func (s *Service) userBySessionToken(token string) (User, error) {
 	token = normalizeAuthHeader(token)
 	if token == "" {
 		return User{}, errors.New("missing token")
 	}
 
-	_, err := s.validateJWT(token)
+	userID, err := s.validateJWT(token)
 	if err != nil {
 		return User{}, errors.New("invalid token")
 	}
 
-	val, ok := s.sessionStore.Load(token)
+	id64, err := strconv.ParseInt(userID, 10, 32)
+	if err != nil {
+		return User{}, errors.New("invalid token")
+	}
+
+	ctx, cancel := s.dbContext()
+	defer cancel()
+
+	dbUser, ok, err := s.store.Users.GetByID(ctx, int32(id64))
+	if err != nil {
+		return User{}, errors.New("session not found")
+	}
 	if !ok {
 		return User{}, errors.New("session not found")
 	}
 
-	return val.(User), nil
+	return User{
+		ID:     dbUser.ID,
+		UserID: strconv.FormatInt(int64(dbUser.ID), 10),
+		Login:  dbUser.Login,
+		Pass:   dbUser.PasswordHash,
+		Role:   dbUser.Role,
+	}, nil
 }
 
 func (s *Service) profileByToken(token string) Response {
@@ -232,6 +245,90 @@ func (s *Service) parseAttendanceInviteToken(inviteToken string) (*AttendanceInv
 	return claims, nil
 }
 
+func (s *Service) register(data LoginData) Response {
+	login := strings.TrimSpace(data.Login)
+	password := strings.TrimSpace(data.Password)
+	if login == "" || password == "" {
+		return Response{OK: false, Error: "login and password are required"}
+	}
+
+	role := normalizeRole(data.Role)
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return Response{OK: false, Error: "failed to hash password"}
+	}
+
+	ctx, cancel := s.dbContext()
+	defer cancel()
+
+	created, err := s.store.Users.Create(ctx, login, string(hashedPassword), role)
+	if err != nil {
+		if errors.Is(err, db.ErrUserLoginTaken) {
+			return Response{OK: false, Error: "user exist"}
+		}
+		return Response{OK: false, Error: "failed to create user"}
+	}
+
+	switch role {
+	case "teacher":
+		_, err = s.store.Teachers.Create(ctx, db.Teacher{ID: created.ID, Name: login})
+	case "student":
+		_, err = s.store.Students.Create(ctx, db.Student{ID: created.ID, StudentName: login})
+	}
+	if err != nil {
+		_ = s.store.Users.DeleteByID(ctx, created.ID)
+		return Response{OK: false, Error: "failed to create role profile"}
+	}
+
+	return Response{
+		OK: true,
+		Result: map[string]any{
+			"user_id": strconv.FormatInt(int64(created.ID), 10),
+			"login":   created.Login,
+			"role":    created.Role,
+		},
+	}
+}
+
+func (s *Service) login(data LoginData) Response {
+	login := strings.TrimSpace(data.Login)
+	password := strings.TrimSpace(data.Password)
+	if login == "" || password == "" {
+		return Response{OK: false, Error: "login and password are required"}
+	}
+
+	ctx, cancel := s.dbContext()
+	defer cancel()
+
+	storedUser, ok, err := s.store.Users.GetByLogin(ctx, login)
+	if err != nil {
+		return Response{OK: false, Error: "failed to read user"}
+	}
+	if !ok {
+		return Response{OK: false, Error: "user does not exist"}
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(storedUser.PasswordHash), []byte(password)); err != nil {
+		return Response{OK: false, Error: "wrong password"}
+	}
+
+	userID := strconv.FormatInt(int64(storedUser.ID), 10)
+	token, err := s.generateJWT(userID)
+	if err != nil {
+		return Response{OK: false, Error: "EROR_generateJWT: " + err.Error()}
+	}
+
+	return Response{
+		OK: true,
+		Result: map[string]any{
+			"token":   token,
+			"user_ID": userID,
+			"login":   storedUser.Login,
+			"role":    storedUser.Role,
+		},
+	}
+}
+
 func (s *Service) createAttendanceLinkByTeacher(sessionToken string, data AttendanceCreateData) Response {
 	teacher, err := s.userBySessionToken(sessionToken)
 	if err != nil {
@@ -240,31 +337,52 @@ func (s *Service) createAttendanceLinkByTeacher(sessionToken string, data Attend
 	if teacher.Role != "teacher" {
 		return Response{OK: false, Error: "forbidden: teacher role required"}
 	}
-	lessonName := strings.TrimSpace(data.LessonName)
-	if lessonName == "" {
-		return Response{OK: false, Error: "lesson_name is required"}
+	if data.SubjectID <= 0 {
+		return Response{OK: false, Error: "subject_id is required"}
 	}
-	effectiveTTL := normalizeInviteTTL(data.ExpiresMinutes)
 
-	lessonID := s.nextLessonID()
-	inviteToken, expiresAt, err := s.generateAttendanceInviteToken(lessonID, teacher.UserID, effectiveTTL)
+	ctx, cancel := s.dbContext()
+	defer cancel()
+
+	subject, found, err := s.store.Subjects.GetByID(ctx, data.SubjectID)
+	if err != nil {
+		return Response{OK: false, Error: "failed to load subject"}
+	}
+	if !found {
+		return Response{OK: false, Error: "subject not found"}
+	}
+
+	effectiveTTL := normalizeInviteTTL(data.ExpiresMinutes)
+	expiresAt := time.Now().Add(time.Duration(effectiveTTL) * time.Minute)
+	session, err := s.store.Attendance.CreateSession(ctx, teacher.ID, subject.ID, expiresAt)
+	if err != nil {
+		return Response{OK: false, Error: "failed to create attendance session"}
+	}
+
+	lessonID := strconv.FormatInt(int64(session.ID), 10)
+	inviteToken, signedExpiresAt, err := s.generateAttendanceInviteToken(lessonID, teacher.UserID, effectiveTTL)
 	if err != nil {
 		return Response{OK: false, Error: "failed to generate invite token"}
 	}
 
 	joinURL := fmt.Sprintf("%s/attendance/join?token=%s", strings.TrimRight(s.siteBaseURL, "/"), inviteToken)
+	lessonName := strings.TrimSpace(data.LessonName)
+	if lessonName == "" {
+		lessonName = subject.Name
+	}
 
 	return Response{
 		OK: true,
 		Result: map[string]any{
 			"lesson_id":       lessonID,
+			"subject_id":      subject.ID,
 			"lesson_name":     lessonName,
 			"invite_token":    inviteToken,
 			"url":             joinURL,
 			"join_url":        joinURL,
 			"qr_payload":      joinURL,
 			"teacher_id":      teacher.UserID,
-			"expires_at":      expiresAt.UTC().Format(time.RFC3339),
+			"expires_at":      signedExpiresAt.UTC().Format(time.RFC3339),
 			"expires_minutes": effectiveTTL,
 		},
 	}
@@ -284,10 +402,38 @@ func (s *Service) confirmAttendanceByStudent(sessionToken string, data Attendanc
 		return Response{OK: false, Error: err.Error()}
 	}
 
-	markKey := claims.LessonID + ":" + student.UserID
+	sessionID64, err := strconv.ParseInt(claims.LessonID, 10, 32)
+	if err != nil {
+		return Response{OK: false, Error: "invalid invite token"}
+	}
+	teacherID64, err := strconv.ParseInt(claims.TeacherID, 10, 32)
+	if err != nil {
+		return Response{OK: false, Error: "invalid invite token"}
+	}
+
+	ctx, cancel := s.dbContext()
+	defer cancel()
+
+	session, found, err := s.store.Attendance.GetSessionByID(ctx, int32(sessionID64))
+	if err != nil {
+		return Response{OK: false, Error: "failed to load attendance session"}
+	}
+	if !found {
+		return Response{OK: false, Error: "attendance session not found"}
+	}
+	if session.TeacherID != int32(teacherID64) {
+		return Response{OK: false, Error: "invite token is not valid"}
+	}
+	if time.Now().UTC().After(session.ExpiresAt.UTC()) {
+		return Response{OK: false, Error: "invite token expired"}
+	}
+
 	markedAt := time.Now().UTC()
-	_, loaded := s.attendanceMarks.LoadOrStore(markKey, markedAt)
-	if loaded {
+	inserted, err := s.store.Attendance.Mark(ctx, session.ID, student.ID, markedAt)
+	if err != nil {
+		return Response{OK: false, Error: "failed to confirm attendance"}
+	}
+	if !inserted {
 		return Response{OK: false, Error: "attendance already confirmed"}
 	}
 
@@ -297,6 +443,7 @@ func (s *Service) confirmAttendanceByStudent(sessionToken string, data Attendanc
 			"lesson_id":  claims.LessonID,
 			"student_id": student.UserID,
 			"teacher_id": claims.TeacherID,
+			"subject_id": session.SubjectID,
 			"marked_at":  markedAt.Format(time.RFC3339),
 			"attendance": "confirmed",
 		},
@@ -321,63 +468,18 @@ func (s *Service) handleRequest(raw string) Response {
 		if err := json.Unmarshal(req.Data, &data); err != nil {
 			return Response{ID: req.ID, OK: false, Error: "EROR reg: " + err.Error()}
 		}
-
-		_, exist := s.users.Load(data.Login)
-		if exist {
-			return Response{ID: req.ID, OK: false, Error: "user exist"}
-		}
-
-		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(data.Password), bcrypt.DefaultCost)
-		if err != nil {
-			return Response{ID: req.ID, OK: false, Error: "failed to hash password"}
-		}
-
-		userID := s.nextUserID()
-		user := User{UserID: userID, Login: data.Login, Pass: string(hashedPassword), Role: normalizeRole(data.Role)}
-		s.users.Store(data.Login, user)
-
-		return Response{
-			ID: req.ID,
-			OK: true,
-			Result: map[string]any{
-				"user_id": userID,
-				"login":   data.Login,
-				"role":    user.Role,
-			},
-		}
+		resp := s.register(data)
+		resp.ID = req.ID
+		return resp
 	case "login":
 		var data LoginData
 		err := json.Unmarshal(req.Data, &data)
 		if err != nil {
 			return Response{ID: req.ID, OK: false, Error: "EROR_login: " + err.Error()}
 		}
-
-		val, ok := s.users.Load(data.Login)
-		if !ok {
-			return Response{ID: req.ID, OK: false, Error: "user does not exist"}
-		}
-
-		user := val.(User)
-		if err := bcrypt.CompareHashAndPassword([]byte(user.Pass), []byte(data.Password)); err != nil {
-			return Response{ID: req.ID, OK: false, Error: "wrong password"}
-		}
-
-		token, err := s.generateJWT(user.UserID)
-		if err != nil {
-			return Response{ID: req.ID, OK: false, Error: "EROR_generateJWT: " + err.Error()}
-		}
-
-		s.sessionStore.Store(token, user)
-		return Response{
-			ID: req.ID,
-			OK: true,
-			Result: map[string]any{
-				"token":   token,
-				"user_ID": user.UserID,
-				"login":   user.Login,
-				"role":    user.Role,
-			},
-		}
+		resp := s.login(data)
+		resp.ID = req.ID
+		return resp
 	case "profile":
 		resp := s.profileByToken(req.Token)
 		resp.ID = req.ID
@@ -430,10 +532,12 @@ func (s *Service) validateJWT(tokenString string) (string, error) {
 		return "", errors.New("claims type is invalid")
 	}
 
-	userID, ok := cl["user_id"].(string)
-	if !ok {
-		return "", fmt.Errorf("no user id found in claims")
+	if userID, ok := cl["user_id"].(string); ok {
+		return userID, nil
+	}
+	if userID, ok := cl["user_id"].(float64); ok {
+		return strconv.FormatInt(int64(userID), 10), nil
 	}
 
-	return userID, nil
+	return "", fmt.Errorf("no user id found in claims")
 }

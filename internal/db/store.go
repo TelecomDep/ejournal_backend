@@ -12,6 +12,7 @@ import (
 type Store struct {
 	pool *pgxpool.Pool
 
+	Users           *UserRepository
 	Lecterns        *LecternRepository
 	ControlTypes    *ControlTypeRepository
 	Subjects        *SubjectRepository
@@ -21,6 +22,7 @@ type Store struct {
 	Teachers        *TeacherRepository
 	Groups          *GroupRepository
 	Students        *StudentRepository
+	Attendance      *AttendanceRepository
 }
 
 func NewStore(ctx context.Context, dsn string) (*Store, error) {
@@ -36,6 +38,7 @@ func NewStore(ctx context.Context, dsn string) (*Store, error) {
 
 	store := &Store{
 		pool:            pool,
+		Users:           NewUserRepository(pool),
 		Lecterns:        NewLecternRepository(pool),
 		ControlTypes:    NewControlTypeRepository(pool),
 		Subjects:        NewSubjectRepository(pool),
@@ -45,6 +48,7 @@ func NewStore(ctx context.Context, dsn string) (*Store, error) {
 		Teachers:        NewTeacherRepository(pool),
 		Groups:          NewGroupRepository(pool),
 		Students:        NewStudentRepository(pool),
+		Attendance:      NewAttendanceRepository(pool),
 	}
 
 	return store, nil
