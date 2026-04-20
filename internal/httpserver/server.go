@@ -47,6 +47,7 @@ func (s *Server) Start() {
 
 	fiberApp.Post("/api/teacher/attendance-link", s.teacherAttendanceLinkHandler)
 	fiberApp.Post("/api/teacher/attendance/session", s.teacherAttendanceLinkHandler)
+	fiberApp.Post("/api/teacher/attendance/group", s.teacherAttendanceByGroupHandler)
 	fiberApp.Post("/api/student/attendance/confirm", s.studentAttendanceConfirmHandler)
 
 	addr := fmt.Sprintf(":%s", s.cfg.AppPort)
@@ -209,11 +210,54 @@ func (s *Server) studentAttendanceConfirmHandler(c *fiber.Ctx) error {
 		if resp.Error == "forbidden: student role required" {
 			return c.Status(fiber.StatusForbidden).JSON(resp)
 		}
+		if resp.Error == "forbidden: student is not in session roster" {
+			return c.Status(fiber.StatusForbidden).JSON(resp)
+		}
 		if resp.Error == "invalid token" || resp.Error == "session not found" || resp.Error == "missing token" {
 			return c.Status(fiber.StatusUnauthorized).JSON(resp)
 		}
 		if resp.Error == "attendance already confirmed" {
 			return c.Status(fiber.StatusConflict).JSON(resp)
+		}
+		return c.Status(fiber.StatusBadRequest).JSON(resp)
+	}
+
+	return c.JSON(resp)
+}
+
+func (s *Server) teacherAttendanceByGroupHandler(c *fiber.Ctx) error {
+	token := c.Get("Authorization")
+	if token == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(app.Response{OK: false, Error: "missing Authorization header"})
+	}
+
+	var body app.AttendanceGroupStatsData
+	if err := c.BodyParser(&body); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(app.Response{OK: false, Error: "Error parsing body"})
+	}
+
+	data, err := json.Marshal(body)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(app.Response{OK: false, Error: "Error marshalling request"})
+	}
+
+	req := app.Request{ID: "http-teacher-attendance-group", Action: "teacher_attendance_by_group", Token: token, Data: data}
+	raw, err := json.Marshal(req)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(app.Response{OK: false, Error: "Error marshalling envelope"})
+	}
+
+	resp, err := s.svc.DispatchRequest(string(raw), s.requestTimeout)
+	if err != nil {
+		return c.Status(fiber.StatusServiceUnavailable).JSON(app.Response{OK: false, Error: err.Error()})
+	}
+
+	if !resp.OK {
+		if resp.Error == "forbidden: teacher role required" {
+			return c.Status(fiber.StatusForbidden).JSON(resp)
+		}
+		if resp.Error == "invalid token" || resp.Error == "session not found" || resp.Error == "missing token" {
+			return c.Status(fiber.StatusUnauthorized).JSON(resp)
 		}
 		return c.Status(fiber.StatusBadRequest).JSON(resp)
 	}

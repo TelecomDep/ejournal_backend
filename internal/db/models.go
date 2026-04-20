@@ -88,3 +88,11 @@ type AttendanceMark struct {
 	StudentID int32     `json:"student_id"`
 	MarkedAt  time.Time `json:"marked_at"`
 }
+
+type AttendanceGroupStat struct {
+	StudentID        int32      `json:"student_id"`
+	StudentName      string     `json:"student_name"`
+	TotalSessions    int32      `json:"total_sessions"`
+	AttendedSessions int32      `json:"attended_sessions"`
+	LastMarkedAt     *time.Time `json:"last_marked_at,omitempty"`
+}

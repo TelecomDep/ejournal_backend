@@ -156,12 +156,13 @@ docker compose down -v
 ```json
 {
   "subject_id": 1,
+  "group_ids": [1, 2],
   "lesson_name": "Networks",
   "expires_minutes": 20
 }
 ```
 
-`subject_id` обязателен при работе с Postgres.
+`subject_id` и `group_ids` обязательны при работе с Postgres.
 
 Пример успешного ответа:
 
@@ -177,6 +178,8 @@ docker compose down -v
     "url": "http://localhost:3000/attendance/join?token=<token>",
     "join_url": "http://localhost:3000/attendance/join?token=<token>",
     "qr_payload": "http://localhost:3000/attendance/join?token=<token>",
+    "group_ids": [1, 2],
+    "roster_size": 35,
     "teacher_id": "1",
     "expires_at": "2026-04-15T15:00:00Z",
     "expires_minutes": 20
@@ -197,6 +200,19 @@ docker compose down -v
   "invite_token": "<token>"
 }
 ```
+
+### 6) Просмотр посещаемости по группе (teacher)
+
+`POST /api/teacher/attendance/group`
+
+```json
+{
+  "group_id": 1,
+  "subject_id": 1
+}
+```
+
+`subject_id` опционален. Если его не передать, статистика будет по всем предметам преподавателя для выбранной группы.
 
 ## Примеры curl
 

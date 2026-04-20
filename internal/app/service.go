@@ -43,13 +43,19 @@ type User struct {
 }
 
 type AttendanceCreateData struct {
-	SubjectID      int32  `json:"subject_id"`
-	LessonName     string `json:"lesson_name,omitempty"`
-	ExpiresMinutes int    `json:"expires_minutes"`
+	SubjectID      int32   `json:"subject_id"`
+	GroupIDs       []int32 `json:"group_ids"`
+	LessonName     string  `json:"lesson_name,omitempty"`
+	ExpiresMinutes int     `json:"expires_minutes"`
 }
 
 type AttendanceConfirmData struct {
 	InviteToken string `json:"invite_token"`
+}
+
+type AttendanceGroupStatsData struct {
+	GroupID   int32  `json:"group_id"`
+	SubjectID *int32 `json:"subject_id,omitempty"`
 }
 
 type AttendanceInviteClaims struct {
@@ -79,6 +85,26 @@ func normalizeInviteTTL(expiresMinutes int) int {
 		return 180
 	}
 	return expiresMinutes
+}
+
+func normalizeGroupIDs(groupIDs []int32) []int32 {
+	if len(groupIDs) == 0 {
+		return nil
+	}
+
+	seen := make(map[int32]struct{}, len(groupIDs))
+	result := make([]int32, 0, len(groupIDs))
+	for _, groupID := range groupIDs {
+		if groupID <= 0 {
+			continue
+		}
+		if _, ok := seen[groupID]; ok {
+			continue
+		}
+		seen[groupID] = struct{}{}
+		result = append(result, groupID)
+	}
+	return result
 }
 
 func NewService(jwtSecret, siteBaseURL string, store *db.Store) *Service {
@@ -340,6 +366,10 @@ func (s *Service) createAttendanceLinkByTeacher(sessionToken string, data Attend
 	if data.SubjectID <= 0 {
 		return Response{OK: false, Error: "subject_id is required"}
 	}
+	groupIDs := normalizeGroupIDs(data.GroupIDs)
+	if len(groupIDs) == 0 {
+		return Response{OK: false, Error: "group_ids is required"}
+	}
 
 	ctx, cancel := s.dbContext()
 	defer cancel()
@@ -351,10 +381,19 @@ func (s *Service) createAttendanceLinkByTeacher(sessionToken string, data Attend
 	if !found {
 		return Response{OK: false, Error: "subject not found"}
 	}
+	for _, groupID := range groupIDs {
+		_, found, err = s.store.Groups.GetByID(ctx, groupID)
+		if err != nil {
+			return Response{OK: false, Error: "failed to load group"}
+		}
+		if !found {
+			return Response{OK: false, Error: "group not found"}
+		}
+	}
 
 	effectiveTTL := normalizeInviteTTL(data.ExpiresMinutes)
 	expiresAt := time.Now().Add(time.Duration(effectiveTTL) * time.Minute)
-	session, err := s.store.Attendance.CreateSession(ctx, teacher.ID, subject.ID, expiresAt)
+	session, rosterSize, err := s.store.Attendance.CreateSessionWithGroups(ctx, teacher.ID, subject.ID, groupIDs, expiresAt)
 	if err != nil {
 		return Response{OK: false, Error: "failed to create attendance session"}
 	}
@@ -381,6 +420,8 @@ func (s *Service) createAttendanceLinkByTeacher(sessionToken string, data Attend
 			"url":             joinURL,
 			"join_url":        joinURL,
 			"qr_payload":      joinURL,
+			"group_ids":       groupIDs,
+			"roster_size":     rosterSize,
 			"teacher_id":      teacher.UserID,
 			"expires_at":      signedExpiresAt.UTC().Format(time.RFC3339),
 			"expires_minutes": effectiveTTL,
@@ -429,11 +470,14 @@ func (s *Service) confirmAttendanceByStudent(sessionToken string, data Attendanc
 	}
 
 	markedAt := time.Now().UTC()
-	inserted, err := s.store.Attendance.Mark(ctx, session.ID, student.ID, markedAt)
+	markResult, err := s.store.Attendance.MarkStudentPresent(ctx, session.ID, student.ID, markedAt)
 	if err != nil {
 		return Response{OK: false, Error: "failed to confirm attendance"}
 	}
-	if !inserted {
+	if markResult == "not_found" {
+		return Response{OK: false, Error: "forbidden: student is not in session roster"}
+	}
+	if markResult == "already" {
 		return Response{OK: false, Error: "attendance already confirmed"}
 	}
 
@@ -447,6 +491,77 @@ func (s *Service) confirmAttendanceByStudent(sessionToken string, data Attendanc
 			"marked_at":  markedAt.Format(time.RFC3339),
 			"attendance": "confirmed",
 		},
+	}
+}
+
+func (s *Service) attendanceByGroupForTeacher(sessionToken string, data AttendanceGroupStatsData) Response {
+	teacher, err := s.userBySessionToken(sessionToken)
+	if err != nil {
+		return Response{OK: false, Error: err.Error()}
+	}
+	if teacher.Role != "teacher" {
+		return Response{OK: false, Error: "forbidden: teacher role required"}
+	}
+	if data.GroupID <= 0 {
+		return Response{OK: false, Error: "group_id is required"}
+	}
+
+	ctx, cancel := s.dbContext()
+	defer cancel()
+
+	_, found, err := s.store.Groups.GetByID(ctx, data.GroupID)
+	if err != nil {
+		return Response{OK: false, Error: "failed to load group"}
+	}
+	if !found {
+		return Response{OK: false, Error: "group not found"}
+	}
+
+	stats, err := s.store.Attendance.GetTeacherGroupAttendanceStats(ctx, teacher.ID, data.GroupID, data.SubjectID)
+	if err != nil {
+		return Response{OK: false, Error: "failed to load attendance stats"}
+	}
+
+	students := make([]map[string]any, 0, len(stats))
+	var sessionsCount int32
+	for _, row := range stats {
+		var lastMarkedAt any
+		if row.LastMarkedAt != nil {
+			lastMarkedAt = row.LastMarkedAt.UTC().Format(time.RFC3339)
+		}
+		attendancePercent := 0.0
+		if row.TotalSessions > 0 {
+			attendancePercent = float64(row.AttendedSessions) * 100 / float64(row.TotalSessions)
+		}
+		if row.TotalSessions > sessionsCount {
+			sessionsCount = row.TotalSessions
+		}
+
+		students = append(students, map[string]any{
+			"student_id":         row.StudentID,
+			"student_name":       row.StudentName,
+			"total_sessions":     row.TotalSessions,
+			"attended_sessions":  row.AttendedSessions,
+			"attendance_percent": attendancePercent,
+			"last_marked_at":     lastMarkedAt,
+		})
+	}
+
+	result := map[string]any{
+		"group_id": data.GroupID,
+		"students": students,
+		"summary": map[string]any{
+			"students_count": len(students),
+			"sessions_count": sessionsCount,
+		},
+	}
+	if data.SubjectID != nil {
+		result["subject_id"] = *data.SubjectID
+	}
+
+	return Response{
+		OK:     true,
+		Result: result,
 	}
 }
 
@@ -498,6 +613,14 @@ func (s *Service) handleRequest(raw string) Response {
 			return Response{ID: req.ID, OK: false, Error: "invalid confirm_attendance payload"}
 		}
 		resp := s.confirmAttendanceByStudent(req.Token, data)
+		resp.ID = req.ID
+		return resp
+	case "teacher_attendance_by_group":
+		var data AttendanceGroupStatsData
+		if err := json.Unmarshal(req.Data, &data); err != nil {
+			return Response{ID: req.ID, OK: false, Error: "invalid teacher_attendance_by_group payload"}
+		}
+		resp := s.attendanceByGroupForTeacher(req.Token, data)
 		resp.ID = req.ID
 		return resp
 	default:
