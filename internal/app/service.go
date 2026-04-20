@@ -202,6 +202,30 @@ func (s *Service) userBySessionToken(token string) (User, error) {
 	}, nil
 }
 
+func (s *Service) teacherProfileByUser(user User) (db.Teacher, error) {
+	ctx, cancel := s.dbContext()
+	defer cancel()
+
+	teacher, found, err := s.store.Teachers.GetByUserID(ctx, user.ID)
+	if err != nil {
+		return db.Teacher{}, errors.New("failed to load teacher profile")
+	}
+	if found {
+		return teacher, nil
+	}
+
+	// Backward compatibility for legacy rows where teacher_id == users.id.
+	teacher, found, err = s.store.Teachers.GetByID(ctx, user.ID)
+	if err != nil {
+		return db.Teacher{}, errors.New("failed to load teacher profile")
+	}
+	if found {
+		return teacher, nil
+	}
+
+	return db.Teacher{}, errors.New("teacher profile not found")
+}
+
 func (s *Service) profileByToken(token string) Response {
 	user, err := s.userBySessionToken(token)
 	if err != nil {
@@ -297,7 +321,8 @@ func (s *Service) register(data LoginData) Response {
 
 	switch role {
 	case "teacher":
-		_, err = s.store.Teachers.Create(ctx, db.Teacher{ID: created.ID, Name: login})
+		userID := created.ID
+		_, err = s.store.Teachers.Create(ctx, db.Teacher{UserID: &userID, Name: login})
 	case "student":
 		_, err = s.store.Students.Create(ctx, db.Student{ID: created.ID, StudentName: login})
 	}
@@ -356,12 +381,16 @@ func (s *Service) login(data LoginData) Response {
 }
 
 func (s *Service) createAttendanceLinkByTeacher(sessionToken string, data AttendanceCreateData) Response {
-	teacher, err := s.userBySessionToken(sessionToken)
+	teacherUser, err := s.userBySessionToken(sessionToken)
 	if err != nil {
 		return Response{OK: false, Error: err.Error()}
 	}
-	if teacher.Role != "teacher" {
+	if teacherUser.Role != "teacher" {
 		return Response{OK: false, Error: "forbidden: teacher role required"}
+	}
+	teacherProfile, err := s.teacherProfileByUser(teacherUser)
+	if err != nil {
+		return Response{OK: false, Error: err.Error()}
 	}
 	if data.SubjectID <= 0 {
 		return Response{OK: false, Error: "subject_id is required"}
@@ -393,13 +422,14 @@ func (s *Service) createAttendanceLinkByTeacher(sessionToken string, data Attend
 
 	effectiveTTL := normalizeInviteTTL(data.ExpiresMinutes)
 	expiresAt := time.Now().Add(time.Duration(effectiveTTL) * time.Minute)
-	session, rosterSize, err := s.store.Attendance.CreateSessionWithGroups(ctx, teacher.ID, subject.ID, groupIDs, expiresAt)
+	session, rosterSize, err := s.store.Attendance.CreateSessionWithGroups(ctx, teacherProfile.ID, subject.ID, groupIDs, expiresAt)
 	if err != nil {
 		return Response{OK: false, Error: "failed to create attendance session"}
 	}
 
 	lessonID := strconv.FormatInt(int64(session.ID), 10)
-	inviteToken, signedExpiresAt, err := s.generateAttendanceInviteToken(lessonID, teacher.UserID, effectiveTTL)
+	teacherID := strconv.FormatInt(int64(teacherProfile.ID), 10)
+	inviteToken, signedExpiresAt, err := s.generateAttendanceInviteToken(lessonID, teacherID, effectiveTTL)
 	if err != nil {
 		return Response{OK: false, Error: "failed to generate invite token"}
 	}
@@ -422,7 +452,7 @@ func (s *Service) createAttendanceLinkByTeacher(sessionToken string, data Attend
 			"qr_payload":      joinURL,
 			"group_ids":       groupIDs,
 			"roster_size":     rosterSize,
-			"teacher_id":      teacher.UserID,
+			"teacher_id":      teacherID,
 			"expires_at":      signedExpiresAt.UTC().Format(time.RFC3339),
 			"expires_minutes": effectiveTTL,
 		},
@@ -495,12 +525,16 @@ func (s *Service) confirmAttendanceByStudent(sessionToken string, data Attendanc
 }
 
 func (s *Service) attendanceByGroupForTeacher(sessionToken string, data AttendanceGroupStatsData) Response {
-	teacher, err := s.userBySessionToken(sessionToken)
+	teacherUser, err := s.userBySessionToken(sessionToken)
 	if err != nil {
 		return Response{OK: false, Error: err.Error()}
 	}
-	if teacher.Role != "teacher" {
+	if teacherUser.Role != "teacher" {
 		return Response{OK: false, Error: "forbidden: teacher role required"}
+	}
+	teacherProfile, err := s.teacherProfileByUser(teacherUser)
+	if err != nil {
+		return Response{OK: false, Error: err.Error()}
 	}
 	if data.GroupID <= 0 {
 		return Response{OK: false, Error: "group_id is required"}
@@ -517,7 +551,7 @@ func (s *Service) attendanceByGroupForTeacher(sessionToken string, data Attendan
 		return Response{OK: false, Error: "group not found"}
 	}
 
-	stats, err := s.store.Attendance.GetTeacherGroupAttendanceStats(ctx, teacher.ID, data.GroupID, data.SubjectID)
+	stats, err := s.store.Attendance.GetTeacherGroupAttendanceStats(ctx, teacherProfile.ID, data.GroupID, data.SubjectID)
 	if err != nil {
 		return Response{OK: false, Error: "failed to load attendance stats"}
 	}

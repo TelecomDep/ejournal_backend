@@ -58,6 +58,7 @@ type SubjectControl struct {
 
 type Teacher struct {
 	ID        int32  `json:"teacher_id"`
+	UserID    *int32 `json:"user_id,omitempty"`
 	Name      string `json:"name"`
 	LecternID *int32 `json:"lectern_id,omitempty"`
 	JobTitle  string `json:"job_title"`

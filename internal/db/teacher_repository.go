@@ -19,10 +19,6 @@ func NewTeacherRepository(pool *pgxpool.Pool) *TeacherRepository {
 }
 
 func (r *TeacherRepository) Create(ctx context.Context, teacher Teacher) (Teacher, error) {
-	if teacher.ID <= 0 {
-		return Teacher{}, fmt.Errorf("teacher id is required")
-	}
-
 	teacher.Name = strings.TrimSpace(teacher.Name)
 	teacher.JobTitle = strings.TrimSpace(teacher.JobTitle)
 	if teacher.Name == "" {
@@ -30,16 +26,31 @@ func (r *TeacherRepository) Create(ctx context.Context, teacher Teacher) (Teache
 	}
 
 	var out Teacher
-	err := r.pool.QueryRow(
-		ctx,
-		`INSERT INTO teachers (teacher_id, role, name, lectern_id, job_title)
-		 VALUES ($1, 'teacher', $2, $3, $4)
-		 RETURNING teacher_id, name, lectern_id, job_title`,
-		teacher.ID,
-		teacher.Name,
-		teacher.LecternID,
-		teacher.JobTitle,
-	).Scan(&out.ID, &out.Name, &out.LecternID, &out.JobTitle)
+	var err error
+	if teacher.ID > 0 {
+		err = r.pool.QueryRow(
+			ctx,
+			`INSERT INTO teachers (teacher_id, role, user_id, name, lectern_id, job_title)
+			 VALUES ($1, 'teacher', $2, $3, $4, $5)
+			 RETURNING teacher_id, user_id, name, lectern_id, job_title`,
+			teacher.ID,
+			teacher.UserID,
+			teacher.Name,
+			teacher.LecternID,
+			teacher.JobTitle,
+		).Scan(&out.ID, &out.UserID, &out.Name, &out.LecternID, &out.JobTitle)
+	} else {
+		err = r.pool.QueryRow(
+			ctx,
+			`INSERT INTO teachers (role, user_id, name, lectern_id, job_title)
+			 VALUES ('teacher', $1, $2, $3, $4)
+			 RETURNING teacher_id, user_id, name, lectern_id, job_title`,
+			teacher.UserID,
+			teacher.Name,
+			teacher.LecternID,
+			teacher.JobTitle,
+		).Scan(&out.ID, &out.UserID, &out.Name, &out.LecternID, &out.JobTitle)
+	}
 	if err != nil {
 		return Teacher{}, fmt.Errorf("insert teacher: %w", err)
 	}
@@ -51,16 +62,35 @@ func (r *TeacherRepository) GetByID(ctx context.Context, id int32) (Teacher, boo
 	var out Teacher
 	err := r.pool.QueryRow(
 		ctx,
-		`SELECT teacher_id, name, lectern_id, job_title
+		`SELECT teacher_id, user_id, name, lectern_id, job_title
 		 FROM teachers
 		 WHERE teacher_id = $1`,
 		id,
-	).Scan(&out.ID, &out.Name, &out.LecternID, &out.JobTitle)
+	).Scan(&out.ID, &out.UserID, &out.Name, &out.LecternID, &out.JobTitle)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Teacher{}, false, nil
 	}
 	if err != nil {
 		return Teacher{}, false, fmt.Errorf("get teacher by id: %w", err)
+	}
+
+	return out, true, nil
+}
+
+func (r *TeacherRepository) GetByUserID(ctx context.Context, userID int32) (Teacher, bool, error) {
+	var out Teacher
+	err := r.pool.QueryRow(
+		ctx,
+		`SELECT teacher_id, user_id, name, lectern_id, job_title
+		 FROM teachers
+		 WHERE user_id = $1`,
+		userID,
+	).Scan(&out.ID, &out.UserID, &out.Name, &out.LecternID, &out.JobTitle)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Teacher{}, false, nil
+	}
+	if err != nil {
+		return Teacher{}, false, fmt.Errorf("get teacher by user id: %w", err)
 	}
 
 	return out, true, nil
@@ -77,16 +107,18 @@ func (r *TeacherRepository) Update(ctx context.Context, teacher Teacher) (Teache
 	err := r.pool.QueryRow(
 		ctx,
 		`UPDATE teachers
-		 SET name = $2,
-		     lectern_id = $3,
-		     job_title = $4
+		 SET user_id = $2,
+		     name = $3,
+		     lectern_id = $4,
+		     job_title = $5
 		 WHERE teacher_id = $1
-		 RETURNING teacher_id, name, lectern_id, job_title`,
+		 RETURNING teacher_id, user_id, name, lectern_id, job_title`,
 		teacher.ID,
+		teacher.UserID,
 		teacher.Name,
 		teacher.LecternID,
 		teacher.JobTitle,
-	).Scan(&out.ID, &out.Name, &out.LecternID, &out.JobTitle)
+	).Scan(&out.ID, &out.UserID, &out.Name, &out.LecternID, &out.JobTitle)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Teacher{}, false, nil
 	}
@@ -108,7 +140,7 @@ func (r *TeacherRepository) Delete(ctx context.Context, id int32) (bool, error) 
 func (r *TeacherRepository) List(ctx context.Context) ([]Teacher, error) {
 	rows, err := r.pool.Query(
 		ctx,
-		`SELECT teacher_id, name, lectern_id, job_title
+		`SELECT teacher_id, user_id, name, lectern_id, job_title
 		 FROM teachers
 		 ORDER BY teacher_id`,
 	)
@@ -120,7 +152,7 @@ func (r *TeacherRepository) List(ctx context.Context) ([]Teacher, error) {
 	result := make([]Teacher, 0)
 	for rows.Next() {
 		var item Teacher
-		if err := rows.Scan(&item.ID, &item.Name, &item.LecternID, &item.JobTitle); err != nil {
+		if err := rows.Scan(&item.ID, &item.UserID, &item.Name, &item.LecternID, &item.JobTitle); err != nil {
 			return nil, fmt.Errorf("scan teacher: %w", err)
 		}
 		result = append(result, item)
@@ -136,7 +168,7 @@ func (r *TeacherRepository) List(ctx context.Context) ([]Teacher, error) {
 func (r *TeacherRepository) ListByLecternID(ctx context.Context, lecternID int32) ([]Teacher, error) {
 	rows, err := r.pool.Query(
 		ctx,
-		`SELECT teacher_id, name, lectern_id, job_title
+		`SELECT teacher_id, user_id, name, lectern_id, job_title
 		 FROM teachers
 		 WHERE lectern_id = $1
 		 ORDER BY teacher_id`,
@@ -150,7 +182,7 @@ func (r *TeacherRepository) ListByLecternID(ctx context.Context, lecternID int32
 	result := make([]Teacher, 0)
 	for rows.Next() {
 		var item Teacher
-		if err := rows.Scan(&item.ID, &item.Name, &item.LecternID, &item.JobTitle); err != nil {
+		if err := rows.Scan(&item.ID, &item.UserID, &item.Name, &item.LecternID, &item.JobTitle); err != nil {
 			return nil, fmt.Errorf("scan teacher: %w", err)
 		}
 		result = append(result, item)
