@@ -1,3 +1,11 @@
+// @title EJournal Backend API
+// @version 1.0
+// @description Backend API for e-journal, attendance links and invite registration.
+// @BasePath /
+// @schemes http https
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
 package main
 
 import (

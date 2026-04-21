@@ -1,0 +1,940 @@
+{
+    "schemes": [
+        "http",
+        "https"
+    ],
+    "swagger": "2.0",
+    "info": {
+        "description": "Backend API for e-journal, attendance links and invite registration.",
+        "title": "EJournal Backend API",
+        "contact": {},
+        "version": "1.0"
+    },
+    "basePath": "/",
+    "paths": {
+        "/api/student/attendance/confirm": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Student confirms attendance for active session.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "attendance"
+                ],
+                "summary": "Confirm attendance by invite token",
+                "parameters": [
+                    {
+                        "description": "Attendance confirm payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/app.AttendanceConfirmData"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/httpserver.studentAttendanceConfirmResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/teacher/attendance-link": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Teacher creates attendance session and gets invite/join URL. If subject_id/group_ids are omitted, they are taken from nearest scheduled lesson.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "attendance"
+                ],
+                "summary": "Create attendance session link",
+                "parameters": [
+                    {
+                        "description": "Attendance session payload (subject_id/group_ids are optional)",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/httpserver.teacherAttendanceLinkRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/httpserver.teacherAttendanceLinkResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/teacher/attendance/group": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns per-student attendance stats for selected group and optional subject.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "attendance"
+                ],
+                "summary": "Get attendance stats by group",
+                "parameters": [
+                    {
+                        "description": "Group stats payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/app.AttendanceGroupStatsData"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/httpserver.teacherAttendanceGroupResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/teacher/attendance/session": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Teacher creates attendance session and gets invite/join URL. If subject_id/group_ids are omitted, they are taken from nearest scheduled lesson.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "attendance"
+                ],
+                "summary": "Create attendance session link",
+                "parameters": [
+                    {
+                        "description": "Attendance session payload (subject_id/group_ids are optional)",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/httpserver.teacherAttendanceLinkRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/httpserver.teacherAttendanceLinkResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/login": {
+            "post": {
+                "description": "Authenticates a user and returns JWT token.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Login user",
+                "parameters": [
+                    {
+                        "description": "Login payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/app.LoginData"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/httpserver.loginResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/profile": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns current user profile from Authorization token.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Get user profile",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/httpserver.profileResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/register": {
+            "post": {
+                "description": "Registers a user by login/password and role.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Register user",
+                "parameters": [
+                    {
+                        "description": "Register payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/app.LoginData"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/httpserver.registerResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/register/by-invite": {
+            "post": {
+                "description": "Creates student account by one-time invite code from database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Register student by invite code",
+                "parameters": [
+                    {
+                        "description": "Register by invite payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/app.RegisterByInviteData"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/httpserver.registerByInviteResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "app.AttendanceConfirmData": {
+            "type": "object",
+            "properties": {
+                "invite_token": {
+                    "type": "string"
+                }
+            }
+        },
+        "app.AttendanceGroupStatsData": {
+            "type": "object",
+            "properties": {
+                "group_id": {
+                    "type": "integer"
+                },
+                "subject_id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "app.LoginData": {
+            "type": "object",
+            "properties": {
+                "login": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
+                },
+                "role": {
+                    "type": "string"
+                }
+            }
+        },
+        "app.RegisterByInviteData": {
+            "type": "object",
+            "properties": {
+                "invite_code": {
+                    "type": "string"
+                },
+                "login": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
+                }
+            }
+        },
+        "app.Response": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "ok": {
+                    "type": "boolean"
+                },
+                "result": {}
+            }
+        },
+        "httpserver.loginResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string",
+                    "example": ""
+                },
+                "id": {
+                    "type": "string",
+                    "example": "http-login"
+                },
+                "ok": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "result": {
+                    "$ref": "#/definitions/httpserver.loginResult"
+                }
+            }
+        },
+        "httpserver.loginResult": {
+            "type": "object",
+            "properties": {
+                "login": {
+                    "type": "string",
+                    "example": "teacher_test"
+                },
+                "role": {
+                    "type": "string",
+                    "example": "teacher"
+                },
+                "token": {
+                    "type": "string",
+                    "example": "\u003cjwt_token\u003e"
+                },
+                "user_ID": {
+                    "type": "string",
+                    "example": "3"
+                }
+            }
+        },
+        "httpserver.profileResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string",
+                    "example": ""
+                },
+                "id": {
+                    "type": "string",
+                    "example": "http-profile"
+                },
+                "ok": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "result": {
+                    "$ref": "#/definitions/httpserver.profileResult"
+                }
+            }
+        },
+        "httpserver.profileResult": {
+            "type": "object",
+            "properties": {
+                "login": {
+                    "type": "string",
+                    "example": "teacher_test"
+                },
+                "role": {
+                    "type": "string",
+                    "example": "teacher"
+                },
+                "user_id": {
+                    "type": "string",
+                    "example": "3"
+                }
+            }
+        },
+        "httpserver.registerByInviteResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string",
+                    "example": ""
+                },
+                "id": {
+                    "type": "string",
+                    "example": "http-register-by-invite"
+                },
+                "ok": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "result": {
+                    "$ref": "#/definitions/httpserver.registerByInviteResult"
+                }
+            }
+        },
+        "httpserver.registerByInviteResult": {
+            "type": "object",
+            "properties": {
+                "group_id": {
+                    "type": "integer",
+                    "example": 237
+                },
+                "login": {
+                    "type": "string",
+                    "example": "student_iks_21"
+                },
+                "role": {
+                    "type": "string",
+                    "example": "student"
+                },
+                "student_id": {
+                    "type": "integer",
+                    "example": 56
+                },
+                "student_name": {
+                    "type": "string",
+                    "example": "Демин Сергей А."
+                },
+                "user_id": {
+                    "type": "string",
+                    "example": "12"
+                }
+            }
+        },
+        "httpserver.registerResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string",
+                    "example": ""
+                },
+                "id": {
+                    "type": "string",
+                    "example": "http-register"
+                },
+                "ok": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "result": {
+                    "$ref": "#/definitions/httpserver.registerResult"
+                }
+            }
+        },
+        "httpserver.registerResult": {
+            "type": "object",
+            "properties": {
+                "login": {
+                    "type": "string",
+                    "example": "teacher1"
+                },
+                "role": {
+                    "type": "string",
+                    "example": "teacher"
+                },
+                "user_id": {
+                    "type": "string",
+                    "example": "5"
+                }
+            }
+        },
+        "httpserver.studentAttendanceConfirmResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string",
+                    "example": ""
+                },
+                "id": {
+                    "type": "string",
+                    "example": "http-attendance-confirm"
+                },
+                "ok": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "result": {
+                    "$ref": "#/definitions/httpserver.studentAttendanceConfirmResult"
+                }
+            }
+        },
+        "httpserver.studentAttendanceConfirmResult": {
+            "type": "object",
+            "properties": {
+                "attendance": {
+                    "type": "string",
+                    "example": "confirmed"
+                },
+                "lesson_id": {
+                    "type": "string",
+                    "example": "5"
+                },
+                "marked_at": {
+                    "type": "string",
+                    "example": "2026-04-20T20:13:07+07:00"
+                },
+                "student_id": {
+                    "type": "string",
+                    "example": "4"
+                },
+                "subject_id": {
+                    "type": "integer",
+                    "example": 2
+                },
+                "teacher_id": {
+                    "type": "string",
+                    "example": "3"
+                }
+            }
+        },
+        "httpserver.teacherAttendanceGroupResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string",
+                    "example": ""
+                },
+                "id": {
+                    "type": "string",
+                    "example": "http-teacher-attendance-group"
+                },
+                "ok": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "result": {
+                    "$ref": "#/definitions/httpserver.teacherAttendanceGroupResult"
+                }
+            }
+        },
+        "httpserver.teacherAttendanceGroupResult": {
+            "type": "object",
+            "properties": {
+                "group_id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "students": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/httpserver.teacherAttendanceGroupStudent"
+                    }
+                },
+                "subject_id": {
+                    "type": "integer",
+                    "example": 2
+                },
+                "summary": {
+                    "$ref": "#/definitions/httpserver.teacherAttendanceGroupSummary"
+                },
+                "timezone": {
+                    "type": "string",
+                    "example": "Asia/Novosibirsk"
+                }
+            }
+        },
+        "httpserver.teacherAttendanceGroupStudent": {
+            "type": "object",
+            "properties": {
+                "attendance_percent": {
+                    "type": "number",
+                    "example": 66.67
+                },
+                "attended_sessions": {
+                    "type": "integer",
+                    "example": 2
+                },
+                "last_marked_at": {
+                    "type": "string",
+                    "example": "2026-04-20T20:13:07+07:00"
+                },
+                "student_id": {
+                    "type": "integer",
+                    "example": 4
+                },
+                "student_name": {
+                    "type": "string",
+                    "example": "Test Student"
+                },
+                "total_sessions": {
+                    "type": "integer",
+                    "example": 3
+                }
+            }
+        },
+        "httpserver.teacherAttendanceGroupSummary": {
+            "type": "object",
+            "properties": {
+                "sessions_count": {
+                    "type": "integer",
+                    "example": 3
+                },
+                "students_count": {
+                    "type": "integer",
+                    "example": 1
+                }
+            }
+        },
+        "httpserver.teacherAttendanceLinkRequest": {
+            "type": "object",
+            "properties": {
+                "expires_minutes": {
+                    "type": "integer",
+                    "example": 20
+                },
+                "group_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    },
+                    "example": [
+                        1
+                    ]
+                },
+                "lesson_name": {
+                    "type": "string",
+                    "example": "Networks"
+                },
+                "subject_id": {
+                    "type": "integer",
+                    "example": 2
+                }
+            }
+        },
+        "httpserver.teacherAttendanceLinkResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string",
+                    "example": ""
+                },
+                "id": {
+                    "type": "string",
+                    "example": "http-attendance-link"
+                },
+                "ok": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "result": {
+                    "$ref": "#/definitions/httpserver.teacherAttendanceLinkResult"
+                }
+            }
+        },
+        "httpserver.teacherAttendanceLinkResult": {
+            "type": "object",
+            "properties": {
+                "expires_at": {
+                    "type": "string",
+                    "example": "2026-04-21T21:25:37+07:00"
+                },
+                "expires_minutes": {
+                    "type": "integer",
+                    "example": 20
+                },
+                "group_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "invite_token": {
+                    "type": "string",
+                    "example": "\u003cattendance_invite_jwt\u003e"
+                },
+                "join_url": {
+                    "type": "string",
+                    "example": "http://localhost:3000/attendance/join?token=\u003cattendance_invite_jwt\u003e"
+                },
+                "lesson_id": {
+                    "type": "string",
+                    "example": "5"
+                },
+                "lesson_name": {
+                    "type": "string",
+                    "example": "Networks"
+                },
+                "qr_payload": {
+                    "type": "string",
+                    "example": "http://localhost:3000/attendance/join?token=\u003cattendance_invite_jwt\u003e"
+                },
+                "roster_size": {
+                    "type": "integer",
+                    "example": 25
+                },
+                "schedule_end": {
+                    "type": "string",
+                    "example": "2026-04-21T22:25:24+07:00"
+                },
+                "schedule_start": {
+                    "type": "string",
+                    "example": "2026-04-21T21:15:24+07:00"
+                },
+                "subject_id": {
+                    "type": "integer",
+                    "example": 2
+                },
+                "teacher_id": {
+                    "type": "string",
+                    "example": "3"
+                },
+                "timezone": {
+                    "type": "string",
+                    "example": "Asia/Novosibirsk"
+                },
+                "url": {
+                    "type": "string",
+                    "example": "http://localhost:3000/attendance/join?token=\u003cattendance_invite_jwt\u003e"
+                }
+            }
+        }
+    },
+    "securityDefinitions": {
+        "BearerAuth": {
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header"
+        }
+    }
+}

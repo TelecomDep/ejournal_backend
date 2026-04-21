@@ -128,6 +128,18 @@ docker compose down -v
 }
 ```
 
+Регистрация студента по коду из БД:
+
+`POST /register/by-invite`
+
+```json
+{
+  "invite_code": "8D2C72771DF0",
+  "login": "student_login",
+  "password": "StrongPassword123"
+}
+```
+
 ### 2) Логин
 
 `POST /login`
@@ -221,6 +233,11 @@ docker compose down -v
 curl -X POST http://localhost:8888/register \
   -H "Content-Type: application/json" \
   -d '{"login":"teacher1","password":"123456","role":"teacher"}'
+
+# Register student by invite code
+curl -X POST http://localhost:8888/register/by-invite \
+  -H "Content-Type: application/json" \
+  -d '{"invite_code":"8D2C72771DF0","login":"student_new","password":"123456"}'
 
 # Login teacher
 curl -X POST http://localhost:8888/login \

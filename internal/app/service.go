@@ -5,12 +5,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/TelecomDep/ejournal_backend/internal/db"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -34,6 +37,12 @@ type LoginData struct {
 	Role     string `json:"role,omitempty"`
 }
 
+type RegisterByInviteData struct {
+	InviteCode string `json:"invite_code"`
+	Login      string `json:"login"`
+	Password   string `json:"password"`
+}
+
 type User struct {
 	ID     int32
 	UserID string
@@ -43,10 +52,10 @@ type User struct {
 }
 
 type AttendanceCreateData struct {
-	SubjectID      int32   `json:"subject_id"`
-	GroupIDs       []int32 `json:"group_ids"`
+	SubjectID      int32   `json:"subject_id,omitempty"`
+	GroupIDs       []int32 `json:"group_ids,omitempty"`
 	LessonName     string  `json:"lesson_name,omitempty"`
-	ExpiresMinutes int     `json:"expires_minutes"`
+	ExpiresMinutes int     `json:"expires_minutes,omitempty"`
 }
 
 type AttendanceConfirmData struct {
@@ -65,6 +74,14 @@ type AttendanceInviteClaims struct {
 	jwt.RegisteredClaims
 }
 
+type TeacherNearestLesson struct {
+	SubjectID int32
+	LessonNum int32
+	GroupIDs  []int32
+	StartAt   time.Time
+	EndAt     time.Time
+}
+
 type requestJob struct {
 	rawRequest string
 	resultCh   chan Response
@@ -76,6 +93,8 @@ type Service struct {
 	store        *db.Store
 	requestQueue chan requestJob
 }
+
+var appTimeLocation = loadAppTimeLocation()
 
 func normalizeInviteTTL(expiresMinutes int) int {
 	if expiresMinutes <= 0 {
@@ -105,6 +124,55 @@ func normalizeGroupIDs(groupIDs []int32) []int32 {
 		result = append(result, groupID)
 	}
 	return result
+}
+
+func normalizeInviteCode(code string) string {
+	return strings.ToUpper(strings.TrimSpace(code))
+}
+
+func loadAppTimeLocation() *time.Location {
+	loc, err := time.LoadLocation("Asia/Novosibirsk")
+	if err != nil {
+		return time.FixedZone("Asia/Novosibirsk", 7*60*60)
+	}
+	return loc
+}
+
+func formatAPITime(ts time.Time) string {
+	return ts.In(appTimeLocation).Format(time.RFC3339)
+}
+
+func weekdayToDayIdx(weekday time.Weekday) int32 {
+	if weekday == time.Sunday {
+		return 7
+	}
+	return int32(weekday)
+}
+
+func weekTypeByISOParity(ts time.Time) int32 {
+	_, week := ts.ISOWeek()
+	if week%2 == 0 {
+		return 2
+	}
+	return 1
+}
+
+func containsAllGroupIDs(fromSchedule, requested []int32) bool {
+	if len(requested) == 0 {
+		return true
+	}
+
+	index := make(map[int32]struct{}, len(fromSchedule))
+	for _, groupID := range fromSchedule {
+		index[groupID] = struct{}{}
+	}
+
+	for _, groupID := range requested {
+		if _, ok := index[groupID]; !ok {
+			return false
+		}
+	}
+	return true
 }
 
 func NewService(jwtSecret, siteBaseURL string, store *db.Store) *Service {
@@ -226,6 +294,88 @@ func (s *Service) teacherProfileByUser(user User) (db.Teacher, error) {
 	return db.Teacher{}, errors.New("teacher profile not found")
 }
 
+func (s *Service) nearestLessonForTeacher(ctx context.Context, teacherID int32, nowLocal time.Time) (TeacherNearestLesson, bool, error) {
+	for dayOffset := 0; dayOffset < 14; dayOffset++ {
+		lessonDate := nowLocal.AddDate(0, 0, dayOffset)
+		dayIdx := weekdayToDayIdx(lessonDate.Weekday())
+		weekType := weekTypeByISOParity(lessonDate)
+
+		var fromTime any
+		if dayOffset == 0 {
+			fromTime = nowLocal.Format("15:04:05")
+		}
+
+		var nearest TeacherNearestLesson
+		var startClock time.Time
+		var endClock time.Time
+		err := s.store.Pool().QueryRow(
+			ctx,
+			`SELECT s.subject_id,
+			        s.lesson_num,
+			        COALESCE(ARRAY_REMOVE(ARRAY_AGG(DISTINCT s.group_id), NULL), '{}')::INTEGER[] AS group_ids,
+			        lt.start_time,
+			        lt.end_time
+			 FROM schedules s
+			 JOIN lesson_times lt ON lt.lesson_num = s.lesson_num
+			 WHERE s.teacher_id = $1
+			   AND s.day_idx = $2
+			   AND COALESCE(s.week_type, $3) = $3
+			   AND ($4::time IS NULL OR lt.end_time >= $4::time)
+			 GROUP BY s.subject_id, s.lesson_num, lt.start_time, lt.end_time
+			 ORDER BY
+			     CASE
+			         WHEN $4::time IS NOT NULL
+			              AND lt.start_time <= $4::time
+			              AND lt.end_time >= $4::time THEN 0
+			         ELSE 1
+			     END,
+			     lt.start_time
+			 LIMIT 1`,
+			teacherID,
+			dayIdx,
+			weekType,
+			fromTime,
+		).Scan(
+			&nearest.SubjectID,
+			&nearest.LessonNum,
+			&nearest.GroupIDs,
+			&startClock,
+			&endClock,
+		)
+		if errors.Is(err, pgx.ErrNoRows) {
+			continue
+		}
+		if err != nil {
+			return TeacherNearestLesson{}, false, fmt.Errorf("load nearest lesson: %w", err)
+		}
+
+		nearest.StartAt = time.Date(
+			lessonDate.Year(),
+			lessonDate.Month(),
+			lessonDate.Day(),
+			startClock.Hour(),
+			startClock.Minute(),
+			startClock.Second(),
+			0,
+			appTimeLocation,
+		)
+		nearest.EndAt = time.Date(
+			lessonDate.Year(),
+			lessonDate.Month(),
+			lessonDate.Day(),
+			endClock.Hour(),
+			endClock.Minute(),
+			endClock.Second(),
+			0,
+			appTimeLocation,
+		)
+
+		return nearest, true, nil
+	}
+
+	return TeacherNearestLesson{}, false, nil
+}
+
 func (s *Service) profileByToken(token string) Response {
 	user, err := s.userBySessionToken(token)
 	if err != nil {
@@ -341,6 +491,114 @@ func (s *Service) register(data LoginData) Response {
 	}
 }
 
+func (s *Service) registerByInvite(data RegisterByInviteData) Response {
+	inviteCode := normalizeInviteCode(data.InviteCode)
+	login := strings.TrimSpace(data.Login)
+	password := strings.TrimSpace(data.Password)
+
+	if inviteCode == "" {
+		return Response{OK: false, Error: "invite_code is required"}
+	}
+	if login == "" || password == "" {
+		return Response{OK: false, Error: "login and password are required"}
+	}
+
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return Response{OK: false, Error: "failed to hash password"}
+	}
+
+	ctx, cancel := s.dbContext()
+	defer cancel()
+
+	tx, err := s.store.Pool().BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return Response{OK: false, Error: "failed to start registration transaction"}
+	}
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
+
+	var studentID int32
+	var studentName string
+	var groupID *int32
+	err = tx.QueryRow(
+		ctx,
+		`SELECT student_id, student_name, group_id
+		 FROM students
+		 WHERE user_id IS NULL
+		   AND invite_code_used_at IS NULL
+		   AND invite_code_hash IS NOT NULL
+		   AND invite_code_hash = crypt($1, invite_code_hash)
+		 LIMIT 1
+		 FOR UPDATE`,
+		inviteCode,
+	).Scan(&studentID, &studentName, &groupID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Response{OK: false, Error: "invalid or used invite_code"}
+	}
+	if err != nil {
+		return Response{OK: false, Error: "failed to validate invite_code"}
+	}
+
+	var created db.User
+	err = tx.QueryRow(
+		ctx,
+		`INSERT INTO users (login, password_hash, role)
+		 VALUES ($1, $2, 'student')
+		 RETURNING id, login, password_hash, role, created_at`,
+		login,
+		string(hashedPassword),
+	).Scan(&created.ID, &created.Login, &created.PasswordHash, &created.Role, &created.CreatedAt)
+	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			return Response{OK: false, Error: "user exist"}
+		}
+		return Response{OK: false, Error: "failed to create user"}
+	}
+
+	cmd, err := tx.Exec(
+		ctx,
+		`UPDATE students
+		 SET user_id = $2,
+		     invite_code_used_at = NOW(),
+		     invite_code = NULL,
+		     invite_code_hash = NULL
+		 WHERE student_id = $1
+		   AND user_id IS NULL
+		   AND invite_code_used_at IS NULL`,
+		studentID,
+		created.ID,
+	)
+	if err != nil {
+		return Response{OK: false, Error: "failed to bind student profile"}
+	}
+	if cmd.RowsAffected() == 0 {
+		return Response{OK: false, Error: "failed to bind student profile"}
+	}
+
+	if err = tx.Commit(ctx); err != nil {
+		return Response{OK: false, Error: "failed to commit registration"}
+	}
+
+	result := map[string]any{
+		"user_id":      strconv.FormatInt(int64(created.ID), 10),
+		"login":        created.Login,
+		"role":         created.Role,
+		"student_id":   studentID,
+		"student_name": studentName,
+	}
+	if groupID != nil {
+		result["group_id"] = *groupID
+	}
+
+	return Response{
+		OK:     true,
+		Result: result,
+	}
+}
+
 func (s *Service) login(data LoginData) Response {
 	login := strings.TrimSpace(data.Login)
 	password := strings.TrimSpace(data.Password)
@@ -392,18 +650,49 @@ func (s *Service) createAttendanceLinkByTeacher(sessionToken string, data Attend
 	if err != nil {
 		return Response{OK: false, Error: err.Error()}
 	}
-	if data.SubjectID <= 0 {
-		return Response{OK: false, Error: "subject_id is required"}
-	}
-	groupIDs := normalizeGroupIDs(data.GroupIDs)
-	if len(groupIDs) == 0 {
-		return Response{OK: false, Error: "group_ids is required"}
-	}
 
 	ctx, cancel := s.dbContext()
 	defer cancel()
 
-	subject, found, err := s.store.Subjects.GetByID(ctx, data.SubjectID)
+	nowLocal := time.Now().In(appTimeLocation)
+	nearestLesson, found, err := s.nearestLessonForTeacher(ctx, teacherProfile.ID, nowLocal)
+	if err != nil {
+		return Response{OK: false, Error: "failed to load nearest lesson"}
+	}
+	if !found {
+		return Response{OK: false, Error: "no scheduled lessons found for teacher"}
+	}
+	if nowLocal.Before(nearestLesson.StartAt.Add(-15 * time.Minute)) {
+		return Response{
+			OK: false,
+			Error: fmt.Sprintf(
+				"attendance can be started no earlier than 15 minutes before class start (%s)",
+				formatAPITime(nearestLesson.StartAt),
+			),
+		}
+	}
+
+	requestedSubjectID := data.SubjectID
+	if requestedSubjectID <= 0 {
+		requestedSubjectID = nearestLesson.SubjectID
+	}
+	if requestedSubjectID != nearestLesson.SubjectID {
+		return Response{OK: false, Error: "subject_id does not match nearest scheduled lesson"}
+	}
+
+	groupIDs := normalizeGroupIDs(data.GroupIDs)
+	if len(groupIDs) == 0 {
+		groupIDs = normalizeGroupIDs(nearestLesson.GroupIDs)
+	}
+	if len(groupIDs) == 0 {
+		return Response{OK: false, Error: "nearest scheduled lesson has no groups"}
+	}
+	if !containsAllGroupIDs(nearestLesson.GroupIDs, groupIDs) {
+		return Response{OK: false, Error: "group_ids do not match nearest scheduled lesson"}
+	}
+	sort.Slice(groupIDs, func(i, j int) bool { return groupIDs[i] < groupIDs[j] })
+
+	subject, found, err := s.store.Subjects.GetByID(ctx, requestedSubjectID)
 	if err != nil {
 		return Response{OK: false, Error: "failed to load subject"}
 	}
@@ -453,7 +742,10 @@ func (s *Service) createAttendanceLinkByTeacher(sessionToken string, data Attend
 			"group_ids":       groupIDs,
 			"roster_size":     rosterSize,
 			"teacher_id":      teacherID,
-			"expires_at":      signedExpiresAt.UTC().Format(time.RFC3339),
+			"schedule_start":  formatAPITime(nearestLesson.StartAt),
+			"schedule_end":    formatAPITime(nearestLesson.EndAt),
+			"timezone":        "Asia/Novosibirsk",
+			"expires_at":      formatAPITime(signedExpiresAt),
 			"expires_minutes": effectiveTTL,
 		},
 	}
@@ -518,7 +810,7 @@ func (s *Service) confirmAttendanceByStudent(sessionToken string, data Attendanc
 			"student_id": student.UserID,
 			"teacher_id": claims.TeacherID,
 			"subject_id": session.SubjectID,
-			"marked_at":  markedAt.Format(time.RFC3339),
+			"marked_at":  formatAPITime(markedAt),
 			"attendance": "confirmed",
 		},
 	}
@@ -561,7 +853,7 @@ func (s *Service) attendanceByGroupForTeacher(sessionToken string, data Attendan
 	for _, row := range stats {
 		var lastMarkedAt any
 		if row.LastMarkedAt != nil {
-			lastMarkedAt = row.LastMarkedAt.UTC().Format(time.RFC3339)
+			lastMarkedAt = formatAPITime(*row.LastMarkedAt)
 		}
 		attendancePercent := 0.0
 		if row.TotalSessions > 0 {
@@ -583,6 +875,7 @@ func (s *Service) attendanceByGroupForTeacher(sessionToken string, data Attendan
 
 	result := map[string]any{
 		"group_id": data.GroupID,
+		"timezone": "Asia/Novosibirsk",
 		"students": students,
 		"summary": map[string]any{
 			"students_count": len(students),
@@ -618,6 +911,14 @@ func (s *Service) handleRequest(raw string) Response {
 			return Response{ID: req.ID, OK: false, Error: "EROR reg: " + err.Error()}
 		}
 		resp := s.register(data)
+		resp.ID = req.ID
+		return resp
+	case "register_by_invite":
+		var data RegisterByInviteData
+		if err := json.Unmarshal(req.Data, &data); err != nil {
+			return Response{ID: req.ID, OK: false, Error: "invalid register_by_invite payload"}
+		}
+		resp := s.registerByInvite(data)
 		resp.ID = req.ID
 		return resp
 	case "login":
