@@ -112,3 +112,7 @@
 
 - добавить CRUD/просмотр расписания и журнала через API (без прямых SQL/view обходов)
 - вынести конфигурацию тестовых seed-данных в более управляемый dev-профиль
+
+
+# Скрины
+https://drive.google.com/drive/folders/1dxhPbRtdFuYcEdWNukB9IJi3WmvN2j7k?usp=sharing
