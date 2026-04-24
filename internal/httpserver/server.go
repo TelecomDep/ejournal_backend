@@ -18,6 +18,7 @@ type authBody struct {
 	Login    string `json:"login"`
 	Password string `json:"password"`
 	Role     string `json:"role,omitempty"`
+	RoleHash string `json:"role_hash,omitempty"`
 }
 
 type Server struct {

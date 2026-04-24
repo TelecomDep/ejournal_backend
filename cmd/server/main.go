@@ -45,7 +45,15 @@ func main() {
 		workersCount = 1
 	}
 
-	svc := app.NewService(cfg.JWTSecret, cfg.SiteBaseURL, dbStore)
+	svc := app.NewService(
+		cfg.JWTSecret,
+		cfg.SiteBaseURL,
+		cfg.RoleHashTeacher,
+		cfg.RoleHashStudent,
+		cfg.DefaultGroupID,
+		cfg.AllowEarlyAttendance,
+		dbStore,
+	)
 	svc.StartWorkerPool(workersCount)
 	log.Printf("Internal worker pool started with %d workers", workersCount)
 

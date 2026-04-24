@@ -35,6 +35,7 @@ type LoginData struct {
 	Login    string `json:"login"`
 	Password string `json:"password"`
 	Role     string `json:"role,omitempty"`
+	RoleHash string `json:"role_hash,omitempty"`
 }
 
 type RegisterByInviteData struct {
@@ -88,10 +89,14 @@ type requestJob struct {
 }
 
 type Service struct {
-	jwtSecret    []byte
-	siteBaseURL  string
-	store        *db.Store
-	requestQueue chan requestJob
+	jwtSecret            []byte
+	siteBaseURL          string
+	roleHashTeacher      string
+	roleHashStudent      string
+	defaultGroupID       int32
+	allowEarlyAttendance bool
+	store                *db.Store
+	requestQueue         chan requestJob
 }
 
 var appTimeLocation = loadAppTimeLocation()
@@ -127,6 +132,10 @@ func normalizeGroupIDs(groupIDs []int32) []int32 {
 }
 
 func normalizeInviteCode(code string) string {
+	return strings.ToUpper(strings.TrimSpace(code))
+}
+
+func normalizeRoleHash(code string) string {
 	return strings.ToUpper(strings.TrimSpace(code))
 }
 
@@ -175,11 +184,27 @@ func containsAllGroupIDs(fromSchedule, requested []int32) bool {
 	return true
 }
 
-func NewService(jwtSecret, siteBaseURL string, store *db.Store) *Service {
+func NewService(jwtSecret, siteBaseURL, roleHashTeacher, roleHashStudent string, defaultGroupID int32, allowEarlyAttendance bool, store *db.Store) *Service {
 	return &Service{
-		jwtSecret:   []byte(strings.TrimSpace(jwtSecret)),
-		siteBaseURL: strings.TrimSpace(siteBaseURL),
-		store:       store,
+		jwtSecret:            []byte(strings.TrimSpace(jwtSecret)),
+		siteBaseURL:          strings.TrimSpace(siteBaseURL),
+		roleHashTeacher:      normalizeRoleHash(roleHashTeacher),
+		roleHashStudent:      normalizeRoleHash(roleHashStudent),
+		defaultGroupID:       defaultGroupID,
+		allowEarlyAttendance: allowEarlyAttendance,
+		store:                store,
+	}
+}
+
+func (s *Service) resolveRoleByHash(roleHash string) (string, bool) {
+	roleHash = normalizeRoleHash(roleHash)
+	switch roleHash {
+	case s.roleHashTeacher:
+		return "teacher", true
+	case s.roleHashStudent:
+		return "student", true
+	default:
+		return "", false
 	}
 }
 
@@ -452,7 +477,11 @@ func (s *Service) register(data LoginData) Response {
 		return Response{OK: false, Error: "login and password are required"}
 	}
 
-	role := normalizeRole(data.Role)
+	role, ok := s.resolveRoleByHash(data.RoleHash)
+	if !ok {
+		return Response{OK: false, Error: "invalid role_hash"}
+	}
+
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		return Response{OK: false, Error: "failed to hash password"}
@@ -474,7 +503,14 @@ func (s *Service) register(data LoginData) Response {
 		userID := created.ID
 		_, err = s.store.Teachers.Create(ctx, db.Teacher{UserID: &userID, Name: login})
 	case "student":
-		_, err = s.store.Students.Create(ctx, db.Student{ID: created.ID, StudentName: login})
+		var groupID *int32
+		if s.defaultGroupID > 0 {
+			_, foundGroup, groupErr := s.store.Groups.GetByID(ctx, s.defaultGroupID)
+			if groupErr == nil && foundGroup {
+				groupID = &s.defaultGroupID
+			}
+		}
+		_, err = s.store.Students.Create(ctx, db.Student{ID: created.ID, StudentName: login, GroupID: groupID})
 	}
 	if err != nil {
 		_ = s.store.Users.DeleteByID(ctx, created.ID)
@@ -605,6 +641,10 @@ func (s *Service) login(data LoginData) Response {
 	if login == "" || password == "" {
 		return Response{OK: false, Error: "login and password are required"}
 	}
+	roleByHash, ok := s.resolveRoleByHash(data.RoleHash)
+	if !ok {
+		return Response{OK: false, Error: "invalid role_hash"}
+	}
 
 	ctx, cancel := s.dbContext()
 	defer cancel()
@@ -615,6 +655,9 @@ func (s *Service) login(data LoginData) Response {
 	}
 	if !ok {
 		return Response{OK: false, Error: "user does not exist"}
+	}
+	if storedUser.Role != roleByHash {
+		return Response{OK: false, Error: "role_hash does not match user role"}
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(storedUser.PasswordHash), []byte(password)); err != nil {
@@ -662,7 +705,7 @@ func (s *Service) createAttendanceLinkByTeacher(sessionToken string, data Attend
 	if !found {
 		return Response{OK: false, Error: "no scheduled lessons found for teacher"}
 	}
-	if nowLocal.Before(nearestLesson.StartAt.Add(-15 * time.Minute)) {
+	if !s.allowEarlyAttendance && nowLocal.Before(nearestLesson.StartAt.Add(-15*time.Minute)) {
 		return Response{
 			OK: false,
 			Error: fmt.Sprintf(

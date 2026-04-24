@@ -29,9 +29,13 @@ cp .env.example .env
 
 ```powershell
 $env:JWT_SECRET="поменяй---------------------------------"
-$env:SITE_BASE_URL="http://localhost:3000"
-$env:APP_PORT="8888"
-$env:CORS_ALLOW_ORIGINS="http://localhost:3000,http://127.0.0.1:3000"
+$env:SITE_BASE_URL="http://localhost:9001"
+$env:APP_PORT="9999"
+$env:CORS_ALLOW_ORIGINS="http://localhost:9001,http://127.0.0.1:9001"
+$env:ROLE_HASH_TEACHER="TEACHER-HASH-2026"
+$env:ROLE_HASH_STUDENT="STUDENT-HASH-2026"
+$env:DEFAULT_STUDENT_GROUP_ID="1"
+$env:ALLOW_EARLY_ATTENDANCE="true"
 ```
 
 3. Запустите сервис:
@@ -40,7 +44,7 @@ $env:CORS_ALLOW_ORIGINS="http://localhost:3000,http://127.0.0.1:3000"
 go run ./cmd/server
 ```
 
-Сервер стартует на `http://localhost:8888`.
+Сервер стартует на `http://localhost:9999`.
 
 ## Переменные окружения
 
@@ -48,9 +52,15 @@ go run ./cmd/server
 - `SITE_BASE_URL` (необязательно): базовый URL фронтенда для формирования ссылки приглашения  
   По умолчанию: `http://localhost:3000`
 - `APP_PORT` (необязательно): порт HTTP-сервера  
-  По умолчанию: `8888`
+  По умолчанию: `8888` (в локальном `.env` используется `9999`)
 - `CORS_ALLOW_ORIGINS` (необязательно): список origin через запятую для CORS  
   По умолчанию: `http://localhost:3000,http://127.0.0.1:3000`
+- `ROLE_HASH_TEACHER` (обязательно для hash-auth): хэш-код для роли `teacher`
+- `ROLE_HASH_STUDENT` (обязательно для hash-auth): хэш-код для роли `student`
+- `DEFAULT_STUDENT_GROUP_ID` (необязательно): группа, которая назначается студенту при регистрации через `/register`  
+  По умолчанию: `1`
+- `ALLOW_EARLY_ATTENDANCE` (необязательно): если `true`, отключает ограничение \"не раньше чем за 15 минут\" для старта сессии посещаемости  
+  По умолчанию: `false` (в локальном `.env` включено `true` для тестов)
 - `DB_DSN` (обязательно): строка подключения PostgreSQL.  
   Пример: `postgres://postgres:postgres@localhost:5432/ejournal?sslmode=disable`
 
@@ -124,7 +134,17 @@ docker compose down -v
 {
   "login": "teacher1",
   "password": "123456",
-  "role": "teacher"
+  "role_hash": "TEACHER-HASH-2026"
+}
+```
+
+Регистрация студента через тот же endpoint:
+
+```json
+{
+  "login": "student_new",
+  "password": "123456",
+  "role_hash": "STUDENT-HASH-2026"
 }
 ```
 
@@ -147,7 +167,8 @@ docker compose down -v
 ```json
 {
   "login": "teacher1",
-  "password": "123456"
+  "password": "123456",
+  "role_hash": "TEACHER-HASH-2026"
 }
 ```
 
@@ -230,22 +251,22 @@ docker compose down -v
 
 ```bash
 # Register teacher
-curl -X POST http://localhost:8888/register \
+curl -X POST http://localhost:9999/register \
   -H "Content-Type: application/json" \
-  -d '{"login":"teacher1","password":"123456","role":"teacher"}'
+  -d '{"login":"teacher1","password":"123456","role_hash":"TEACHER-HASH-2026"}'
 
-# Register student by invite code
-curl -X POST http://localhost:8888/register/by-invite \
+# Register student by student hash
+curl -X POST http://localhost:9999/register \
   -H "Content-Type: application/json" \
-  -d '{"invite_code":"8D2C72771DF0","login":"student_new","password":"123456"}'
+  -d '{"login":"student_new","password":"123456","role_hash":"STUDENT-HASH-2026"}'
 
 # Login teacher
-curl -X POST http://localhost:8888/login \
+curl -X POST http://localhost:9999/login \
   -H "Content-Type: application/json" \
-  -d '{"login":"teacher1","password":"123456"}'
+  -d '{"login":"teacher1","password":"123456","role_hash":"TEACHER-HASH-2026"}'
 
 # Profile
-curl http://localhost:8888/profile \
+curl http://localhost:9999/profile \
   -H "Authorization: Bearer <TOKEN>"
   #вставьте токен который выдался выше после логина
 ```
