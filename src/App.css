@@ -1,0 +1,31 @@
+.contentContainer {
+  min-height: 100vh;
+  position: relative;
+  padding: 24px;
+  background: #eef1f9;
+}
+
+.page-header {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+
+.tables-row {
+  display: grid;
+  gap: 24px;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+}
+
+.contfor-table {
+  background: #ffffff;
+  border-radius: 20px;
+  padding: 18px;
+  box-shadow: 0 16px 40px rgba(34, 44, 88, 0.08);
+}
+
+.pfp-block-inner h2 {
+  margin: 0 0 16px;
+  color: #2b2f5c;
+}

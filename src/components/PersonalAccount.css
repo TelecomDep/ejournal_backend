@@ -1,0 +1,53 @@
+.personal-account {
+  margin: 20px 0;
+}
+
+.account-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.account-title h1 {
+  margin: 0;
+  font-size: 28px;
+  color: #2b2f5c;
+}
+
+.account-title p {
+  margin: 8px 0 0;
+  color: #5c5f80;
+}
+
+.logout-button {
+  background: #ff5c5c;
+  color: white;
+  border: none;
+  border-radius: 12px;
+  padding: 12px 20px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.account-details {
+  display: grid;
+  gap: 20px;
+}
+
+.account-card {
+  background: #ffffff;
+  border-radius: 18px;
+  padding: 24px;
+  box-shadow: 0 12px 30px rgba(49, 55, 83, 0.08);
+}
+
+.account-card h2 {
+  margin-bottom: 16px;
+}
+
+.account-card p {
+  margin: 10px 0;
+  color: #3f426d;
+}

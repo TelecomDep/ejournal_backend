@@ -1,55 +1,16 @@
+version: '3.8'
+
 services:
-  postgres:
-    image: postgres:16-alpine
-    container_name: ejournal-postgres
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB:-ejournal}
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+  web:
+    image: nginx:alpine
+    container_name: sibsutis_front
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "9999:80"
     volumes:
-      - pgdata:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-ejournal}"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
+      - ./build:/usr/share/nginx/html:ro
     restart: unless-stopped
-
-  migrate:
-    image: golang:1.26.1-alpine
-    container_name: ejournal-migrate
-    working_dir: /app
-    volumes:
-      - ./:/app
-    environment:
-      DB_DSN: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-ejournal}?sslmode=disable
-    depends_on:
-      postgres:
-        condition: service_healthy
-    command: >
-      sh -lc "/usr/local/go/bin/go install github.com/pressly/goose/v3/cmd/goose@latest &&
-      /go/bin/goose -dir migrations postgres \"$$DB_DSN\" up"
-    restart: "no"
-
-  ejournal-backend:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: ejournal-backend
-    env_file:
-      - .env
-    environment:
-      DB_DSN: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-ejournal}?sslmode=disable
-    depends_on:
-      postgres:
-        condition: service_healthy
-      migrate:
-        condition: service_completed_successfully
-    ports:
-      - "${APP_PORT:-8888}:${APP_PORT:-8888}"
-    restart: unless-stopped
-
-volumes:
-  pgdata:
+    develop:
+      watch:
+        - path: ./build
+          action: sync
+          target: /usr/share/nginx/html
