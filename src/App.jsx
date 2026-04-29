@@ -54,13 +54,13 @@ function App() {
       .finally(() => setLoading(false));
   }, [token]);
 
-  const handleLogin = async (login, password, roleHash) => {
+  const handleLogin = async (login, password) => {
     setError('');
     setLoading(true);
 
     try {
       const passwordHash = await sha256Hex(password);
-      const response = await api.login(login, passwordHash, roleHash);
+      const response = await api.login(login, passwordHash);
       if (response?.token) {
         localStorage.setItem('token', response.token);
         setToken(response.token);
@@ -86,7 +86,7 @@ function App() {
     try {
       const passwordHash = await sha256Hex(password);
       await api.register(login, passwordHash, roleHash, inviteCode);
-      const response = await api.login(login, passwordHash, roleHash);
+      const response = await api.login(login, passwordHash);
 
       if (response?.token) {
         localStorage.setItem('token', response.token);

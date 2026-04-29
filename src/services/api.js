@@ -29,12 +29,11 @@ function authHeaders(token) {
 
 const api = {
   // Login endpoint
-  async login(login, password, roleHash) {
+  async login(login, password) {
     try {
       const response = await axios.post(`${BACKEND_URL}/login`, {
         login,
-        password,
-        role_hash: roleHash
+        password
       }, {
         headers: {
           'Content-Type': 'application/json'

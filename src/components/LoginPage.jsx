@@ -10,12 +10,11 @@ const LoginPage = ({ onLogin, onRegister, loading, error }) => {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    const cleanedRoleHash = roleHash.trim();
 
     if (isRegister) {
-      onRegister(login.trim(), password, cleanedRoleHash, inviteCode.trim());
+      onRegister(login.trim(), password, roleHash.trim(), inviteCode.trim());
     } else {
-      onLogin(login.trim(), password, cleanedRoleHash);
+      onLogin(login.trim(), password);
     }
   };
 
@@ -62,16 +61,18 @@ const LoginPage = ({ onLogin, onRegister, loading, error }) => {
             />
           </label>
 
-          <label>
-            Код доступа
-            <input
-              type="text"
-              value={roleHash}
-              onChange={(e) => setRoleHash(e.target.value)}
-              placeholder="Введите хэш"
-              required
-            />
-          </label>
+          {isRegister && (
+            <label>
+              Код доступа
+              <input
+                type="text"
+                value={roleHash}
+                onChange={(e) => setRoleHash(e.target.value)}
+                placeholder="Введите хэш"
+                required
+              />
+            </label>
+          )}
 
           {isRegister && (
             <label>
