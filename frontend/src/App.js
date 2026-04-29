@@ -45,15 +45,15 @@ function App() {
     setNotice('');
   };
 
-  const handleLogin = async (login, passwordRaw, roleHash) => {
+  const handleLogin = async (login, passwordRaw) => {
     resetMessages();
     setLoading(true);
     try {
       const passwordHash = await sha256Hex(passwordRaw);
-      const data = await api.login(login, passwordHash, roleHash);
+      const data = await api.login(login, passwordHash);
       localStorage.setItem('token', data.token);
       setToken(data.token);
-      setNotice('Вход выполнен (SHA-256 + role_hash).');
+      setNotice('Вход выполнен.');
     } catch (e) {
       setError(e.backend?.error || e.message || 'Ошибка входа');
     } finally {
@@ -67,10 +67,10 @@ function App() {
     try {
       const passwordHash = await sha256Hex(passwordRaw);
       await api.register(login, passwordHash, roleHash);
-      const auth = await api.login(login, passwordHash, roleHash);
+      const auth = await api.login(login, passwordHash);
       localStorage.setItem('token', auth.token);
       setToken(auth.token);
-      setNotice('Регистрация и вход выполнены (SHA-256 + role_hash).');
+      setNotice('Регистрация и вход выполнены.');
     } catch (e) {
       setError(e.backend?.error || e.message || 'Ошибка регистрации');
     } finally {

@@ -9,21 +9,19 @@ function LoginCard({ onLogin, onRegister, loading, error }) {
   const submit = (event) => {
     event.preventDefault();
     const cleanedLogin = login.trim();
-    const cleanedRoleHash = roleHash.trim();
-
     if (isRegister) {
-      onRegister(cleanedLogin, password, cleanedRoleHash);
+      onRegister(cleanedLogin, password, roleHash.trim());
       return;
     }
 
-    onLogin(cleanedLogin, password, cleanedRoleHash);
+    onLogin(cleanedLogin, password);
   };
 
   return (
     <div className="auth-wrap">
       <form className="card auth-card" onSubmit={submit}>
         <h1>{isRegister ? 'Регистрация' : 'Вход в систему'}</h1>
-        <p className="muted">Роль определяется только по role_hash. Пароль хэшируется SHA-256 в браузере.</p>
+        <p className="muted">При входе нужен только логин и пароль. Код доступа используется при регистрации.</p>
 
         <div className="row gap-sm">
           <button type="button" className={!isRegister ? 'btn btn-primary' : 'btn'} onClick={() => setIsRegister(false)}>
@@ -44,15 +42,17 @@ function LoginCard({ onLogin, onRegister, loading, error }) {
           <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
         </label>
 
-        <label className="field">
-          <span>Role hash</span>
-          <input
-            placeholder="Например: STUDENT-HASH-2026"
-            value={roleHash}
-            onChange={(e) => setRoleHash(e.target.value)}
-            required
-          />
-        </label>
+        {isRegister && (
+          <label className="field">
+            <span>Код доступа</span>
+            <input
+              placeholder="Например: STUDENT-HASH-2026"
+              value={roleHash}
+              onChange={(e) => setRoleHash(e.target.value)}
+              required
+            />
+          </label>
+        )}
 
         {error && <div className="error-box">{error}</div>}
 

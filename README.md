@@ -167,8 +167,7 @@ docker compose down -v
 ```json
 {
   "login": "teacher1",
-  "password": "123456",
-  "role_hash": "TEACHER-HASH-2026"
+  "password": "123456"
 }
 ```
 
@@ -263,7 +262,7 @@ curl -X POST http://localhost:9999/register \
 # Login teacher
 curl -X POST http://localhost:9999/login \
   -H "Content-Type: application/json" \
-  -d '{"login":"teacher1","password":"123456","role_hash":"TEACHER-HASH-2026"}'
+  -d '{"login":"teacher1","password":"123456"}'
 
 # Profile
 curl http://localhost:9999/profile \

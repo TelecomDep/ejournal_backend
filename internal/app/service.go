@@ -641,10 +641,6 @@ func (s *Service) login(data LoginData) Response {
 	if login == "" || password == "" {
 		return Response{OK: false, Error: "login and password are required"}
 	}
-	roleByHash, ok := s.resolveRoleByHash(data.RoleHash)
-	if !ok {
-		return Response{OK: false, Error: "invalid role_hash"}
-	}
 
 	ctx, cancel := s.dbContext()
 	defer cancel()
@@ -655,9 +651,6 @@ func (s *Service) login(data LoginData) Response {
 	}
 	if !ok {
 		return Response{OK: false, Error: "user does not exist"}
-	}
-	if storedUser.Role != roleByHash {
-		return Response{OK: false, Error: "role_hash does not match user role"}
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(storedUser.PasswordHash), []byte(password)); err != nil {

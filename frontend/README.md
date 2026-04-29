@@ -21,16 +21,17 @@ Backend URL (env): `REACT_APP_BACKEND_URL=http://localhost:9999`
 ## Auth Model
 
 - User does not choose role manually.
-- Role is derived from `role_hash` entered on login/registration.
+- Role is derived from `role_hash` during registration and returned by the backend on login.
+- Login only needs login and password.
 - Test hashes:
   - `TEACHER-HASH-2026`
   - `STUDENT-HASH-2026`
 
-Use `teacher_test / 123456` with teacher hash for quick teacher login.
+Use `teacher_test / 123456` for quick teacher login.
 
 Attendance test flow:
 1. Register/login student with `STUDENT-HASH-2026`.
-2. Login teacher (`teacher_test`) with `TEACHER-HASH-2026` and create invite link.
+2. Login teacher (`teacher_test`) and create invite link.
 3. Return to student account and confirm attendance with `invite_token`.
 
 ## If you previously installed with old Node

@@ -22,10 +22,10 @@ function authHeaders(token) {
 }
 
 const api = {
-  async login(login, passwordHash, roleHash) {
+  async login(login, passwordHash) {
     const response = await axios.post(
       `${BACKEND_URL}/login`,
-      { login, password: passwordHash, role_hash: roleHash },
+      { login, password: passwordHash },
       { headers: { 'Content-Type': 'application/json' } }
     );
     return unwrapApiResponse(response.data);
