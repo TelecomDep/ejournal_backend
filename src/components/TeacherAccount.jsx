@@ -69,8 +69,8 @@ const TeacherAccount = ({ userData, onLogout, token }) => {
         sessionForm.expiresMinutes
       );
       
-      if (response?.result) {
-        setSessionResult(response.result);
+      if (response) {
+        setSessionResult(response);
         // Reset form
         setSessionForm({
           subjectId: 1,
@@ -82,7 +82,7 @@ const TeacherAccount = ({ userData, onLogout, token }) => {
         throw new Error(response?.error || 'Ошибка при создании сессии');
       }
     } catch (err) {
-      setSessionError(err.response?.data?.error || err.message || 'Ошибка при создании сессии');
+      setSessionError(api.getErrorMessage(err, 'Ошибка при создании сессии'));
       console.error('Create session error:', err);
     } finally {
       setSessionLoading(false);
@@ -97,17 +97,15 @@ const TeacherAccount = ({ userData, onLogout, token }) => {
     setStatsLoading(true);
 
     try {
-      // This would need an API endpoint in the backend
-      // For now, we'll use a placeholder that returns mock data
       const response = await api.getGroupStats(token, statsForm.groupId, statsForm.subjectId);
       
-      if (response?.result) {
-        setStatsResult(response.result);
+      if (response) {
+        setStatsResult(response);
       } else {
         throw new Error(response?.error || 'Ошибка при получении статистики');
       }
     } catch (err) {
-      setStatsError(err.response?.data?.error || err.message || 'Ошибка при получении статистики');
+      setStatsError(api.getErrorMessage(err, 'Ошибка при получении статистики'));
       console.error('Get stats error:', err);
     } finally {
       setStatsLoading(false);
@@ -234,20 +232,20 @@ const TeacherAccount = ({ userData, onLogout, token }) => {
                 </div>
               </div>
 
-              {sessionResult.session_id && (
+              {sessionResult.lesson_id && (
                 <div className="result-item">
-                  <label>Session ID:</label>
+                  <label>Lesson ID:</label>
                   <div className="result-value">
-                    {sessionResult.session_id}
+                    {sessionResult.lesson_id}
                   </div>
                 </div>
               )}
 
-              {sessionResult.created_at && (
+              {sessionResult.expires_at && (
                 <div className="result-item">
-                  <label>Создано:</label>
+                  <label>Истекает:</label>
                   <div className="result-value">
-                    {new Date(sessionResult.created_at).toLocaleString('ru-RU')}
+                    {new Date(sessionResult.expires_at).toLocaleString('ru-RU')}
                   </div>
                 </div>
               )}
@@ -318,9 +316,9 @@ const TeacherAccount = ({ userData, onLogout, token }) => {
                       <tr key={idx}>
                         <td>{student.student_id}</td>
                         <td>{student.student_name}</td>
-                        <td>{student.attended}</td>
-                        <td>{student.total}</td>
-                        <td>{student.percentage ? (student.percentage * 100).toFixed(1) + '%' : 'N/A'}</td>
+                        <td>{student.attended_sessions}</td>
+                        <td>{student.total_sessions}</td>
+                        <td>{Number.isFinite(student.attendance_percent) ? student.attendance_percent.toFixed(1) + '%' : 'N/A'}</td>
                       </tr>
                     ))
                   ) : (

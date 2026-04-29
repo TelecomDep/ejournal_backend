@@ -1,20 +1,46 @@
 import axios from 'axios';
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8888';
+const BACKEND_URL = (process.env.REACT_APP_BACKEND_URL || 'http://localhost:8888').replace(/\/$/, '');
+
+function unwrapApiResponse(data) {
+  if (data && typeof data === 'object' && Object.prototype.hasOwnProperty.call(data, 'ok')) {
+    if (data.ok) {
+      return data.result || {};
+    }
+
+    const error = new Error(data.error || 'Backend request failed');
+    error.backend = data;
+    throw error;
+  }
+
+  return data;
+}
+
+function extractError(error) {
+  return error.response?.data?.error || error.backend?.error || error.message || 'Backend request failed';
+}
+
+function authHeaders(token) {
+  return {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${token}`
+  };
+}
 
 const api = {
   // Login endpoint
-  async login(login, password) {
+  async login(login, password, roleHash) {
     try {
       const response = await axios.post(`${BACKEND_URL}/login`, {
         login,
-        password
+        password,
+        role_hash: roleHash
       }, {
         headers: {
           'Content-Type': 'application/json'
         }
       });
-      return response.data;
+      return unwrapApiResponse(response.data);
     } catch (error) {
       console.error('Login Error:', error);
       throw error;
@@ -22,19 +48,19 @@ const api = {
   },
 
   // Register endpoint
-  async register(login, password, role, inviteCode) {
+  async register(login, password, roleHash, inviteCode) {
     try {
-      const endpoint = (role === 'student' && inviteCode) ? '/register/by-invite' : '/register';
-      const body = role === 'student' && inviteCode
+      const endpoint = inviteCode ? '/register/by-invite' : '/register';
+      const body = inviteCode
         ? { login, password, invite_code: inviteCode }
-        : { login, password, role };
+        : { login, password, role_hash: roleHash };
 
       const response = await axios.post(`${BACKEND_URL}${endpoint}`, body, {
         headers: {
           'Content-Type': 'application/json'
         }
       });
-      return response.data;
+      return unwrapApiResponse(response.data);
     } catch (error) {
       console.error('Register Error:', error);
       throw error;
@@ -45,12 +71,9 @@ const api = {
   async getProfile(token) {
     try {
       const response = await axios.get(`${BACKEND_URL}/profile`, {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        }
+        headers: authHeaders(token)
       });
-      return response.data;
+      return unwrapApiResponse(response.data);
     } catch (error) {
       console.error('Get Profile Error:', error);
       throw error;
@@ -69,13 +92,10 @@ const api = {
           expires_minutes: expiresMinutes
         },
         {
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          }
+          headers: authHeaders(token)
         }
       );
-      return response.data;
+      return unwrapApiResponse(response.data);
     } catch (error) {
       console.error('Create Attendance Link Error:', error);
       throw error;
@@ -91,13 +111,10 @@ const api = {
           invite_token: inviteToken
         },
         {
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          }
+          headers: authHeaders(token)
         }
       );
-      return response.data;
+      return unwrapApiResponse(response.data);
     } catch (error) {
       console.error('Confirm Attendance Error:', error);
       throw error;
@@ -107,26 +124,28 @@ const api = {
   // Teacher: Get group statistics
   async getGroupStats(token, groupId, subjectId = null) {
     try {
-      const params = new URLSearchParams();
-      params.append('group_id', groupId);
+      const payload = {
+        group_id: groupId
+      };
+
       if (subjectId) {
-        params.append('subject_id', subjectId);
+        payload.subject_id = subjectId;
       }
 
-      const response = await axios.get(
-        `${BACKEND_URL}/api/teacher/attendance-stats?${params.toString()}`,
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          }
-        }
+      const response = await axios.post(
+        `${BACKEND_URL}/api/teacher/attendance/group`,
+        payload,
+        { headers: authHeaders(token) }
       );
-      return response.data;
+      return unwrapApiResponse(response.data);
     } catch (error) {
       console.error('Get Group Stats Error:', error);
       throw error;
     }
+  },
+
+  getErrorMessage(error, fallback) {
+    return extractError(error) || fallback;
   }
 };
 

@@ -5,15 +5,17 @@ const LoginPage = ({ onLogin, onRegister, loading, error }) => {
   const [isRegister, setIsRegister] = useState(false);
   const [login, setLogin] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState('student');
+  const [roleHash, setRoleHash] = useState('');
   const [inviteCode, setInviteCode] = useState('');
 
   const handleSubmit = async (event) => {
     event.preventDefault();
+    const cleanedRoleHash = roleHash.trim();
+
     if (isRegister) {
-      onRegister(login.trim(), password, role, inviteCode.trim());
+      onRegister(login.trim(), password, cleanedRoleHash, inviteCode.trim());
     } else {
-      onLogin(login.trim(), password, role);
+      onLogin(login.trim(), password, cleanedRoleHash);
     }
   };
 
@@ -60,6 +62,17 @@ const LoginPage = ({ onLogin, onRegister, loading, error }) => {
             />
           </label>
 
+          <label>
+            Код доступа
+            <input
+              type="text"
+              value={roleHash}
+              onChange={(e) => setRoleHash(e.target.value)}
+              placeholder="Введите хэш"
+              required
+            />
+          </label>
+
           {isRegister && (
             <label>
               Пригласительный код
@@ -67,19 +80,10 @@ const LoginPage = ({ onLogin, onRegister, loading, error }) => {
                 type="text"
                 value={inviteCode}
                 onChange={(e) => setInviteCode(e.target.value)}
-                placeholder="Введите пригласительный код"
-                required
+                placeholder="Для регистрации студента по приглашению"
               />
             </label>
           )}
-
-          <label>
-            Роль
-            <select value={role} onChange={(e) => setRole(e.target.value)}>
-              <option value="student">Студент</option>
-              <option value="teacher">Преподаватель</option>
-            </select>
-          </label>
 
           {error && <div className="login-error">{error}</div>}
 
