@@ -7,6 +7,7 @@ const DataTable = ({ data, type, title }) => {
   const tableRef = useRef(null);
 
   // Определение колонок в зависимости от типа таблицы
+  /** @returns {import('react-tabulator').ColumnDefinition[]} */
   const getColumns = () => {
     if (type === 'students') {
       return [
