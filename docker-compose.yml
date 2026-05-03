@@ -6,8 +6,6 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-ejournal}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-    ports:
-      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -38,10 +36,16 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: ejournal-backend
-    env_file:
-      - .env
     environment:
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-change-me}
+      SITE_BASE_URL: ${SITE_BASE_URL:-http://localhost:9999}
+      APP_PORT: ${APP_PORT:-8888}
+      CORS_ALLOW_ORIGINS: ${CORS_ALLOW_ORIGINS:-http://localhost:9999,http://127.0.0.1:9999,http://localhost:3000,http://127.0.0.1:3000}
       DB_DSN: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-ejournal}?sslmode=disable
+      ROLE_HASH_TEACHER: ${ROLE_HASH_TEACHER:-TEACHER-HASH-2026}
+      ROLE_HASH_STUDENT: ${ROLE_HASH_STUDENT:-STUDENT-HASH-2026}
+      DEFAULT_STUDENT_GROUP_ID: ${DEFAULT_STUDENT_GROUP_ID:-1}
+      ALLOW_EARLY_ATTENDANCE: ${ALLOW_EARLY_ATTENDANCE:-true}
     depends_on:
       postgres:
         condition: service_healthy
@@ -49,6 +53,17 @@ services:
         condition: service_completed_successfully
     ports:
       - "${APP_PORT:-8888}:${APP_PORT:-8888}"
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: sibsutis_front
+    depends_on:
+      - ejournal-backend
+    ports:
+      - "${FRONTEND_PORT:-9999}:80"
     restart: unless-stopped
 
 volumes:

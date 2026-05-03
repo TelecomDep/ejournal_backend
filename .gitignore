@@ -12,6 +12,9 @@ bin/
 dist/
 coverage.out
 *.coverprofile
+node_modules/
+frontend/node_modules/
+build/
 
 # Vendor (uncomment if you don't commit vendor)
 # vendor/
@@ -41,5 +44,4 @@ temp/
 ## Local weekly reports
 #weekly_reports/
 .codex
-
 
