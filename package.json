@@ -14,10 +14,13 @@
   },
   "scripts": {
     "start": "react-scripts start",
+    "check-api": "openapi-typescript ./docs/swagger.json --output ./src/services/schema.d.ts && tsc --project jsconfig.json --noEmit",
     "build": "react-scripts build"
   },
   "devDependencies": {
-    "react-scripts": "^5.0.1"
+    "openapi-typescript": "^5.4.0",
+    "react-scripts": "^5.0.1",
+    "typescript": "^4.9.5"
   },
   "browserslist": {
     "production": [
