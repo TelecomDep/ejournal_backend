@@ -6,7 +6,12 @@
     "module": "ESNext",
     "target": "ESNext",
     "moduleResolution": "node",
-    "baseUrl": "src"
+    "jsx": "react-jsx",
+    "baseUrl": "src",
+    "skipLibCheck": true,
+    "maxNodeModuleJsDepth": 0,
+    "lib": ["DOM", "DOM.Iterable", "ESNext"]
   },
-  "exclude": ["node_modules", "build"]
+  "include": ["src/**/*", "src/services/schema.d.ts"],
+  "exclude": ["node_modules", "**/node_modules/*", "build"]
 }
