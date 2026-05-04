@@ -5,14 +5,13 @@ const LoginPage = ({ onLogin, onRegister, loading, error }) => {
   const [isRegister, setIsRegister] = useState(false);
   const [login, setLogin] = useState('');
   const [password, setPassword] = useState('');
-  const [roleHash, setRoleHash] = useState('');
-  const [inviteCode, setInviteCode] = useState('');
+  const [registrationCode, setRegistrationCode] = useState('');
 
   const handleSubmit = async (event) => {
     event.preventDefault();
 
     if (isRegister) {
-      onRegister(login.trim(), password, roleHash.trim(), inviteCode.trim());
+      onRegister(login.trim(), password, registrationCode.trim());
     } else {
       onLogin(login.trim(), password);
     }
@@ -63,25 +62,13 @@ const LoginPage = ({ onLogin, onRegister, loading, error }) => {
 
           {isRegister && (
             <label>
-              Код доступа
+              Код регистрации
               <input
                 type="text"
-                value={roleHash}
-                onChange={(e) => setRoleHash(e.target.value)}
-                placeholder="Введите хэш"
+                value={registrationCode}
+                onChange={(e) => setRegistrationCode(e.target.value)}
+                placeholder="Введите код из БД"
                 required
-              />
-            </label>
-          )}
-
-          {isRegister && (
-            <label>
-              Пригласительный код
-              <input
-                type="text"
-                value={inviteCode}
-                onChange={(e) => setInviteCode(e.target.value)}
-                placeholder="Для регистрации студента по приглашению"
               />
             </label>
           )}

@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -407,14 +408,74 @@ func (s *Service) profileByToken(token string) Response {
 		return Response{OK: false, Error: err.Error()}
 	}
 
-	return Response{
-		OK: true,
-		Result: map[string]any{
-			"user_id": user.UserID,
-			"login":   user.Login,
-			"role":    user.Role,
-		},
+	result := map[string]any{
+		"user_id": user.UserID,
+		"login":   user.Login,
+		"role":    user.Role,
 	}
+
+	ctx, cancel := s.dbContext()
+	defer cancel()
+
+	switch user.Role {
+	case "student":
+		var studentID int32
+		var studentName sql.NullString
+		var groupID sql.NullInt32
+		var groupName sql.NullString
+		err = s.store.Pool().QueryRow(
+			ctx,
+			`SELECT s.student_id, s.student_name, s.group_id, g.group_name
+			 FROM students s
+			 LEFT JOIN groups g ON g.group_id = s.group_id
+			 WHERE s.user_id = $1 OR s.student_id = $1
+			 ORDER BY CASE WHEN s.user_id = $1 THEN 0 ELSE 1 END
+			 LIMIT 1`,
+			user.ID,
+		).Scan(&studentID, &studentName, &groupID, &groupName)
+		if err == nil {
+			result["student_id"] = studentID
+			if studentName.Valid {
+				result["name"] = studentName.String
+				result["student_name"] = studentName.String
+			}
+			if groupID.Valid {
+				result["group_id"] = groupID.Int32
+			}
+			if groupName.Valid {
+				result["group_name"] = groupName.String
+			}
+		}
+	case "teacher":
+		var teacherID int32
+		var teacherName sql.NullString
+		var lecternID sql.NullInt32
+		var jobTitle sql.NullString
+		err = s.store.Pool().QueryRow(
+			ctx,
+			`SELECT teacher_id, name, lectern_id, job_title
+			 FROM teachers
+			 WHERE user_id = $1 OR teacher_id = $1
+			 ORDER BY CASE WHEN user_id = $1 THEN 0 ELSE 1 END
+			 LIMIT 1`,
+			user.ID,
+		).Scan(&teacherID, &teacherName, &lecternID, &jobTitle)
+		if err == nil {
+			result["teacher_id"] = teacherID
+			if teacherName.Valid {
+				result["name"] = teacherName.String
+				result["teacher_name"] = teacherName.String
+			}
+			if lecternID.Valid {
+				result["lectern_id"] = lecternID.Int32
+			}
+			if jobTitle.Valid {
+				result["job_title"] = jobTitle.String
+			}
+		}
+	}
+
+	return Response{OK: true, Result: result}
 }
 
 func (s *Service) generateAttendanceInviteToken(lessonID, teacherID string, expiresMinutes int) (string, time.Time, error) {
@@ -558,18 +619,20 @@ func (s *Service) registerByInvite(data RegisterByInviteData) Response {
 	var studentID int32
 	var studentName string
 	var groupID *int32
+	var groupName sql.NullString
 	err = tx.QueryRow(
 		ctx,
-		`SELECT student_id, student_name, group_id
-		 FROM students
-		 WHERE user_id IS NULL
-		   AND invite_code_used_at IS NULL
-		   AND invite_code_hash IS NOT NULL
-		   AND invite_code_hash = crypt($1, invite_code_hash)
+		`SELECT s.student_id, s.student_name, s.group_id, g.group_name
+		 FROM students s
+		 LEFT JOIN groups g ON g.group_id = s.group_id
+		 WHERE s.user_id IS NULL
+		   AND s.invite_code_used_at IS NULL
+		   AND s.invite_code_hash IS NOT NULL
+		   AND s.invite_code_hash = crypt($1, s.invite_code_hash)
 		 LIMIT 1
 		 FOR UPDATE`,
 		inviteCode,
-	).Scan(&studentID, &studentName, &groupID)
+	).Scan(&studentID, &studentName, &groupID, &groupName)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Response{OK: false, Error: "invalid or used invite_code"}
 	}
@@ -627,6 +690,9 @@ func (s *Service) registerByInvite(data RegisterByInviteData) Response {
 	}
 	if groupID != nil {
 		result["group_id"] = *groupID
+	}
+	if groupName.Valid {
+		result["group_name"] = groupName.String
 	}
 
 	return Response{

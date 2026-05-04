@@ -44,14 +44,13 @@ const api = {
   },
 
   // Register endpoint
-  async register(login, password, roleHash, inviteCode) {
+  async register(login, password, registrationCode) {
     try {
-      const endpoint = inviteCode ? '/register/by-invite' : '/register';
-      const body = inviteCode
-        ? { login, password, invite_code: inviteCode }
-        : { login, password, role_hash: roleHash };
-
-      const response = await axios.post(`${BACKEND_URL}${endpoint}`, body, {
+      const response = await axios.post(`${BACKEND_URL}/register/by-invite`, {
+        login,
+        password,
+        invite_code: registrationCode
+      }, {
         headers: {
           'Content-Type': 'application/json'
         }

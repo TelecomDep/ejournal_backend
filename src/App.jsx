@@ -79,13 +79,13 @@ function App() {
     }
   };
 
-  const handleRegister = async (login, password, roleHash, inviteCode) => {
+  const handleRegister = async (login, password, registrationCode) => {
     setError('');
     setLoading(true);
 
     try {
       const passwordHash = await sha256Hex(password);
-      await api.register(login, passwordHash, roleHash, inviteCode);
+      await api.register(login, passwordHash, registrationCode);
       const response = await api.login(login, passwordHash);
 
       if (response?.token) {
