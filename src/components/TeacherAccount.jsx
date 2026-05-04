@@ -316,16 +316,16 @@ const TeacherAccount = ({ userData, onLogout, token }) => {
                       const percent = Number(student.attendance_percent);
                       return (
                         <tr key={idx}>
-                        <td>{student.student_id}</td>
-                        <td>{student.student_name}</td>
-                        <td>{student.attended_sessions}</td>
-                        <td>{student.total_sessions}</td>
-                        <td>{Number.isFinite(percent) ? percent.toFixed(1) + '%' : 'N/A'}</td>
+                          <td>{student.student_id}</td>
+                          <td>{student.student_name}</td>
+                          <td>{student.attended_sessions}</td>
+                          <td>{student.total_sessions}</td>
+                          <td>{Number.isFinite(percent) ? percent.toFixed(1) + '%' : 'N/A'}</td>
                         </tr>
                       );
                      })
                   ) : (
-                  <tr><td colSpan="5">Нет данных</td></tr>
+                  <tr><td colSpan={5}>Нет данных</td></tr>
                   )}
                 </tbody>
               </table>
