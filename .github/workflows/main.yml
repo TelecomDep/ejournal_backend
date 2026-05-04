@@ -39,7 +39,7 @@ jobs:
           docker run --network="host" \
             -v ${{ github.workspace }}/docs:/docs \
             schemathesis/schemathesis:3.39.4 run /docs/swagger.json \
-            --target-base-url http://localhost:8888
+            --base-url http://localhost:8888
 
   # ==========================================
   # ДЖОБА 2: ДЕПЛОЙ НА СЕРВЕР
