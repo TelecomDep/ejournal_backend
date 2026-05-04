@@ -8,17 +8,13 @@ function unwrapApiResponse(data) {
     if (data.ok) {
       return data.result || {};
     }
-
-    const error = new Error(data.error || 'Backend request failed');
-    error.backend = data;
-    throw error;
+    throw new Error(data.error || 'Backend request failed');
   }
-
   return data;
 }
 
 function extractError(error) {
-  return error.response?.data?.error || error.backend?.error || error.message || 'Backend request failed';
+  return error.response?.data?.error || error.message || 'Backend request failed';
 }
 
 function authHeaders(token) {
