@@ -311,20 +311,21 @@ const TeacherAccount = ({ userData, onLogout, token }) => {
                   </tr>
                 </thead>
                 <tbody>
-                  {statsResult.students && statsResult.students.length > 0 ? (
-                    statsResult.students.map((student, idx) => (
-                      <tr key={idx}>
+                {statsResult.students && statsResult.students.length > 0 ? (
+                    statsResult.students.map((student, idx) => {
+                      const percent = Number(student.attendance_percent);
+                      return (
+                        <tr key={idx}>
                         <td>{student.student_id}</td>
                         <td>{student.student_name}</td>
                         <td>{student.attended_sessions}</td>
                         <td>{student.total_sessions}</td>
-                        <td>{Number.isFinite(student.attendance_percent) ? student.attendance_percent.toFixed(1) + '%' : 'N/A'}</td>
-                      </tr>
-                    ))
+                        <td>{Number.isFinite(percent) ? percent.toFixed(1) + '%' : 'N/A'}</td>
+                        </tr>
+                      );
+                     })
                   ) : (
-                    <tr>
-                      <td colSpan="5">Нет данных</td>
-                    </tr>
+                  <tr><td colSpan="5">Нет данных</td></tr>
                   )}
                 </tbody>
               </table>
