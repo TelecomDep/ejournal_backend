@@ -279,7 +279,7 @@ const TeacherAccount = ({ userData, onLogout, token }) => {
                 id="statSubjectId"
                 type="number"
                 name="subjectId"
-                value={statsForm.subjectId || ''}
+                value={statsForm.subjectId === null ? '' : statsForm.subjectId}
                 onChange={handleStatsInputChange}
                 min="1"
                 placeholder="Оставьте пустым для всех предметов"
