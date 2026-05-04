@@ -38,7 +38,7 @@ jobs:
         run: |
           docker run --network="host" \
             -v ${{ github.workspace }}/docs:/docs \
-            schemathesis/schemathesis:latest run /docs/swagger.json \
+            schemathesis/schemathesis:3.39.4 run /docs/swagger.json \
             --target-base-url http://localhost:8888
 
   # ==========================================
