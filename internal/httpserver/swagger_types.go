@@ -27,6 +27,7 @@ type registerByInviteResult struct {
 	StudentID   int32  `json:"student_id" example:"56"`
 	StudentName string `json:"student_name" example:"Демин Сергей А."`
 	GroupID     *int32 `json:"group_id,omitempty" example:"237"`
+	GroupName   string `json:"group_name,omitempty" example:"ИКС-433"`
 }
 
 type registerByInviteResponse struct {
@@ -51,9 +52,18 @@ type loginResponse struct {
 }
 
 type profileResult struct {
-	UserID string `json:"user_id" example:"3"`
-	Login  string `json:"login" example:"teacher_test"`
-	Role   string `json:"role" example:"teacher"`
+	UserID      string `json:"user_id" example:"3"`
+	Login       string `json:"login" example:"student_iks_21"`
+	Role        string `json:"role" example:"student"`
+	Name        string `json:"name,omitempty" example:"Демин Сергей А."`
+	StudentID   int32  `json:"student_id,omitempty" example:"56"`
+	StudentName string `json:"student_name,omitempty" example:"Демин Сергей А."`
+	GroupID     *int32 `json:"group_id,omitempty" example:"237"`
+	GroupName   string `json:"group_name,omitempty" example:"ИКС-433"`
+	TeacherID   int32  `json:"teacher_id,omitempty" example:"3"`
+	TeacherName string `json:"teacher_name,omitempty" example:"Солодов Павел Сергеевич"`
+	LecternID   *int32 `json:"lectern_id,omitempty" example:"1"`
+	JobTitle    string `json:"job_title,omitempty" example:"Преподаватель"`
 }
 
 type profileResponse struct {

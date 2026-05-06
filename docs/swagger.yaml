@@ -20,6 +20,8 @@ definitions:
         type: string
       role:
         type: string
+      role_hash:
+        type: string
     type: object
   app.RegisterByInviteData:
     properties:
@@ -85,11 +87,38 @@ definitions:
     type: object
   httpserver.profileResult:
     properties:
+      group_id:
+        example: 237
+        type: integer
+      group_name:
+        example: ИКС-433
+        type: string
+      job_title:
+        example: Преподаватель
+        type: string
+      lectern_id:
+        example: 1
+        type: integer
       login:
-        example: teacher_test
+        example: student_iks_21
+        type: string
+      name:
+        example: Демин Сергей А.
         type: string
       role:
-        example: teacher
+        example: student
+        type: string
+      student_id:
+        example: 56
+        type: integer
+      student_name:
+        example: Демин Сергей А.
+        type: string
+      teacher_id:
+        example: 3
+        type: integer
+      teacher_name:
+        example: Солодов Павел Сергеевич
         type: string
       user_id:
         example: "3"
@@ -114,6 +143,9 @@ definitions:
       group_id:
         example: 237
         type: integer
+      group_name:
+        example: ИКС-433
+        type: string
       login:
         example: student_iks_21
         type: string

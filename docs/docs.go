@@ -486,6 +486,9 @@ const docTemplate = `{
                 },
                 "role": {
                     "type": "string"
+                },
+                "role_hash": {
+                    "type": "string"
                 }
             }
         },
@@ -582,13 +585,49 @@ const docTemplate = `{
         "httpserver.profileResult": {
             "type": "object",
             "properties": {
+                "group_id": {
+                    "type": "integer",
+                    "example": 237
+                },
+                "group_name": {
+                    "type": "string",
+                    "example": "ИКС-433"
+                },
+                "job_title": {
+                    "type": "string",
+                    "example": "Преподаватель"
+                },
+                "lectern_id": {
+                    "type": "integer",
+                    "example": 1
+                },
                 "login": {
                     "type": "string",
-                    "example": "teacher_test"
+                    "example": "student_iks_21"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "Демин Сергей А."
                 },
                 "role": {
                     "type": "string",
-                    "example": "teacher"
+                    "example": "student"
+                },
+                "student_id": {
+                    "type": "integer",
+                    "example": 56
+                },
+                "student_name": {
+                    "type": "string",
+                    "example": "Демин Сергей А."
+                },
+                "teacher_id": {
+                    "type": "integer",
+                    "example": 3
+                },
+                "teacher_name": {
+                    "type": "string",
+                    "example": "Солодов Павел Сергеевич"
                 },
                 "user_id": {
                     "type": "string",
@@ -622,6 +661,10 @@ const docTemplate = `{
                 "group_id": {
                     "type": "integer",
                     "example": 237
+                },
+                "group_name": {
+                    "type": "string",
+                    "example": "ИКС-433"
                 },
                 "login": {
                     "type": "string",
