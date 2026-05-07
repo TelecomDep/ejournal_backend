@@ -355,7 +355,7 @@
         },
         "/register": {
             "post": {
-                "description": "Registers a user by login/password and role.",
+                "description": "Registers a user by login/password and role hash.",
                 "consumes": [
                     "application/json"
                 ],
@@ -373,7 +373,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/app.LoginData"
+                            "$ref": "#/definitions/app.RegisterData"
                         }
                     }
                 ],
@@ -480,12 +480,6 @@
                 },
                 "password": {
                     "type": "string"
-                },
-                "role": {
-                    "type": "string"
-                },
-                "role_hash": {
-                    "type": "string"
                 }
             }
         },
@@ -499,6 +493,20 @@
                     "type": "string"
                 },
                 "password": {
+                    "type": "string"
+                }
+            }
+        },
+        "app.RegisterData": {
+            "type": "object",
+            "properties": {
+                "login": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
+                },
+                "role_hash": {
                     "type": "string"
                 }
             }

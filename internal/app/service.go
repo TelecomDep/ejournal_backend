@@ -35,8 +35,12 @@ type Response struct {
 type LoginData struct {
 	Login    string `json:"login"`
 	Password string `json:"password"`
-	Role     string `json:"role,omitempty"`
-	RoleHash string `json:"role_hash,omitempty"`
+}
+
+type RegisterData struct {
+	Login    string `json:"login"`
+	Password string `json:"password"`
+	RoleHash string `json:"role_hash"`
 }
 
 type RegisterByInviteData struct {
@@ -531,7 +535,7 @@ func (s *Service) parseAttendanceInviteToken(inviteToken string) (*AttendanceInv
 	return claims, nil
 }
 
-func (s *Service) register(data LoginData) Response {
+func (s *Service) register(data RegisterData) Response {
 	login := strings.TrimSpace(data.Login)
 	password := strings.TrimSpace(data.Password)
 	if login == "" || password == "" {
@@ -1008,7 +1012,7 @@ func (s *Service) handleRequest(raw string) Response {
 			Result: map[string]any{"pong": true},
 		}
 	case "register":
-		var data LoginData
+		var data RegisterData
 		if err := json.Unmarshal(req.Data, &data); err != nil {
 			return Response{ID: req.ID, OK: false, Error: "EROR reg: " + err.Error()}
 		}

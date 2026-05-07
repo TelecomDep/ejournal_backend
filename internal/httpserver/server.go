@@ -14,13 +14,6 @@ import (
 	swagger "github.com/gofiber/swagger"
 )
 
-type authBody struct {
-	Login    string `json:"login"`
-	Password string `json:"password"`
-	Role     string `json:"role,omitempty"`
-	RoleHash string `json:"role_hash,omitempty"`
-}
-
 type Server struct {
 	cfg            config.AppConfig
 	svc            *app.Service
@@ -64,17 +57,17 @@ func (s *Server) Start() {
 
 // registerHandler godoc
 // @Summary Register user
-// @Description Registers a user by login/password and role.
+// @Description Registers a user by login/password and role hash.
 // @Tags auth
 // @Accept json
 // @Produce json
-// @Param request body app.LoginData true "Register payload"
+// @Param request body app.RegisterData true "Register payload"
 // @Success 200 {object} registerResponse
 // @Failure 400 {object} app.Response
 // @Failure 500 {object} app.Response
 // @Router /register [post]
 func (s *Server) registerHandler(c *fiber.Ctx) error {
-	var body authBody
+	var body app.RegisterData
 	if err := c.BodyParser(&body); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(app.Response{OK: false, Error: "Error parsing body"})
 	}
@@ -114,7 +107,7 @@ func (s *Server) registerHandler(c *fiber.Ctx) error {
 // @Failure 500 {object} app.Response
 // @Router /login [post]
 func (s *Server) loginHandler(c *fiber.Ctx) error {
-	var body authBody
+	var body app.LoginData
 	if err := c.BodyParser(&body); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(app.Response{OK: false, Error: "Error parsing body"})
 	}

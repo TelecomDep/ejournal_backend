@@ -358,7 +358,7 @@ const docTemplate = `{
         },
         "/register": {
             "post": {
-                "description": "Registers a user by login/password and role.",
+                "description": "Registers a user by login/password and role hash.",
                 "consumes": [
                     "application/json"
                 ],
@@ -376,7 +376,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/app.LoginData"
+                            "$ref": "#/definitions/app.RegisterData"
                         }
                     }
                 ],
@@ -483,12 +483,6 @@ const docTemplate = `{
                 },
                 "password": {
                     "type": "string"
-                },
-                "role": {
-                    "type": "string"
-                },
-                "role_hash": {
-                    "type": "string"
                 }
             }
         },
@@ -502,6 +496,20 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "password": {
+                    "type": "string"
+                }
+            }
+        },
+        "app.RegisterData": {
+            "type": "object",
+            "properties": {
+                "login": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
+                },
+                "role_hash": {
                     "type": "string"
                 }
             }

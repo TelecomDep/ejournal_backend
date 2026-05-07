@@ -18,10 +18,6 @@ definitions:
         type: string
       password:
         type: string
-      role:
-        type: string
-      role_hash:
-        type: string
     type: object
   app.RegisterByInviteData:
     properties:
@@ -30,6 +26,15 @@ definitions:
       login:
         type: string
       password:
+        type: string
+    type: object
+  app.RegisterData:
+    properties:
+      login:
+        type: string
+      password:
+        type: string
+      role_hash:
         type: string
     type: object
   app.Response:
@@ -596,14 +601,14 @@ paths:
     post:
       consumes:
       - application/json
-      description: Registers a user by login/password and role.
+      description: Registers a user by login/password and role hash.
       parameters:
       - description: Register payload
         in: body
         name: request
         required: true
         schema:
-          $ref: '#/definitions/app.LoginData'
+          $ref: '#/definitions/app.RegisterData'
       produces:
       - application/json
       responses:
