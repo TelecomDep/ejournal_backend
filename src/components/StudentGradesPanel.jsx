@@ -58,7 +58,7 @@ const StudentGradesPanel = ({ token }) => {
               type="number"
               min="1"
               value={subjectId}
-              onChange={(event) => setSubjectId(event.target.value)}
+              onChange={(event) => setSubjectId(Number(event.target.value))}
             />
           </label>
           <button type="submit" disabled={loading}>
