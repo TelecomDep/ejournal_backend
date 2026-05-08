@@ -64,7 +64,7 @@ const DataTable = ({ data, type, title }) => {
 
   return (
     <div className="contfor-table">
-      <div className="pfp-block-inner">
+      <div className="table-card-inner">
         <h2>{title}</h2>
         <ReactTabulator
           ref={tableRef}

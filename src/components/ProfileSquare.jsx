@@ -4,7 +4,7 @@ import './ProfileSquare.css';
 const ProfileSquare = ({ userData }) => {
   return (
     <div className="pfp-square">
-      <div className="pfp-block-inner">
+      <div className="pfp-square-inner">
         {userData?.avatar ? (
           <img src={userData.avatar} alt="Profile" className="profile-img" />
         ) : (

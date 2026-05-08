@@ -46,6 +46,11 @@ func (s *Server) Start() {
 	fiberApp.Post("/api/teacher/attendance/session", s.teacherAttendanceLinkHandler)
 	fiberApp.Post("/api/teacher/attendance/group", s.teacherAttendanceByGroupHandler)
 	fiberApp.Post("/api/student/attendance/confirm", s.studentAttendanceConfirmHandler)
+	fiberApp.Post("/api/teacher/grades/items", s.teacherCreateGradeItemHandler)
+	fiberApp.Post("/api/teacher/grades/items/list", s.teacherGradeItemsBySubjectHandler)
+	fiberApp.Post("/api/teacher/grades", s.teacherUpsertGradeHandler)
+	fiberApp.Post("/api/teacher/grades/student", s.teacherStudentGradesBySubjectHandler)
+	fiberApp.Post("/api/student/grades", s.studentGradesBySubjectHandler)
 	fiberApp.Get("/swagger/*", swagger.HandlerDefault)
 
 	addr := fmt.Sprintf(":%s", s.cfg.AppPort)
@@ -378,6 +383,133 @@ func (s *Server) teacherAttendanceByGroupHandler(c *fiber.Ctx) error {
 			return c.Status(fiber.StatusUnauthorized).JSON(resp)
 		}
 		return c.Status(fiber.StatusBadRequest).JSON(resp)
+	}
+
+	return c.JSON(resp)
+}
+
+// teacherCreateGradeItemHandler godoc
+// @Summary Create grade item
+// @Description Teacher creates a subject grade item/control point.
+// @Tags grades
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body app.GradeItemCreateData true "Grade item payload"
+// @Success 200 {object} app.Response
+// @Failure 400 {object} app.Response
+// @Failure 401 {object} app.Response
+// @Failure 403 {object} app.Response
+// @Failure 404 {object} app.Response
+// @Router /api/teacher/grades/items [post]
+func (s *Server) teacherCreateGradeItemHandler(c *fiber.Ctx) error {
+	var body app.GradeItemCreateData
+	return s.gradeActionHandler(c, "http-teacher-create-grade-item", "teacher_create_grade_item", &body)
+}
+
+// teacherGradeItemsBySubjectHandler godoc
+// @Summary List grade items by subject
+// @Description Teacher lists grade items/control points for assigned subject.
+// @Tags grades
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body app.GradeSubjectData true "Subject payload"
+// @Success 200 {object} app.Response
+// @Failure 400 {object} app.Response
+// @Failure 401 {object} app.Response
+// @Failure 403 {object} app.Response
+// @Failure 404 {object} app.Response
+// @Router /api/teacher/grades/items/list [post]
+func (s *Server) teacherGradeItemsBySubjectHandler(c *fiber.Ctx) error {
+	var body app.GradeSubjectData
+	return s.gradeActionHandler(c, "http-teacher-grade-items", "teacher_grade_items_by_subject", &body)
+}
+
+// teacherUpsertGradeHandler godoc
+// @Summary Create or update student grade
+// @Description Teacher creates or updates a student's score for a grade item.
+// @Tags grades
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body app.GradeUpsertData true "Grade payload"
+// @Success 200 {object} app.Response
+// @Failure 400 {object} app.Response
+// @Failure 401 {object} app.Response
+// @Failure 403 {object} app.Response
+// @Failure 404 {object} app.Response
+// @Router /api/teacher/grades [post]
+func (s *Server) teacherUpsertGradeHandler(c *fiber.Ctx) error {
+	var body app.GradeUpsertData
+	return s.gradeActionHandler(c, "http-teacher-upsert-grade", "teacher_upsert_grade", &body)
+}
+
+// teacherStudentGradesBySubjectHandler godoc
+// @Summary Get student grades by subject
+// @Description Teacher gets a student's grade sheet for an assigned subject.
+// @Tags grades
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body app.TeacherStudentGradesData true "Student subject payload"
+// @Success 200 {object} app.Response
+// @Failure 400 {object} app.Response
+// @Failure 401 {object} app.Response
+// @Failure 403 {object} app.Response
+// @Failure 404 {object} app.Response
+// @Router /api/teacher/grades/student [post]
+func (s *Server) teacherStudentGradesBySubjectHandler(c *fiber.Ctx) error {
+	var body app.TeacherStudentGradesData
+	return s.gradeActionHandler(c, "http-teacher-student-grades", "teacher_student_grades_by_subject", &body)
+}
+
+// studentGradesBySubjectHandler godoc
+// @Summary Get current student grades by subject
+// @Description Student gets own grade sheet for a subject.
+// @Tags grades
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body app.GradeSubjectData true "Subject payload"
+// @Success 200 {object} app.Response
+// @Failure 400 {object} app.Response
+// @Failure 401 {object} app.Response
+// @Failure 403 {object} app.Response
+// @Failure 404 {object} app.Response
+// @Router /api/student/grades [post]
+func (s *Server) studentGradesBySubjectHandler(c *fiber.Ctx) error {
+	var body app.GradeSubjectData
+	return s.gradeActionHandler(c, "http-student-grades", "student_grades_by_subject", &body)
+}
+
+func (s *Server) gradeActionHandler(c *fiber.Ctx, requestID, action string, body any) error {
+	token := c.Get("Authorization")
+	if token == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(app.Response{OK: false, Error: "missing Authorization header"})
+	}
+
+	if err := c.BodyParser(body); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(app.Response{OK: false, Error: "Error parsing body"})
+	}
+
+	data, err := json.Marshal(body)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(app.Response{OK: false, Error: "Error marshalling request"})
+	}
+
+	req := app.Request{ID: requestID, Action: action, Token: token, Data: data}
+	raw, err := json.Marshal(req)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(app.Response{OK: false, Error: "Error marshalling envelope"})
+	}
+
+	resp, err := s.svc.DispatchRequest(string(raw), s.requestTimeout)
+	if err != nil {
+		return c.Status(fiber.StatusServiceUnavailable).JSON(app.Response{OK: false, Error: err.Error()})
+	}
+	if !resp.OK {
+		return c.Status(app.GradeHTTPStatus(resp)).JSON(resp)
 	}
 
 	return c.JSON(resp)

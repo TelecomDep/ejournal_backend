@@ -5,6 +5,7 @@ import PersonalAccount from './components/PersonalAccount';
 import TeacherAccount from './components/TeacherAccount';
 import LoginPage from './components/LoginPage';
 import DataTable from './components/DataTable';
+import StudentGradesPanel from './components/StudentGradesPanel';
 import api from './services/api';
 import { sha256Hex } from './utils/hash';
 import './App.css';
@@ -137,6 +138,8 @@ function App() {
       </div>
 
       <PersonalAccount userData={userData} onLogout={handleLogout} />
+
+      <StudentGradesPanel token={token} />
 
       <div className="tables-row">
         <DataTable data={sampleStudents} type="students" title="Список студентов" />

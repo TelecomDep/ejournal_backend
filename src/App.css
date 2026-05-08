@@ -1,13 +1,13 @@
 .contentContainer {
   min-height: 100vh;
-  position: relative;
-  padding: 24px;
+  padding: 32px;
   background: #eef1f9;
 }
 
 .page-header {
   display: flex;
-  gap: 20px;
+  align-items: stretch;
+  gap: 24px;
   flex-wrap: wrap;
   margin-bottom: 24px;
 }
@@ -18,14 +18,13 @@
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
 }
 
-.contfor-table {
-  background: #ffffff;
-  border-radius: 20px;
-  padding: 18px;
-  box-shadow: 0 16px 40px rgba(34, 44, 88, 0.08);
-}
+@media (max-width: 720px) {
+  .contentContainer {
+    padding: 20px;
+  }
 
-.pfp-block-inner h2 {
-  margin: 0 0 16px;
-  color: #2b2f5c;
+  .page-header {
+    align-items: center;
+    flex-direction: column;
+  }
 }

@@ -189,6 +189,10 @@ func containsAllGroupIDs(fromSchedule, requested []int32) bool {
 	return true
 }
 
+func isDemoTeacher(user User) bool {
+	return user.Role == "teacher" && strings.EqualFold(user.Login, "teacher_test")
+}
+
 func NewService(jwtSecret, siteBaseURL, roleHashTeacher, roleHashStudent string, defaultGroupID int32, allowEarlyAttendance bool, store *db.Store) *Service {
 	return &Service{
 		jwtSecret:            []byte(strings.TrimSpace(jwtSecret)),
@@ -752,6 +756,7 @@ func (s *Service) createAttendanceLinkByTeacher(sessionToken string, data Attend
 	if teacherUser.Role != "teacher" {
 		return Response{OK: false, Error: "forbidden: teacher role required"}
 	}
+	demoTeacher := isDemoTeacher(teacherUser)
 	teacherProfile, err := s.teacherProfileByUser(teacherUser)
 	if err != nil {
 		return Response{OK: false, Error: err.Error()}
@@ -765,10 +770,10 @@ func (s *Service) createAttendanceLinkByTeacher(sessionToken string, data Attend
 	if err != nil {
 		return Response{OK: false, Error: "failed to load nearest lesson"}
 	}
-	if !found {
+	if !found && !demoTeacher {
 		return Response{OK: false, Error: "no scheduled lessons found for teacher"}
 	}
-	if !s.allowEarlyAttendance && nowLocal.Before(nearestLesson.StartAt.Add(-15*time.Minute)) {
+	if found && !demoTeacher && !s.allowEarlyAttendance && nowLocal.Before(nearestLesson.StartAt.Add(-15*time.Minute)) {
 		return Response{
 			OK: false,
 			Error: fmt.Sprintf(
@@ -779,21 +784,24 @@ func (s *Service) createAttendanceLinkByTeacher(sessionToken string, data Attend
 	}
 
 	requestedSubjectID := data.SubjectID
-	if requestedSubjectID <= 0 {
+	if requestedSubjectID <= 0 && found {
 		requestedSubjectID = nearestLesson.SubjectID
 	}
-	if requestedSubjectID != nearestLesson.SubjectID {
+	if requestedSubjectID <= 0 {
+		return Response{OK: false, Error: "subject_id is required"}
+	}
+	if found && !demoTeacher && requestedSubjectID != nearestLesson.SubjectID {
 		return Response{OK: false, Error: "subject_id does not match nearest scheduled lesson"}
 	}
 
 	groupIDs := normalizeGroupIDs(data.GroupIDs)
-	if len(groupIDs) == 0 {
+	if len(groupIDs) == 0 && found {
 		groupIDs = normalizeGroupIDs(nearestLesson.GroupIDs)
 	}
 	if len(groupIDs) == 0 {
-		return Response{OK: false, Error: "nearest scheduled lesson has no groups"}
+		return Response{OK: false, Error: "group_ids are required"}
 	}
-	if !containsAllGroupIDs(nearestLesson.GroupIDs, groupIDs) {
+	if found && !demoTeacher && !containsAllGroupIDs(nearestLesson.GroupIDs, groupIDs) {
 		return Response{OK: false, Error: "group_ids do not match nearest scheduled lesson"}
 	}
 	sort.Slice(groupIDs, func(i, j int) bool { return groupIDs[i] < groupIDs[j] })
@@ -834,6 +842,12 @@ func (s *Service) createAttendanceLinkByTeacher(sessionToken string, data Attend
 	if lessonName == "" {
 		lessonName = subject.Name
 	}
+	scheduleStart := nowLocal
+	scheduleEnd := nowLocal.Add(95 * time.Minute)
+	if found && requestedSubjectID == nearestLesson.SubjectID {
+		scheduleStart = nearestLesson.StartAt
+		scheduleEnd = nearestLesson.EndAt
+	}
 
 	return Response{
 		OK: true,
@@ -848,8 +862,8 @@ func (s *Service) createAttendanceLinkByTeacher(sessionToken string, data Attend
 			"group_ids":       groupIDs,
 			"roster_size":     rosterSize,
 			"teacher_id":      teacherID,
-			"schedule_start":  formatAPITime(nearestLesson.StartAt),
-			"schedule_end":    formatAPITime(nearestLesson.EndAt),
+			"schedule_start":  formatAPITime(scheduleStart),
+			"schedule_end":    formatAPITime(scheduleEnd),
 			"timezone":        "Asia/Novosibirsk",
 			"expires_at":      formatAPITime(signedExpiresAt),
 			"expires_minutes": effectiveTTL,
@@ -1062,6 +1076,46 @@ func (s *Service) handleRequest(raw string) Response {
 			return Response{ID: req.ID, OK: false, Error: "invalid teacher_attendance_by_group payload"}
 		}
 		resp := s.attendanceByGroupForTeacher(req.Token, data)
+		resp.ID = req.ID
+		return resp
+	case "teacher_create_grade_item":
+		var data GradeItemCreateData
+		if err := json.Unmarshal(req.Data, &data); err != nil {
+			return Response{ID: req.ID, OK: false, Error: "invalid teacher_create_grade_item payload"}
+		}
+		resp := s.createGradeItemByTeacher(req.Token, data)
+		resp.ID = req.ID
+		return resp
+	case "teacher_grade_items_by_subject":
+		var data GradeSubjectData
+		if err := json.Unmarshal(req.Data, &data); err != nil {
+			return Response{ID: req.ID, OK: false, Error: "invalid teacher_grade_items_by_subject payload"}
+		}
+		resp := s.gradeItemsBySubjectForTeacher(req.Token, data)
+		resp.ID = req.ID
+		return resp
+	case "teacher_upsert_grade":
+		var data GradeUpsertData
+		if err := json.Unmarshal(req.Data, &data); err != nil {
+			return Response{ID: req.ID, OK: false, Error: "invalid teacher_upsert_grade payload"}
+		}
+		resp := s.upsertGradeByTeacher(req.Token, data)
+		resp.ID = req.ID
+		return resp
+	case "teacher_student_grades_by_subject":
+		var data TeacherStudentGradesData
+		if err := json.Unmarshal(req.Data, &data); err != nil {
+			return Response{ID: req.ID, OK: false, Error: "invalid teacher_student_grades_by_subject payload"}
+		}
+		resp := s.gradesBySubjectForTeacher(req.Token, data)
+		resp.ID = req.ID
+		return resp
+	case "student_grades_by_subject":
+		var data GradeSubjectData
+		if err := json.Unmarshal(req.Data, &data); err != nil {
+			return Response{ID: req.ID, OK: false, Error: "invalid student_grades_by_subject payload"}
+		}
+		resp := s.gradesBySubjectForStudent(req.Token, data)
 		resp.ID = req.ID
 		return resp
 	default:

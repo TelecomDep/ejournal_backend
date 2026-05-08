@@ -23,6 +23,7 @@ type Store struct {
 	Groups          *GroupRepository
 	Students        *StudentRepository
 	Attendance      *AttendanceRepository
+	Grades          *GradeRepository
 }
 
 func NewStore(ctx context.Context, dsn string) (*Store, error) {
@@ -49,6 +50,7 @@ func NewStore(ctx context.Context, dsn string) (*Store, error) {
 		Groups:          NewGroupRepository(pool),
 		Students:        NewStudentRepository(pool),
 		Attendance:      NewAttendanceRepository(pool),
+		Grades:          NewGradeRepository(pool),
 	}
 
 	return store, nil

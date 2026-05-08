@@ -97,3 +97,41 @@ type AttendanceGroupStat struct {
 	AttendedSessions int32      `json:"attended_sessions"`
 	LastMarkedAt     *time.Time `json:"last_marked_at,omitempty"`
 }
+
+type GradeItem struct {
+	ID        int32      `json:"item_id"`
+	SubjectID int32      `json:"subject_id"`
+	Title     string     `json:"title"`
+	MaxScore  int32      `json:"max_score"`
+	ItemType  string     `json:"item_type"`
+	Deadline  *time.Time `json:"deadline,omitempty"`
+	CreatedAt time.Time  `json:"created_at"`
+}
+
+type Grade struct {
+	ID        int32     `json:"grade_id"`
+	StudentID int32     `json:"student_id"`
+	ItemID    int32     `json:"item_id"`
+	TeacherID *int32    `json:"teacher_id,omitempty"`
+	Score     int32     `json:"score"`
+	SessionID *int32    `json:"session_id,omitempty"`
+	Comment   *string   `json:"comment,omitempty"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+type StudentGradePoint struct {
+	ItemID   int32      `json:"item_id"`
+	Title    string     `json:"title"`
+	MaxScore int32      `json:"max_score"`
+	ItemType string     `json:"item_type"`
+	Deadline *time.Time `json:"deadline,omitempty"`
+	Score    int32      `json:"score"`
+	GradedAt *time.Time `json:"graded_at,omitempty"`
+}
+
+type PredictionStats struct {
+	TotalMax     int32 `json:"total_max"`
+	PassedMax    int32 `json:"passed_max"`
+	CurrentScore int32 `json:"current_score"`
+}

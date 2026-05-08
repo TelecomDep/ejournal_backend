@@ -1,260 +1,252 @@
 .teacher-account {
-  width: 100%;
-  padding: 20px;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu',
-    'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
-  background-color: #f5f5f5;
+  min-height: 100vh;
+  padding: 32px;
+  background: #eef1f9;
+  color: #202442;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
 }
 
-/* Header */
 .teacher-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  background: white;
-  padding: 20px;
-  border-radius: 8px;
+  justify-content: space-between;
+  gap: 24px;
   margin-bottom: 20px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .teacher-info h1 {
-  margin: 0 0 10px 0;
-  font-size: 28px;
-  color: #333;
+  margin: 0;
+  color: #24305f;
+  font-size: 30px;
 }
 
 .teacher-subtitle {
-  margin: 0;
-  color: #666;
-  font-size: 14px;
-}
-
-.teacher-subtitle strong {
-  color: #333;
+  margin: 8px 0 0;
+  color: #5c6385;
 }
 
 .teacher-actions {
   display: flex;
-  gap: 10px;
+  gap: 12px;
 }
 
-.update-profile-btn,
-.logout-btn {
-  padding: 8px 16px;
-  font-size: 14px;
-  border: none;
-  border-radius: 4px;
+.logout-btn,
+.submit-btn,
+.secondary-btn,
+.tab-btn {
+  border: 0;
+  border-radius: 8px;
   cursor: pointer;
-  transition: background-color 0.3s;
-}
-
-.update-profile-btn {
-  background-color: #f0f0f0;
-  color: #333;
-  border: 1px solid #ddd;
-}
-
-.update-profile-btn:hover {
-  background-color: #e0e0e0;
+  font: inherit;
+  font-weight: 700;
 }
 
 .logout-btn {
-  background-color: #c41e3a;
-  color: white;
+  background: #ff5c5c;
+  color: #ffffff;
+  padding: 12px 20px;
 }
 
-.logout-btn:hover {
-  background-color: #a01830;
+.feedback {
+  margin-bottom: 18px;
+  border-radius: 8px;
+  padding: 14px 16px;
+  font-weight: 700;
 }
 
-/* Tabs */
+.feedback-success {
+  background: #e8f6ee;
+  color: #22683a;
+  border: 1px solid #bee7cb;
+}
+
+.feedback-error {
+  background: #fff0f0;
+  color: #a42929;
+  border: 1px solid #ffd0d0;
+}
+
 .teacher-tabs {
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
   margin-bottom: 20px;
-  background: white;
-  padding: 10px;
+  background: #ffffff;
   border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  padding: 8px;
+  box-shadow: 0 12px 30px rgba(49, 55, 83, 0.08);
 }
 
 .tab-btn {
-  padding: 10px 20px;
-  font-size: 14px;
-  border: none;
-  background-color: #f0f0f0;
-  color: #666;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.3s;
+  min-height: 42px;
+  padding: 10px 18px;
+  color: #505779;
+  background: transparent;
 }
 
 .tab-btn:hover {
-  background-color: #e0e0e0;
+  background: #f1f3fb;
 }
 
 .tab-btn.active {
-  background-color: #4472c4;
-  color: white;
+  color: #ffffff;
+  background: #4f66c9;
 }
 
-/* Main Section */
 .teacher-section {
-  background: white;
-  padding: 30px;
+  background: #ffffff;
   border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  margin-bottom: 20px;
+  padding: 28px;
+  box-shadow: 0 12px 30px rgba(49, 55, 83, 0.08);
 }
 
-.teacher-section h2 {
-  margin-top: 0;
-  margin-bottom: 20px;
-  color: #333;
-  font-size: 20px;
+.section-heading {
+  margin-bottom: 22px;
 }
 
-/* Form */
-.teacher-form {
+.section-heading h2 {
+  margin: 0;
+  color: #24305f;
+  font-size: 24px;
+}
+
+.section-heading p {
+  margin: 8px 0 0;
+  color: #68708e;
+}
+
+.teacher-form,
+.compact-form {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 20px;
-  margin-bottom: 20px;
+  grid-template-columns: repeat(2, minmax(220px, 1fr));
+  gap: 18px;
+  align-items: end;
 }
 
 .form-group {
   display: flex;
   flex-direction: column;
   gap: 8px;
-}
-
-.form-group label {
-  font-weight: 500;
-  color: #666;
+  color: #515879;
   font-size: 14px;
+  font-weight: 700;
 }
 
-.form-group input {
+.form-group-wide {
+  grid-column: 1 / -1;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea,
+.sheet-toolbar input {
+  width: 100%;
+  min-height: 42px;
+  box-sizing: border-box;
+  border: 1px solid #d8ddeb;
+  border-radius: 8px;
   padding: 10px 12px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 14px;
-  font-family: inherit;
-  transition: border-color 0.3s;
+  background: #ffffff;
+  color: #202442;
+  font: inherit;
 }
 
-.form-group input:focus {
+.form-group textarea {
+  min-height: 90px;
+  resize: vertical;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus,
+.sheet-toolbar input:focus {
   outline: none;
-  border-color: #4472c4;
-  box-shadow: 0 0 0 3px rgba(68, 114, 196, 0.1);
+  border-color: #4f66c9;
+  box-shadow: 0 0 0 3px rgba(79, 102, 201, 0.14);
+}
+
+.form-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
 }
 
 .submit-btn,
-.copy-btn {
-  padding: 10px 20px;
-  font-size: 14px;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-weight: 500;
-  transition: background-color 0.3s;
+.secondary-btn {
+  min-height: 42px;
+  padding: 11px 18px;
 }
 
 .submit-btn {
-  background-color: #4472c4;
-  color: white;
-  grid-column: 1;
+  background: #4f66c9;
+  color: #ffffff;
 }
 
-.submit-btn:hover:not(:disabled) {
-  background-color: #3659a0;
+.secondary-btn {
+  background: #eef1f9;
+  color: #37406d;
 }
 
-.submit-btn:disabled {
-  opacity: 0.6;
+.submit-btn:disabled,
+.secondary-btn:disabled {
   cursor: not-allowed;
+  opacity: 0.55;
 }
 
-.copy-btn {
-  background-color: #7a8b99;
-  color: white;
-  grid-column: 2;
+.result-panel,
+.tool-panel,
+.list-panel {
+  border: 1px solid #e3e7f3;
+  border-radius: 8px;
+  background: #fbfcff;
 }
 
-.copy-btn:hover {
-  background-color: #5a6b79;
-}
-
-/* Error Message */
-.error-message {
-  background-color: #f8d7da;
-  color: #721c24;
-  border: 1px solid #f5c6cb;
-  border-radius: 4px;
-  padding: 12px;
-  margin-bottom: 20px;
-  font-size: 14px;
-}
-
-/* Session Result */
-.session-result {
-  background: #f0f8ff;
-  border: 1px solid #d0e8f2;
-  border-radius: 4px;
+.result-panel {
+  margin-top: 22px;
   padding: 20px;
-  margin-top: 20px;
 }
 
-.session-result h3 {
-  margin-top: 0;
-  color: #2e7d32;
-  margin-bottom: 15px;
+.result-panel h3,
+.tool-panel h3,
+.list-panel h3 {
+  margin: 0;
+  color: #24305f;
 }
 
-.result-item {
-  margin-bottom: 12px;
+.result-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(180px, 1fr));
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.result-grid div {
   display: flex;
+  min-width: 0;
   flex-direction: column;
   gap: 6px;
 }
 
-.result-item label {
-  font-weight: 500;
-  color: #666;
+.result-grid span,
+.list-panel-header span,
+.score-summary span {
+  color: #68708e;
   font-size: 13px;
 }
 
-.result-value {
-  background-color: white;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  padding: 10px 12px;
+.result-grid strong {
+  color: #202442;
+}
+
+.mono-value {
+  overflow-wrap: anywhere;
   font-family: 'Courier New', monospace;
-  font-size: 12px;
-  word-break: break-all;
-  color: #333;
 }
 
-.result-value.clickable {
-  cursor: pointer;
-  user-select: all;
-  background-color: #fafafa;
-}
-
-.result-value.clickable:hover {
-  background-color: #f0f0f0;
-}
-
-/* Stats Table */
-.stats-result {
-  margin-top: 20px;
-}
-
-.stats-result h3 {
-  margin-top: 0;
-  color: #333;
-  margin-bottom: 15px;
+.table-wrap {
+  width: 100%;
+  overflow-x: auto;
 }
 
 .stats-table {
@@ -264,57 +256,164 @@
 }
 
 .stats-table thead {
-  background-color: #f5f5f5;
-  border-bottom: 2px solid #ddd;
+  background: #f1f3fb;
+}
+
+.stats-table th,
+.stats-table td {
+  border-bottom: 1px solid #e8ebf4;
+  padding: 12px;
+  text-align: left;
 }
 
 .stats-table th {
-  padding: 12px;
-  text-align: left;
-  font-weight: 600;
-  color: #333;
+  color: #37406d;
+  font-weight: 800;
 }
 
 .stats-table td {
-  padding: 10px 12px;
-  border-bottom: 1px solid #eee;
-  color: #666;
+  color: #4b5273;
 }
 
-.stats-table tbody tr:hover {
-  background-color: #f9f9f9;
+.grades-layout {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.9fr) minmax(320px, 1.1fr);
+  gap: 18px;
 }
 
-.stats-table tbody tr:last-child td {
-  border-bottom: none;
+.tool-panel,
+.list-panel {
+  padding: 20px;
 }
 
-/* Responsive */
-@media (max-width: 768px) {
-  .teacher-header {
-    flex-direction: column;
-    gap: 15px;
-    align-items: flex-start;
+.tool-panel {
+  display: grid;
+  gap: 16px;
+}
+
+.grades-dashboard {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.9fr) minmax(360px, 1.1fr);
+  gap: 18px;
+  margin-top: 18px;
+}
+
+.list-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.list-panel-header span {
+  border-radius: 999px;
+  background: #eef1f9;
+  padding: 6px 10px;
+  font-weight: 800;
+}
+
+.grade-items-list {
+  display: grid;
+  gap: 10px;
+}
+
+.grade-item-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px 12px;
+  width: 100%;
+  border: 1px solid #e3e7f3;
+  border-radius: 8px;
+  padding: 12px;
+  background: #ffffff;
+  color: #202442;
+  cursor: pointer;
+  text-align: left;
+}
+
+.grade-item-row.selected {
+  border-color: #4f66c9;
+  box-shadow: 0 0 0 3px rgba(79, 102, 201, 0.1);
+}
+
+.grade-item-row span {
+  font-weight: 800;
+}
+
+.grade-item-row strong {
+  color: #4f66c9;
+}
+
+.grade-item-row small {
+  grid-column: 1 / -1;
+  color: #68708e;
+}
+
+.sheet-toolbar {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(120px, 1fr)) auto;
+  gap: 12px;
+  align-items: end;
+  margin-bottom: 16px;
+}
+
+.sheet-toolbar h3 {
+  grid-column: 1 / -1;
+}
+
+.sheet-toolbar label {
+  display: grid;
+  gap: 6px;
+  color: #515879;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.score-summary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.score-summary div {
+  display: grid;
+  gap: 4px;
+  border-radius: 8px;
+  background: #eef1f9;
+  padding: 12px;
+}
+
+.score-summary strong {
+  color: #24305f;
+  font-size: 24px;
+}
+
+.empty-state {
+  margin: 12px 0 0;
+  color: #68708e;
+}
+
+@media (max-width: 900px) {
+  .teacher-account {
+    padding: 20px;
   }
 
-  .teacher-actions {
-    width: 100%;
-  }
-
-  .teacher-form {
+  .teacher-header,
+  .teacher-form,
+  .compact-form,
+  .grades-layout,
+  .grades-dashboard,
+  .result-grid {
     grid-template-columns: 1fr;
   }
 
-  .submit-btn,
-  .copy-btn {
-    grid-column: 1;
+  .teacher-header {
+    display: grid;
   }
 
-  .teacher-tabs {
-    flex-wrap: wrap;
-  }
-
-  .teacher-section {
-    padding: 20px;
+  .sheet-toolbar {
+    grid-template-columns: 1fr;
   }
 }
