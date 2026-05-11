@@ -1,12 +1,17 @@
 .info-card {
   box-sizing: border-box;
-  position: absolute;
   width: 260px;
   height: 320px;
   border-radius: 10px;
   background: linear-gradient(180deg, #6B8ED4, #5E3E9F);
   padding: 1px;
   overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.info-card:hover {
+  transform: translateY(-5px);
 }
 
 .info-card .pfp-block-inner {
@@ -14,16 +19,48 @@
   height: 100%;
   border-radius: 9px;
   background: #282828;
-  padding: 20px;
+  padding: 30px 25px;
   color: white;
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: space-between;
+}
+
+.card-icon {
+  width: 60px;
+  height: 60px;
+  border-radius: 15px;
+  display: flex;
+  align-items: center;
   justify-content: center;
+  margin-bottom: 10px;
+}
+
+.card-title {
+  font-size: 16px;
+  color: #8A8A8A;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin: 0;
 }
 
 .card-value {
   font-size: 48px;
   font-weight: bold;
-  margin: 20px 0;
+  background: linear-gradient(180deg, #6B8ED4, #5E3E9F);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.card-footer {
+  width: 100%;
+  text-align: center;
+}
+
+.card-detail {
+  font-size: 14px;
+  color: #6B8ED4;
+  text-decoration: underline;
 }

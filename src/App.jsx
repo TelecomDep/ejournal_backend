@@ -1,146 +1,262 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import ProfileSquare from './components/ProfileSquare';
 import ProfileDescription from './components/ProfileDescription';
+import SlidersUnder from './components/SlidersUnder';
+import Calendar from './components/Calendar';
+import InfoCard from './components/InfoCard';
+import DataTable from './components/DataTable';
 import PersonalAccount from './components/PersonalAccount';
 import TeacherAccount from './components/TeacherAccount';
 import LoginPage from './components/LoginPage';
-import DataTable from './components/DataTable';
-import api from './services/api';
-import { sha256Hex } from './utils/hash';
+import useWebSocket from './hooks/useWebSocket';
 import './App.css';
 
-const sampleStudents = [
-  { id: 1, name: 'Иван Иванов', group: 'A-101', subject1: 'Математика', subject2: 'Физика', subject3: 'Информатика', subject4: 'Английский' },
-  { id: 2, name: 'Мария Петрова', group: 'A-103', subject1: 'Русский', subject2: 'История', subject3: 'Химия', subject4: 'Литература' },
-  { id: 3, name: 'Сергей Кузнецов', group: 'B-205', subject1: 'География', subject2: 'Биология', subject3: 'Физика', subject4: 'Труд' }
-];
-
-const sampleAttendance = [
-  { id: 1, name: 'Иван Иванов', date1: '✓', date2: '✓', date3: '✗', date4: '✓', date5: '✓' },
-  { id: 2, name: 'Мария Петрова', date1: '✓', date2: '✓', date3: '✓', date4: '✓', date5: '✓' },
-  { id: 3, name: 'Сергей Кузнецов', date1: '✗', date2: '✓', date3: '✓', date4: '✗', date5: '✓' }
-];
-
 function App() {
-  const [token, setToken] = useState(localStorage.getItem('token') || '');
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [userRole, setUserRole] = useState('student'); // 'student' или 'teacher'
   const [userData, setUserData] = useState(null);
+  const [studentsData, setStudentsData] = useState([]);
+  const [attendanceData, setAttendanceData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  
+  const { sendMessage, lastMessage, connectionStatus } = useWebSocket('ws://localhost:8080/ws');
 
+  // Эффект для запроса данных после подключения WebSocket
   useEffect(() => {
-    if (!token) {
-      setUserData(null);
-      return;
-    }
+    if (connectionStatus === 'connected' && isLoggedIn) {
+      // Запрос данных пользователя
+      sendMessage({
+        action: 'getUserData',
+        data: { userId: userData?.user_id }
+      });
+      
+      // Запрос списка студентов
+      sendMessage({
+        action: 'getStudentsList',
+        data: { groupId: userData?.group_id }
+      });
+      
+      // Запрос посещаемости
+      sendMessage({
+        action: 'getAttendance',
+        data: { userId: userData?.user_id }
+      });
 
-    setLoading(true);
-    api.getProfile(token)
-      .then((response) => {
-        if (response?.user_id || response?.login) {
-          setUserData({
-            ...response,
-            name: response.name || response.login
-          });
+      // Для преподавателя запрашиваем дополнительные данные
+      if (userRole === 'teacher') {
+        sendMessage({
+          action: 'getTeacherStats',
+          data: { teacherId: userData?.teacher_id }
+        });
+        
+        sendMessage({
+          action: 'getTeacherGrades',
+          data: { teacherId: userData?.teacher_id }
+        });
+      }
+    }
+  }, [connectionStatus, isLoggedIn, userData?.user_id, userData?.teacher_id]);
+
+  // Обработка входящих сообщений WebSocket
+  useEffect(() => {
+    if (lastMessage) {
+      try {
+        const response = JSON.parse(lastMessage);
+        
+        if (response.ok) {
+          switch (response.action) {
+            case 'getUserData':
+              setUserData(prev => ({
+                ...prev,
+                ...response.result
+              }));
+              break;
+              
+            case 'getStudentsList':
+              setStudentsData(response.result || []);
+              break;
+              
+            case 'getAttendance':
+              setAttendanceData(response.result || []);
+              break;
+              
+            case 'getTeacherStats':
+              setUserData(prev => ({
+                ...prev,
+                stats: response.result
+              }));
+              break;
+              
+            case 'getTeacherGrades':
+              setUserData(prev => ({
+                ...prev,
+                grades: response.result
+              }));
+              break;
+              
+            default:
+              console.log('Unhandled action:', response.action);
+              break;
+          }
         } else {
-          throw new Error(response?.error || 'Не удалось получить профиль');
+          console.error('Server error:', response.error);
+          setError(response.error || 'Ошибка сервера');
         }
-      })
-      .catch((err) => {
-        console.error('Profile load failed:', err);
-        localStorage.removeItem('token');
-        setToken('');
-        setError(api.getErrorMessage(err, 'Сессия истекла. Выполните вход заново.'));
-      })
-      .finally(() => setLoading(false));
-  }, [token]);
-
-  const handleLogin = async (login, password) => {
-    setError('');
-    setLoading(true);
-
-    try {
-      const passwordHash = await sha256Hex(password);
-      const response = await api.login(login, passwordHash);
-      if (response?.token) {
-        localStorage.setItem('token', response.token);
-        setToken(response.token);
-        setUserData({
-          ...response,
-          name: response.login
-        });
-      } else {
-        throw new Error(response?.error || 'Не удалось войти');
+      } catch (parseError) {
+        console.error('Failed to parse message:', parseError);
       }
-    } catch (err) {
-      setError(api.getErrorMessage(err, 'Ошибка входа'));
-      console.error('Login failed:', err);
-    } finally {
-      setLoading(false);
     }
-  };
+  }, [lastMessage]);
 
-  const handleRegister = async (login, password, roleHash, inviteCode) => {
-    setError('');
+  // Обработка входа
+  const handleLogin = useCallback((login, password) => {
     setLoading(true);
-
-    try {
-      const passwordHash = await sha256Hex(password);
-      await api.register(login, passwordHash, roleHash, inviteCode);
-      const response = await api.login(login, passwordHash);
-
-      if (response?.token) {
-        localStorage.setItem('token', response.token);
-        setToken(response.token);
-        setUserData({
-          ...response,
-          name: response.login
-        });
-      } else {
-        throw new Error(response?.error || 'Не удалось зарегистрироваться');
-      }
-    } catch (err) {
-      setError(api.getErrorMessage(err, 'Ошибка регистрации'));
-      console.error('Register failed:', err);
-    } finally {
+    setError('');
+    
+    // Имитация запроса к серверу
+    setTimeout(() => {
+      // В реальном приложении здесь был бы API-запрос
+      const mockUserData = {
+        name: 'Иван Петров',
+        login: login,
+        role: userRole,
+        group: userRole === 'student' ? 'A-101' : undefined,
+        group_name: userRole === 'student' ? 'Группа A-101' : undefined,
+        email: 'ivan@example.com',
+        phone: '+7 (999) 123-45-67',
+        user_id: Math.floor(Math.random() * 1000),
+        teacher_id: userRole === 'teacher' ? Math.floor(Math.random() * 1000) : undefined,
+        department: userRole === 'teacher' ? 'Информатика' : undefined,
+        position: userRole === 'teacher' ? 'Доцент' : undefined,
+        avatar: null,
+        status: 'В сети'
+      };
+      
+      setUserData(mockUserData);
+      setIsLoggedIn(true);
       setLoading(false);
-    }
-  };
+    }, 1000);
+  }, [userRole]);
 
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    setToken('');
+  // Обработка регистрации
+  const handleRegister = useCallback((login, password, registrationCode) => {
+    setLoading(true);
+    setError('');
+    
+    // Имитация регистрации
+    setTimeout(() => {
+      // В реальном приложении здесь был бы API-запрос
+      handleLogin(login, password);
+    }, 1500);
+  }, [handleLogin]);
+
+  // Обработка выхода
+  const handleLogout = useCallback(() => {
+    setIsLoggedIn(false);
     setUserData(null);
+    setStudentsData([]);
+    setAttendanceData([]);
     setError('');
-  };
+  }, []);
 
-  if (!userData) {
-    return <LoginPage onLogin={handleLogin} onRegister={handleRegister} loading={loading} error={error} />;
-  }
+  // Данные для инфо-карточек
+  const cardData = [
+    { 
+      id: 1, 
+      title: 'Успеваемость', 
+      value: userData?.performance || '85%', 
+      color: '#6B8ED4' 
+    },
+    { 
+      id: 2, 
+      title: 'Посещаемость', 
+      value: userData?.attendance || '92%', 
+      color: '#5E3E9F' 
+    },
+    { 
+      id: 3, 
+      title: 'Рейтинг', 
+      value: userData?.rating || '78%', 
+      color: '#4A7BC8' 
+    }
+  ];
 
-  // Render teacher account page if user is a teacher
-  if (userData?.role === 'teacher') {
+  // Если не авторизован - показываем страницу входа
+  if (!isLoggedIn) {
     return (
-      <TeacherAccount 
-        userData={userData} 
-        onLogout={handleLogout}
-        token={token}
+      <LoginPage 
+        onLogin={handleLogin} 
+        onRegister={handleRegister}
+        loading={loading}
+        error={error}
       />
     );
   }
 
-  // Render student account page
+  // Интерфейс преподавателя
+  if (userRole === 'teacher') {
+    return (
+      <TeacherAccount 
+        userData={userData} 
+        onLogout={handleLogout}
+        sendMessage={sendMessage}
+        connectionStatus={connectionStatus}
+      />
+    );
+  }
+
+  // Студенческий интерфейс
   return (
     <div className="contentContainer">
-      <div className="page-header">
+      {/* Секция профиля */}
+      <div className="app-profile-section">
         <ProfileSquare userData={userData} />
         <ProfileDescription userData={userData} />
       </div>
-
+      
+      {/* Виджеты */}
+      <SlidersUnder />
+      <Calendar />
+      
+      {/* Инфо-карточки */}
+      <div className="app-cards-container">
+        {cardData.map((card) => (
+          <InfoCard
+            key={card.id}
+            title={card.title}
+            value={card.value}
+            color={card.color}
+          />
+        ))}
+      </div>
+      
+      {/* Личный кабинет */}
       <PersonalAccount userData={userData} onLogout={handleLogout} />
-
-      <div className="tables-row">
-        <DataTable data={sampleStudents} type="students" title="Список студентов" />
-        <DataTable data={sampleAttendance} type="attendance" title="Таблица посещаемости" />
+      
+      {/* Таблицы */}
+      <div className="app-tables-container">
+        <DataTable
+          data={studentsData}
+          type="students"
+          title="Список студентов"
+        />
+        
+        <DataTable
+          data={attendanceData}
+          type="attendance"
+          title="Посещаемость"
+        />
+      </div>
+      
+      {/* Индикатор соединения */}
+      <div className={`connection-status ${connectionStatus}`}>
+        <div className="status-dot" />
+        <span>
+          {connectionStatus === 'connected' && 'Подключено'}
+          {connectionStatus === 'disconnected' && 'Отключено'}
+          {connectionStatus === 'error' && 'Ошибка соединения'}
+        </span>
       </div>
     </div>
   );

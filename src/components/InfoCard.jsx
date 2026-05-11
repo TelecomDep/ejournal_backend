@@ -1,23 +1,22 @@
 import React from 'react';
 import './InfoCard.css';
 
-const InfoCard = ({ title, value, color, position }) => {
-  const positions = {
-    1: { left: '213px', top: '879px' },
-    2: { left: '590px', top: '879px' },
-    3: { left: '972px', top: '879px' }
-  };
-
-  const style = {
-    ...positions[position],
-    backgroundColor: color
-  };
-
+const InfoCard = ({ title, value, color, onClick }) => {
   return (
-    <div className="info-card" style={positions[position]}>
+    <div className="info-card" onClick={onClick}>
       <div className="pfp-block-inner">
-        <h3>{title}</h3>
+        <div className="card-icon" style={{ background: color }}>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+            <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M2 17L12 22L22 17" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M2 12L12 17L22 12" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </div>
+        <h3 className="card-title">{title}</h3>
         <div className="card-value">{value}</div>
+        <div className="card-footer">
+          <span className="card-detail">Подробнее</span>
+        </div>
       </div>
     </div>
   );

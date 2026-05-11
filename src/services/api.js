@@ -1,23 +1,20 @@
 import axios from 'axios';
 
-const BACKEND_URL = (process.env.REACT_APP_BACKEND_URL || 'http://localhost:8888').replace(/\/$/, '');
+const DEFAULT_BACKEND_URL = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8888';
+const BACKEND_URL = (process.env.REACT_APP_BACKEND_URL || DEFAULT_BACKEND_URL).replace(/\/$/, '');
 
 function unwrapApiResponse(data) {
   if (data && typeof data === 'object' && Object.prototype.hasOwnProperty.call(data, 'ok')) {
     if (data.ok) {
       return data.result || {};
     }
-
-    const error = new Error(data.error || 'Backend request failed');
-    error.backend = data;
-    throw error;
+    throw new Error(data.error || 'Backend request failed');
   }
-
   return data;
 }
 
 function extractError(error) {
-  return error.response?.data?.error || error.backend?.error || error.message || 'Backend request failed';
+  return error.response?.data?.error || error.message || 'Backend request failed';
 }
 
 function authHeaders(token) {
@@ -41,27 +38,26 @@ const api = {
       });
       return unwrapApiResponse(response.data);
     } catch (error) {
-      console.error('Login Error:', error);
+      console.error('Ошибка входа:', error);
       throw error;
     }
   },
 
   // Register endpoint
-  async register(login, password, roleHash, inviteCode) {
+  async register(login, password, registrationCode) {
     try {
-      const endpoint = inviteCode ? '/register/by-invite' : '/register';
-      const body = inviteCode
-        ? { login, password, invite_code: inviteCode }
-        : { login, password, role_hash: roleHash };
-
-      const response = await axios.post(`${BACKEND_URL}${endpoint}`, body, {
+      const response = await axios.post(`${BACKEND_URL}/register/by-invite`, {
+        login,
+        password,
+        invite_code: registrationCode
+      }, {
         headers: {
           'Content-Type': 'application/json'
         }
       });
       return unwrapApiResponse(response.data);
     } catch (error) {
-      console.error('Register Error:', error);
+      console.error('Ошибка регистрации:', error);
       throw error;
     }
   },
@@ -74,7 +70,7 @@ const api = {
       });
       return unwrapApiResponse(response.data);
     } catch (error) {
-      console.error('Get Profile Error:', error);
+      console.error('Ошибка загрузки профиля:', error);
       throw error;
     }
   },
@@ -96,7 +92,7 @@ const api = {
       );
       return unwrapApiResponse(response.data);
     } catch (error) {
-      console.error('Create Attendance Link Error:', error);
+      console.error('Ошибка создания ссылки посещаемости:', error);
       throw error;
     }
   },
@@ -115,7 +111,7 @@ const api = {
       );
       return unwrapApiResponse(response.data);
     } catch (error) {
-      console.error('Confirm Attendance Error:', error);
+      console.error('Ошибка подтверждения посещаемости:', error);
       throw error;
     }
   },
@@ -138,7 +134,80 @@ const api = {
       );
       return unwrapApiResponse(response.data);
     } catch (error) {
-      console.error('Get Group Stats Error:', error);
+      console.error('Ошибка загрузки статистики группы:', error);
+      throw error;
+    }
+  },
+
+  async createGradeItem(token, payload) {
+    try {
+      const response = await axios.post(
+        `${BACKEND_URL}/api/teacher/grades/items`,
+        payload,
+        { headers: authHeaders(token) }
+      );
+      return unwrapApiResponse(response.data);
+    } catch (error) {
+      console.error('Ошибка создания контрольной точки:', error);
+      throw error;
+    }
+  },
+
+  async getTeacherGradeItems(token, subjectId) {
+    try {
+      const response = await axios.post(
+        `${BACKEND_URL}/api/teacher/grades/items/list`,
+        { subject_id: subjectId },
+        { headers: authHeaders(token) }
+      );
+      return unwrapApiResponse(response.data);
+    } catch (error) {
+      console.error('Ошибка загрузки контрольных точек:', error);
+      throw error;
+    }
+  },
+
+  async saveStudentGrade(token, payload) {
+    try {
+      const response = await axios.post(
+        `${BACKEND_URL}/api/teacher/grades`,
+        payload,
+        { headers: authHeaders(token) }
+      );
+      return unwrapApiResponse(response.data);
+    } catch (error) {
+      console.error('Ошибка сохранения оценки:', error);
+      throw error;
+    }
+  },
+
+  async getTeacherStudentGrades(token, studentId, subjectId) {
+    try {
+      const response = await axios.post(
+        `${BACKEND_URL}/api/teacher/grades/student`,
+        {
+          student_id: studentId,
+          subject_id: subjectId
+        },
+        { headers: authHeaders(token) }
+      );
+      return unwrapApiResponse(response.data);
+    } catch (error) {
+      console.error('Ошибка загрузки ведомости студента:', error);
+      throw error;
+    }
+  },
+
+  async getStudentGrades(token, subjectId) {
+    try {
+      const response = await axios.post(
+        `${BACKEND_URL}/api/student/grades`,
+        { subject_id: subjectId },
+        { headers: authHeaders(token) }
+      );
+      return unwrapApiResponse(response.data);
+    } catch (error) {
+      console.error('Ошибка загрузки оценок студента:', error);
       throw error;
     }
   },

@@ -1,10 +1,8 @@
 .pfp-square {
   box-sizing: border-box;
-  position: absolute;
+  position: relative;
   width: 260px;
   height: 260px;
-  left: 120px;
-  top: 79px;
   border-radius: 10px;
   background: linear-gradient(180deg, #6B8ED4, #5E3E9F);
   padding: 1px;
@@ -12,6 +10,7 @@
   align-items: center;
   justify-content: center;
   overflow: hidden;
+  flex-shrink: 0;
 }
 
 .pfp-block-inner {
@@ -34,15 +33,27 @@
 }
 
 .profile-initials {
-  position: relative;
-  z-index: 1;
   width: 100%;
   height: 100%;
   display: flex;
-  font-size: 60px;
-  color: rgb(255, 255, 255);
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   background: linear-gradient(180deg, #6B8ED4, #5E3E9F);
   border-radius: 50%;
+  gap: 5px;
+}
+
+.initials-text {
+  font-size: 48px;
+  font-weight: bold;
+  color: #ffffff;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+.profile-status {
+  font-size: 12px;
+  color: #90EE90;
+  text-transform: uppercase;
+  letter-spacing: 1px;
 }

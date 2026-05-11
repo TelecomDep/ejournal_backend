@@ -1,15 +1,10 @@
 .contfor-table {
   box-sizing: border-box;
-  position: absolute;
-  width: 1084px;
-  height: 627px;
-  left: 178px;
-  top: 1389px;
+  width: 100%;
   border-radius: 10px;
   background: linear-gradient(180deg, #6B8ED4, #5E3E9F);
   padding: 1px;
   overflow: hidden;
-  font-family: 'Courier New', Courier, monospace;
 }
 
 .pfp-block-inner {
@@ -24,28 +19,56 @@
 .contfor-table h2 {
   margin-top: 0;
   margin-bottom: 15px;
-  color: #333;
+  color: #ffffff;
+  font-size: 20px;
 }
 
 .tabulator {
-  border: 1px solid #ddd;
+  border: 1px solid #3A3A3A;
   border-radius: 5px;
   overflow: hidden;
+  background: #282828;
+  color: #E0E0E0;
 }
 
 .tabulator .tabulator-header {
-  background-color: #5E3E9F;
+  background: linear-gradient(180deg, #6B8ED4, #5E3E9F);
   color: white;
+  border-bottom: 2px solid #4A7BC8;
+}
+
+.tabulator .tabulator-header .tabulator-col {
+  background: transparent;
+  border-right: 1px solid rgba(255,255,255,0.1);
 }
 
 .tabulator .tabulator-row {
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid #3A3A3A;
+  background: #282828;
+  color: #E0E0E0;
 }
 
 .tabulator .tabulator-row.tabulator-row-even {
-  background-color: #f9f9f9;
+  background-color: #2D2D2D;
 }
 
 .tabulator .tabulator-row:hover {
-  background-color: #e6e6e6;
+  background-color: #3A3A3A;
+}
+
+.tabulator .tabulator-footer {
+  background: #2D2D2D;
+  border-top: 1px solid #3A3A3A;
+  color: #E0E0E0;
+}
+
+.tabulator .tabulator-footer .tabulator-page {
+  color: #E0E0E0;
+  background: #3A3A3A;
+  border: 1px solid #4A4A4A;
+}
+
+.tabulator .tabulator-footer .tabulator-page.active {
+  background: linear-gradient(180deg, #6B8ED4, #5E3E9F);
+  color: white;
 }

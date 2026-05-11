@@ -5,14 +5,13 @@ const LoginPage = ({ onLogin, onRegister, loading, error }) => {
   const [isRegister, setIsRegister] = useState(false);
   const [login, setLogin] = useState('');
   const [password, setPassword] = useState('');
-  const [roleHash, setRoleHash] = useState('');
-  const [inviteCode, setInviteCode] = useState('');
+  const [registrationCode, setRegistrationCode] = useState('');
 
   const handleSubmit = async (event) => {
     event.preventDefault();
 
     if (isRegister) {
-      onRegister(login.trim(), password, roleHash.trim(), inviteCode.trim());
+      onRegister(login.trim(), password, registrationCode.trim());
     } else {
       onLogin(login.trim(), password);
     }
@@ -22,6 +21,7 @@ const LoginPage = ({ onLogin, onRegister, loading, error }) => {
     <div className="login-page">
       <div className="login-card">
         <h1>{isRegister ? 'Регистрация' : 'Вход в личный кабинет'}</h1>
+        
         <div className="toggle-buttons">
           <button
             type="button"
@@ -38,58 +38,58 @@ const LoginPage = ({ onLogin, onRegister, loading, error }) => {
             Регистрация
           </button>
         </div>
+
         <form className="login-form" onSubmit={handleSubmit}>
-          <label>
-            Логин
+          <label className="form-label">
+            <span className="label-text">Логин</span>
             <input
               type="text"
               value={login}
               onChange={(e) => setLogin(e.target.value)}
               placeholder="Введите логин"
               required
+              className="form-input"
             />
           </label>
 
-          <label>
-            Пароль
+          <label className="form-label">
+            <span className="label-text">Пароль</span>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Введите пароль"
               required
+              className="form-input"
             />
           </label>
 
           {isRegister && (
-            <label>
-              Код доступа
+            <label className="form-label">
+              <span className="label-text">Код регистрации</span>
               <input
                 type="text"
-                value={roleHash}
-                onChange={(e) => setRoleHash(e.target.value)}
-                placeholder="Введите хэш"
+                value={registrationCode}
+                onChange={(e) => setRegistrationCode(e.target.value)}
+                placeholder="Введите код из БД"
                 required
-              />
-            </label>
-          )}
-
-          {isRegister && (
-            <label>
-              Пригласительный код
-              <input
-                type="text"
-                value={inviteCode}
-                onChange={(e) => setInviteCode(e.target.value)}
-                placeholder="Для регистрации студента по приглашению"
+                className="form-input"
               />
             </label>
           )}
 
           {error && <div className="login-error">{error}</div>}
 
-          <button type="submit" disabled={loading}>
-            {loading ? (isRegister ? 'Регистрация...' : 'Выполняется вход...') : (isRegister ? 'Зарегистрироваться' : 'Войти')}
+          <button type="submit" disabled={loading} className="submit-btn">
+            {loading ? (
+              <span className="loading-spinner" />
+            ) : null}
+            <span>
+              {loading 
+                ? (isRegister ? 'Регистрация...' : 'Выполняется вход...') 
+                : (isRegister ? 'Зарегистрироваться' : 'Войти')
+              }
+            </span>
           </button>
         </form>
       </div>
