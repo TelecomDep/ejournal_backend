@@ -7,19 +7,24 @@ const ProfileDescription = ({ userData }) => {
   return (
     <div className="pfp-description">
       <div className="pfp-description-inner">
-        <h2>Личный профиль</h2>
-        <p>
-          <strong>Имя:</strong> {displayName}
-        </p>
-        <p>
-          <strong>Логин:</strong> {userData?.login || 'не указан'}
-        </p>
-        <p>
-          <strong>Роль:</strong> {userData?.role || 'не указана'}
-        </p>
-        <p>
-          <strong>Группа:</strong> {userData?.group_name || userData?.group_id || 'не указана'}
-        </p>
+        <div className="profile-info-grid">
+          <div className="info-item">
+            <span className="info-label">Имя</span>
+            <span className="info-value">{displayName}</span>
+          </div>
+          <div className="info-item">
+            <span className="info-label">Логин</span>
+            <span className="info-value">{userData?.login || '—'}</span>
+          </div>
+          <div className="info-item">
+            <span className="info-label">Роль</span>
+            <span className="role-badge">{userData?.role || 'студент'}</span>
+          </div>
+          <div className="info-item">
+            <span className="info-label">Группа</span>
+            <span className="info-value">{userData?.group_name || userData?.group_id || '—'}</span>
+          </div>
+        </div>
       </div>
     </div>
   );
