@@ -6,6 +6,7 @@ import TeacherAccount from './components/TeacherAccount';
 import LoginPage from './components/LoginPage';
 import DataTable from './components/DataTable';
 import StudentGradesPanel from './components/StudentGradesPanel';
+import AttendanceHeatmap from './components/AttendanceHeatmap';
 import api from './services/api';
 import { sha256Hex } from './utils/hash';
 import './App.css';
@@ -27,6 +28,16 @@ function App() {
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [attendanceHeatmapData, setAttendanceHeatmapData] = useState([
+    { date: '2026-04-01', count: 1 },
+    { date: '2026-04-02', count: 2 },
+    { date: '2026-04-05', count: 1 },
+    { date: '2026-04-10', count: 3 },
+    { date: '2026-04-15', count: 2 },
+    { date: '2026-04-20', count: 4 },
+    { date: '2026-04-25', count: 5 }
+  ]);
+  const [attendanceYear, setAttendanceYear] = useState(new Date().getFullYear());
 
   useEffect(() => {
     if (!token) {
@@ -54,6 +65,22 @@ function App() {
       })
       .finally(() => setLoading(false));
   }, [token]);
+
+  useEffect(() => {
+    if (!token || !userData || userData.role !== 'student') {
+      return;
+    }
+
+    api.getStudentAttendanceHeatmap(token, attendanceYear)
+      .then((response) => {
+        if (Array.isArray(response) && response.length > 0) {
+          setAttendanceHeatmapData(response);
+        }
+      })
+      .catch((err) => {
+        console.error('Attendance heatmap load failed:', err);
+      });
+  }, [token, userData, attendanceYear]);
 
   const handleLogin = async (login, password) => {
     setError('');
@@ -138,6 +165,8 @@ function App() {
       </div>
 
       <PersonalAccount userData={userData} onLogout={handleLogout} />
+
+      <AttendanceHeatmap attendanceData={attendanceHeatmapData} year={attendanceYear} />
 
       <StudentGradesPanel token={token} />
 

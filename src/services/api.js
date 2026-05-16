@@ -139,6 +139,23 @@ const api = {
     }
   },
 
+  // Student: Get attendance history for the heatmap
+  async getStudentAttendanceHeatmap(token, year) {
+    try {
+      const response = await axios.get(
+        `${BACKEND_URL}/api/student/attendance/history`,
+        {
+          headers: authHeaders(token),
+          params: { year }
+        }
+      );
+      return unwrapApiResponse(response.data);
+    } catch (error) {
+      console.error('Ошибка загрузки истории посещаемости:', error);
+      throw error;
+    }
+  },
+
   async createGradeItem(token, payload) {
     try {
       const response = await axios.post(
