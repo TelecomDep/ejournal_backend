@@ -1,10 +1,10 @@
 .pfp-square {
   box-sizing: border-box;
-  width: clamp(180px, 22vw, 260px);
+  width: 260px;
   aspect-ratio: 1;
-  border-radius: 8px;
-  background: linear-gradient(180deg, #6b8ed4, #5e3e9f);
-  padding: 1px;
+  border-radius: 18px;
+  background: linear-gradient(180deg, #6B8ED4, #5E3E9F);
+  padding: 2px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -15,32 +15,45 @@
 .pfp-square-inner {
   width: 100%;
   height: 100%;
-  border-radius: 7px;
-  background: #ffffff;
+  border-radius: 16px;
+  background: #121212;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 18px;
+  padding: 20px;
   box-sizing: border-box;
+  overflow: hidden;
 }
 
 .profile-img {
   width: 100%;
   height: 100%;
-  border-radius: 8px;
+  border-radius: 16px;
   object-fit: cover;
 }
 
 .profile-initials {
-  position: relative;
-  z-index: 1;
   width: 100%;
   height: 100%;
   display: flex;
-  font-size: clamp(48px, 6vw, 76px);
-  color: rgb(255, 255, 255);
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(180deg, #6b8ed4, #5e3e9f);
-  border-radius: 50%;
+  gap: 10px;
+  background: linear-gradient(180deg, #6B8ED4, #5E3E9F);
+  border-radius: 14px;
+  padding: 20px;
+}
+
+.initials-text {
+  font-size: 52px;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.profile-status {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.85);
+  text-transform: uppercase;
+  letter-spacing: 1px;
 }

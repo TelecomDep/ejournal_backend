@@ -159,16 +159,18 @@ function App() {
   // Render student account page
   return (
     <div className="contentContainer">
-      <div className="page-header">
-        <ProfileSquare userData={userData} />
-        <ProfileDescription userData={userData} />
+      <div className="dashboard-grid">
+        <aside className="dashboard-sidebar">
+          <ProfileSquare userData={userData} />
+          <PersonalAccount userData={userData} onLogout={handleLogout} />
+        </aside>
+
+        <main className="dashboard-main">
+          <ProfileDescription userData={userData} />
+          <AttendanceHeatmap attendanceData={attendanceHeatmapData} year={attendanceYear} />
+          <StudentGradesPanel token={token} />
+        </main>
       </div>
-
-      <PersonalAccount userData={userData} onLogout={handleLogout} />
-
-      <AttendanceHeatmap attendanceData={attendanceHeatmapData} year={attendanceYear} />
-
-      <StudentGradesPanel token={token} />
 
       <div className="tables-row">
         <DataTable data={sampleStudents} type="students" title="Список студентов" />

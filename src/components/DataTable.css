@@ -1,47 +1,75 @@
 .contfor-table {
   box-sizing: border-box;
+  width: 100%;
   min-width: 0;
-  border-radius: 8px;
-  background: linear-gradient(180deg, #6b8ed4, #5e3e9f);
+  border-radius: 18px;
+  background: linear-gradient(180deg, #6B8ED4, #5E3E9F);
   padding: 1px;
   overflow: hidden;
-  font-family: Arial, sans-serif;
+  font-family: 'Inter', Arial, sans-serif;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.2);
 }
 
 .table-card-inner {
   width: 100%;
   height: 100%;
-  border-radius: 7px;
-  background: #ffffff;
+  border-radius: 17px;
+  background: #121212;
   box-sizing: border-box;
-  padding: 20px;
+  padding: 24px;
 }
 
 .contfor-table h2 {
   margin-top: 0;
-  margin-bottom: 15px;
-  color: #2b2f5c;
+  margin-bottom: 18px;
+  color: #ffffff;
+  font-size: 22px;
 }
 
 .tabulator {
-  border: 1px solid #ddd;
-  border-radius: 5px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
   overflow: hidden;
+  background: #181818;
+  color: #e0e0e0;
 }
 
 .tabulator .tabulator-header {
-  background-color: #5e3e9f;
-  color: white;
+  background: linear-gradient(180deg, #6B8ED4, #5E3E9F);
+  color: #ffffff;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.tabulator .tabulator-header .tabulator-col {
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .tabulator .tabulator-row {
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  background: #151515;
 }
 
 .tabulator .tabulator-row.tabulator-row-even {
-  background-color: #f9f9f9;
+  background-color: #181818;
 }
 
 .tabulator .tabulator-row:hover {
-  background-color: #e6e6e6;
+  background-color: rgba(107, 142, 212, 0.14);
+}
+
+.tabulator .tabulator-footer {
+  background: #181818;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  color: #e0e0e0;
+}
+
+.tabulator .tabulator-footer .tabulator-page {
+  color: #e0e0e0;
+  background: #1f1f1f;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.tabulator .tabulator-footer .tabulator-page.active {
+  background: linear-gradient(180deg, #6B8ED4, #5E3E9F);
+  color: white;
 }

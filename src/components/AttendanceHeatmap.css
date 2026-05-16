@@ -1,24 +1,23 @@
 .attendance-heatmap {
-  position: absolute;
-  width: 882px;
-  left: 438px;
-  top: 379px;
+  position: relative;
+  width: 100%;
   background: linear-gradient(180deg, #6B8ED4, #5E3E9F);
-  border-radius: 10px;
+  border-radius: 18px;
   padding: 1px;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.2);
 }
 
 .heatmap-header {
-  background: #282828;
-  border-radius: 9px;
-  padding: 20px 24px 16px 24px;
+  background: #181818;
+  border-radius: 18px 18px 0 0;
+  padding: 24px 28px 18px 28px;
   display: flex;
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
   gap: 16px;
-  margin-bottom: 1px;
+  margin-bottom: 0;
 }
 
 .heatmap-title-section {
@@ -65,12 +64,11 @@
 }
 
 .heatmap-container {
-  background: #282828;
-  padding: 8px 24px 24px 24px;
-  border-radius: 0 0 9px 9px;
+  background: #121212;
+  padding: 20px 24px 24px 24px;
+  border-radius: 0 0 18px 18px;
   overflow-x: auto;
 }
-
 .weekdays-labels {
   display: grid;
   grid-template-columns: 30px repeat(7, 1fr);
