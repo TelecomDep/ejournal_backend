@@ -75,6 +75,32 @@ const api = {
     }
   },
 
+  // Student: Get students list
+  async getStudentsList(token) {
+    try {
+      const response = await axios.get(`${BACKEND_URL}/api/students`, {
+        headers: authHeaders(token)
+      });
+      return unwrapApiResponse(response.data);
+    } catch (error) {
+      console.error('Ошибка загрузки списка студентов:', error);
+      throw error;
+    }
+  },
+
+  // Student: Get attendance table
+  async getAttendanceTable(token) {
+    try {
+      const response = await axios.get(`${BACKEND_URL}/api/attendance/table`, {
+        headers: authHeaders(token)
+      });
+      return unwrapApiResponse(response.data);
+    } catch (error) {
+      console.error('Ошибка загрузки таблицы посещаемости:', error);
+      throw error;
+    }
+  },
+
   // Teacher: Create attendance link
   async createAttendanceLink(token, subjectId, groupIds, lessonName, expiresMinutes) {
     try {
