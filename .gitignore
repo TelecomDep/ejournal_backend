@@ -44,4 +44,4 @@ temp/
 ## Local weekly reports
 #weekly_reports_petrov/
 .codex
-
+.codex-cache/

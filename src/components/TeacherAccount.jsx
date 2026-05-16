@@ -30,12 +30,12 @@ const TeacherAccount = ({ userData, onLogout, token }) => {
   const [activeTab, setActiveTab] = useState('attendance');
   const [sessionForm, setSessionForm] = useState({
     subjectId: 1,
-    groupIds: [1],
+    groupIds: [2],
     lessonName: 'Занятие',
     expiresMinutes: 20
   });
   const [statsForm, setStatsForm] = useState({
-    groupId: 1,
+    groupId: 2,
     subjectId: ''
   });
   const [itemForm, setItemForm] = useState({
@@ -46,14 +46,14 @@ const TeacherAccount = ({ userData, onLogout, token }) => {
     deadline: ''
   });
   const [gradeForm, setGradeForm] = useState({
-    studentId: 1,
+    studentId: 2,
     itemId: '',
     score: 0,
     comment: '',
     sessionId: ''
   });
   const [sheetForm, setSheetForm] = useState({
-    studentId: 1,
+    studentId: 2,
     subjectId: 1
   });
 

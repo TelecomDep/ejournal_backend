@@ -73,6 +73,10 @@ type AttendanceGroupStatsData struct {
 	SubjectID *int32 `json:"subject_id,omitempty"`
 }
 
+type AttendanceHistoryData struct {
+	Year int `json:"year"`
+}
+
 type AttendanceInviteClaims struct {
 	Type      string `json:"type"`
 	LessonID  string `json:"lesson_id"`
@@ -626,7 +630,7 @@ func (s *Service) registerByInvite(data RegisterByInviteData) Response {
 
 	var studentID int32
 	var studentName string
-	var groupID *int32
+	var groupID sql.NullInt32
 	var groupName sql.NullString
 	err = tx.QueryRow(
 		ctx,
@@ -638,7 +642,7 @@ func (s *Service) registerByInvite(data RegisterByInviteData) Response {
 		   AND s.invite_code_hash IS NOT NULL
 		   AND s.invite_code_hash = crypt($1, s.invite_code_hash)
 		 LIMIT 1
-		 FOR UPDATE`,
+		 FOR UPDATE OF s`,
 		inviteCode,
 	).Scan(&studentID, &studentName, &groupID, &groupName)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -689,15 +693,23 @@ func (s *Service) registerByInvite(data RegisterByInviteData) Response {
 		return Response{OK: false, Error: "failed to commit registration"}
 	}
 
+	userID := strconv.FormatInt(int64(created.ID), 10)
+	token, err := s.generateJWT(userID)
+	if err != nil {
+		return Response{OK: false, Error: "EROR_generateJWT: " + err.Error()}
+	}
+
 	result := map[string]any{
-		"user_id":      strconv.FormatInt(int64(created.ID), 10),
+		"token":        token,
+		"user_id":      userID,
+		"user_ID":      userID,
 		"login":        created.Login,
 		"role":         created.Role,
 		"student_id":   studentID,
 		"student_name": studentName,
 	}
-	if groupID != nil {
-		result["group_id"] = *groupID
+	if groupID.Valid {
+		result["group_id"] = groupID.Int32
 	}
 	if groupName.Valid {
 		result["group_name"] = groupName.String
@@ -727,7 +739,7 @@ func (s *Service) login(data LoginData) Response {
 		return Response{OK: false, Error: "user does not exist"}
 	}
 
-	if err := bcrypt.CompareHashAndPassword([]byte(storedUser.PasswordHash), []byte(password)); err != nil {
+	if !s.passwordMatches(ctx, storedUser.PasswordHash, password) {
 		return Response{OK: false, Error: "wrong password"}
 	}
 
@@ -746,6 +758,21 @@ func (s *Service) login(data LoginData) Response {
 			"role":    storedUser.Role,
 		},
 	}
+}
+
+func (s *Service) passwordMatches(ctx context.Context, storedHash, password string) bool {
+	if err := bcrypt.CompareHashAndPassword([]byte(storedHash), []byte(password)); err == nil {
+		return true
+	}
+
+	var matches bool
+	err := s.store.Pool().QueryRow(
+		ctx,
+		`SELECT crypt($1, $2) = $2`,
+		password,
+		storedHash,
+	).Scan(&matches)
+	return err == nil && matches
 }
 
 func (s *Service) createAttendanceLinkByTeacher(sessionToken string, data AttendanceCreateData) Response {
@@ -1012,6 +1039,76 @@ func (s *Service) attendanceByGroupForTeacher(sessionToken string, data Attendan
 	}
 }
 
+func (s *Service) attendanceHistoryForStudent(sessionToken string, data AttendanceHistoryData) Response {
+	studentUser, err := s.userBySessionToken(sessionToken)
+	if err != nil {
+		return Response{OK: false, Error: err.Error()}
+	}
+	if studentUser.Role != "student" {
+		return Response{OK: false, Error: "forbidden: student role required"}
+	}
+
+	studentProfile, err := s.studentProfileByUser(studentUser)
+	if err != nil {
+		return Response{OK: false, Error: err.Error()}
+	}
+
+	year := data.Year
+	if year <= 0 {
+		year = time.Now().Year()
+	}
+	start := time.Date(year, time.January, 1, 0, 0, 0, 0, time.UTC)
+	end := start.AddDate(1, 0, 0)
+
+	ctx, cancel := s.dbContext()
+	defer cancel()
+
+	rows, err := s.store.Pool().Query(
+		ctx,
+		`SELECT (ass.marked_at AT TIME ZONE 'Asia/Novosibirsk')::date AS day,
+		        COUNT(*)::int AS count
+		 FROM attendance_session_students ass
+		 WHERE ass.student_id = $1
+		   AND ass.status = 'present'
+		   AND ass.marked_at IS NOT NULL
+		   AND ass.marked_at >= $2
+		   AND ass.marked_at < $3
+		 GROUP BY day
+		 ORDER BY day`,
+		studentProfile.ID,
+		start,
+		end,
+	)
+	if err != nil {
+		return Response{OK: false, Error: "failed to load attendance history"}
+	}
+	defer rows.Close()
+
+	items := make([]map[string]any, 0)
+	for rows.Next() {
+		var day time.Time
+		var count int32
+		if err := rows.Scan(&day, &count); err != nil {
+			return Response{OK: false, Error: "failed to scan attendance history"}
+		}
+		items = append(items, map[string]any{
+			"date":  day.Format("2006-01-02"),
+			"count": count,
+		})
+	}
+	if err := rows.Err(); err != nil {
+		return Response{OK: false, Error: "failed to iterate attendance history"}
+	}
+
+	return Response{
+		OK: true,
+		Result: map[string]any{
+			"year":  year,
+			"items": items,
+		},
+	}
+}
+
 func (s *Service) handleRequest(raw string) Response {
 	var req Request
 	if err := json.Unmarshal([]byte(raw), &req); err != nil {
@@ -1076,6 +1173,14 @@ func (s *Service) handleRequest(raw string) Response {
 			return Response{ID: req.ID, OK: false, Error: "invalid teacher_attendance_by_group payload"}
 		}
 		resp := s.attendanceByGroupForTeacher(req.Token, data)
+		resp.ID = req.ID
+		return resp
+	case "student_attendance_history":
+		var data AttendanceHistoryData
+		if err := json.Unmarshal(req.Data, &data); err != nil {
+			return Response{ID: req.ID, OK: false, Error: "invalid student_attendance_history payload"}
+		}
+		resp := s.attendanceHistoryForStudent(req.Token, data)
 		resp.ID = req.ID
 		return resp
 	case "teacher_create_grade_item":

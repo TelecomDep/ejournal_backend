@@ -51,9 +51,7 @@ const AttendanceGrid = ({ attendanceData = [], maxPerDay = 8 }) => {
     return `${new Date(cell.date).toLocaleDateString('ru-RU')}\n${cell.count} из ${cell.max} посещений`;
   };
 
-  // Расположение ячеек согласно макету (4 блока по 8 ячеек)
-  const cellPositions = [
-    // Группа 3 (0-7)
+  const groupCellPositions = [
     { group: 3, col: 0, row: 0, pos: [90, 6], transform: 'rotate(180deg)' },
     { group: 3, col: 1, row: 0, pos: [60, 6], transform: 'rotate(180deg)' },
     { group: 3, col: 2, row: 0, pos: [30, 6], transform: 'rotate(180deg)' },
@@ -62,26 +60,6 @@ const AttendanceGrid = ({ attendanceData = [], maxPerDay = 8 }) => {
     { group: 3, col: 1, row: 1, pos: [30, 35], transform: '' },
     { group: 3, col: 2, row: 1, pos: [60, 64], transform: '' },
     { group: 3, col: 3, row: 1, pos: [90, 64], transform: '' },
-    { group: 3, col: 0, row: 2, pos: [0, 35], transform: '' },
-    { group: 3, col: 1, row: 2, pos: [30, 64], transform: '' },
-    { group: 3, col: 2, row: 2, pos: [60, 35], transform: '' },
-    { group: 3, col: 3, row: 2, pos: [90, 35], transform: '' },
-    { group: 3, col: 0, row: 3, pos: [0, 93], transform: '' },
-    { group: 3, col: 1, row: 3, pos: [30, 93], transform: '' },
-    { group: 3, col: 2, row: 3, pos: [60, 93], transform: '' },
-    { group: 3, col: 3, row: 3, pos: [90, 93], transform: '' },
-    { group: 3, col: 0, row: 4, pos: [0, 122], transform: '' },
-    { group: 3, col: 1, row: 4, pos: [30, 122], transform: '' },
-    { group: 3, col: 2, row: 4, pos: [60, 122], transform: '' },
-    { group: 3, col: 3, row: 4, pos: [90, 122], transform: '' },
-    { group: 3, col: 0, row: 5, pos: [0, 180], transform: '' },
-    { group: 3, col: 1, row: 5, pos: [30, 151], transform: '' },
-    { group: 3, col: 2, row: 5, pos: [60, 180], transform: '' },
-    { group: 3, col: 3, row: 5, pos: [90, 151], transform: '' },
-    { group: 3, col: 0, row: 6, pos: [0, 151], transform: '' },
-    { group: 3, col: 1, row: 6, pos: [30, 180], transform: '' },
-    { group: 3, col: 2, row: 6, pos: [60, 151], transform: '' },
-    { group: 3, col: 3, row: 6, pos: [90, 180], transform: '' },
   ];
 
   return (
@@ -116,7 +94,7 @@ const AttendanceGrid = ({ attendanceData = [], maxPerDay = 8 }) => {
           {/* Group 3 */}
           <div className="cell-group" style={{ left: '0px', top: '6px', width: '120px', height: '204px' }}>
             {cells.slice(0, 8).map((cell, idx) => {
-              const pos = cellPositions[idx];
+              const pos = groupCellPositions[idx];
               return (
                 <div
                   key={cell.id}
@@ -148,14 +126,14 @@ const AttendanceGrid = ({ attendanceData = [], maxPerDay = 8 }) => {
           {/* Group 4 */}
           <div className="cell-group" style={{ left: '120px', top: '6px', width: '120px', height: '204px' }}>
             {cells.slice(8, 16).map((cell, idx) => {
-              const pos = cellPositions[idx + 8];
+              const pos = groupCellPositions[idx];
               return (
                 <div
                   key={cell.id}
                   className="attendance-cell"
                   style={{
                     position: 'absolute',
-                    left: `${pos.pos[0] - 120}px`,
+                    left: `${pos.pos[0]}px`,
                     top: `${pos.pos[1]}px`,
                     width: '30px',
                     height: '30px',
@@ -180,14 +158,14 @@ const AttendanceGrid = ({ attendanceData = [], maxPerDay = 8 }) => {
           {/* Group 5 */}
           <div className="cell-group" style={{ left: '240px', top: '6px', width: '120px', height: '204px' }}>
             {cells.slice(16, 24).map((cell, idx) => {
-              const pos = cellPositions[idx + 16];
+              const pos = groupCellPositions[idx];
               return (
                 <div
                   key={cell.id}
                   className="attendance-cell"
                   style={{
                     position: 'absolute',
-                    left: `${pos.pos[0] - 240}px`,
+                    left: `${pos.pos[0]}px`,
                     top: `${pos.pos[1]}px`,
                     width: '30px',
                     height: '30px',
@@ -212,14 +190,14 @@ const AttendanceGrid = ({ attendanceData = [], maxPerDay = 8 }) => {
           {/* Group 6 */}
           <div className="cell-group" style={{ left: '360px', top: '6px', width: '120px', height: '204px' }}>
             {cells.slice(24, 32).map((cell, idx) => {
-              const pos = cellPositions[idx + 24];
+              const pos = groupCellPositions[idx];
               return (
                 <div
                   key={cell.id}
                   className="attendance-cell"
                   style={{
                     position: 'absolute',
-                    left: `${pos.pos[0] - 360}px`,
+                    left: `${pos.pos[0]}px`,
                     top: `${pos.pos[1]}px`,
                     width: '30px',
                     height: '30px',

@@ -1,168 +1,42 @@
-import React, { useState, useEffect } from 'react';
-import ProfileSquare from './components/ProfileSquare';
-import ProfileDescription from './components/ProfileDescription';
-import TeacherAccount from './components/TeacherAccount';
-import LoginPage from './components/LoginPage';
-import DataTable from './components/DataTable';
-import StudentGradesPanel from './components/StudentGradesPanel';
-import AttendanceGrid from './components/AttendanceGrid';
+import React, { useEffect, useState } from 'react';
 import api from './services/api';
-import { sha256Hex } from './utils/hash';
-import './App.css';
+import AttendanceGrid from './components/AttendanceGrid';
+import DataTable from './components/DataTable';
+import LoginPage from './components/LoginPage';
+import ProfileDescription from './components/ProfileDescription';
+import ProfileSquare from './components/ProfileSquare';
+import StudentGradesPanel from './components/StudentGradesPanel';
+import TeacherAccount from './components/TeacherAccount';
 
-function App() {
-  const [token, setToken] = useState(localStorage.getItem('token') || '');
-  const [userData, setUserData] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+const sampleStudents = [];
+const sampleAttendance = [];
+
+function StudentDashboard({ token, userData, onLogout }) {
   const [attendanceHeatmapData, setAttendanceHeatmapData] = useState([]);
-  const [attendanceYear] = useState(new Date().getFullYear());
-  const [studentsData, setStudentsData] = useState([]);
-  const [attendanceTableData, setAttendanceTableData] = useState([]);
 
   useEffect(() => {
-    if (!token) {
-      setUserData(null);
-      return;
-    }
-
-    setLoading(true);
-    api.getProfile(token)
-      .then((response) => {
-        if (response?.user_id || response?.login) {
-          setUserData({
-            ...response,
-            name: response.name || response.login
-          });
-        } else {
-          throw new Error(response?.error || 'Не удалось получить профиль');
+    let cancelled = false;
+    api.getStudentAttendanceHeatmap(token, new Date().getFullYear())
+      .then((data) => {
+        if (!cancelled) {
+          setAttendanceHeatmapData(data.items || []);
         }
       })
-      .catch((err) => {
-        console.error('Profile load failed:', err);
-        localStorage.removeItem('token');
-        setToken('');
-        setError(api.getErrorMessage(err, 'Сессия истекла. Выполните вход заново.'));
-      })
-      .finally(() => setLoading(false));
+      .catch(() => {
+        if (!cancelled) {
+          setAttendanceHeatmapData([]);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [token]);
-
-  useEffect(() => {
-    if (!token || !userData || userData.role !== 'student') {
-      return;
-    }
-
-    // Загрузка данных для тепловой карты посещаемости
-    api.getStudentAttendanceHeatmap(token, attendanceYear)
-      .then((response) => {
-        if (Array.isArray(response)) {
-          setAttendanceHeatmapData(response);
-        }
-      })
-      .catch((err) => {
-        console.error('Attendance heatmap load failed:', err);
-      });
-
-    // Загрузка списка студентов
-    api.getStudentsList(token)
-      .then((response) => {
-        if (Array.isArray(response)) {
-          setStudentsData(response);
-        }
-      })
-      .catch((err) => {
-        console.error('Students list load failed:', err);
-      });
-
-    // Загрузка таблицы посещаемости
-    api.getAttendanceTable(token)
-      .then((response) => {
-        if (Array.isArray(response)) {
-          setAttendanceTableData(response);
-        }
-      })
-      .catch((err) => {
-        console.error('Attendance table load failed:', err);
-      });
-  }, [token, userData, attendanceYear]);
-
-  const handleLogin = async (login, password) => {
-    setError('');
-    setLoading(true);
-
-    try {
-      const passwordHash = await sha256Hex(password);
-      const response = await api.login(login, passwordHash);
-      if (response?.token) {
-        localStorage.setItem('token', response.token);
-        setToken(response.token);
-        setUserData({
-          ...response,
-          name: response.login
-        });
-      } else {
-        throw new Error(response?.error || 'Не удалось войти');
-      }
-    } catch (err) {
-      setError(api.getErrorMessage(err, 'Ошибка входа'));
-      console.error('Login failed:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleRegister = async (login, password, registrationCode) => {
-    setError('');
-    setLoading(true);
-
-    try {
-      const passwordHash = await sha256Hex(password);
-      await api.register(login, passwordHash, registrationCode);
-      const response = await api.login(login, passwordHash);
-
-      if (response?.token) {
-        localStorage.setItem('token', response.token);
-        setToken(response.token);
-        setUserData({
-          ...response,
-          name: response.login
-        });
-      } else {
-        throw new Error(response?.error || 'Не удалось зарегистрироваться');
-      }
-    } catch (err) {
-      setError(api.getErrorMessage(err, 'Ошибка регистрации'));
-      console.error('Register failed:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    setToken('');
-    setUserData(null);
-    setError('');
-  };
-
-  if (!userData) {
-    return <LoginPage onLogin={handleLogin} onRegister={handleRegister} loading={loading} error={error} />;
-  }
-
-  if (userData?.role === 'teacher') {
-    return (
-      <TeacherAccount 
-        userData={userData} 
-        onLogout={handleLogout}
-        token={token}
-      />
-    );
-  }
 
   return (
     <div className="contentContainer">
       <div className="logout-top-right">
-        <button className="logout-button-top" onClick={handleLogout}>
+        <button className="logout-button-top" onClick={onLogout}>
           Выйти
         </button>
       </div>
@@ -180,11 +54,105 @@ function App() {
       </div>
 
       <div className="tables-row">
-        <DataTable data={studentsData} type="students" title="Список студентов" />
-        <DataTable data={attendanceTableData} type="attendance" title="Таблица посещаемости" />
+        <DataTable data={sampleStudents} type="students" title="Список студентов" />
+        <DataTable data={sampleAttendance} type="attendance" title="Таблица посещаемости" />
       </div>
     </div>
   );
+}
+
+function App() {
+  const [token, setToken] = useState(() => localStorage.getItem('ejournal_token') || '');
+  const [userData, setUserData] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleLogout = () => {
+    localStorage.removeItem('ejournal_token');
+    setToken('');
+    setUserData(null);
+    setError('');
+  };
+
+  useEffect(() => {
+    if (!token) {
+      return;
+    }
+
+    let cancelled = false;
+    setLoading(true);
+    api.getProfile(token)
+      .then((profile) => {
+        if (!cancelled) {
+          setUserData(profile);
+          setError('');
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setError(api.getErrorMessage(err, 'Не удалось загрузить профиль'));
+          handleLogout();
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
+
+  const handleLogin = async (login, password) => {
+    setLoading(true);
+    setError('');
+    try {
+      const result = await api.login(login, password);
+      localStorage.setItem('ejournal_token', result.token);
+      setToken(result.token);
+    } catch (err) {
+      setError(api.getErrorMessage(err, 'Не удалось войти'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRegister = async (login, password, registrationCode) => {
+    setLoading(true);
+    setError('');
+    try {
+      const result = await api.register(login, password, registrationCode);
+      localStorage.setItem('ejournal_token', result.token);
+      setToken(result.token);
+    } catch (err) {
+      setError(api.getErrorMessage(err, 'Не удалось зарегистрироваться'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!token) {
+    return (
+      <LoginPage
+        onLogin={handleLogin}
+        onRegister={handleRegister}
+        loading={loading}
+        error={error}
+      />
+    );
+  }
+
+  if (!userData) {
+    return <div className="contentContainer">Загрузка...</div>;
+  }
+
+  if (userData.role === 'teacher') {
+    return <TeacherAccount userData={userData} onLogout={handleLogout} token={token} />;
+  }
+
+  return <StudentDashboard token={token} userData={userData} onLogout={handleLogout} />;
 }
 
 export default App;
