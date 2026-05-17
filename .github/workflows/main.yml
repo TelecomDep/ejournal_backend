@@ -56,7 +56,19 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           password: ${{ secrets.SSH_PASSWORD }}
           port: ${{ secrets.SSH_PORT }}
+          # Делает бекап схемы бд до + после залива кода на production server в папку backup
           script: |
             cd /home/sibsutis-ms/ejournal
+            mkdir -p backups
+            TIMESTAMP=$(date +'%Y%m%d_%H%M%S')
+            
+            docker compose exec -T db pg_dump -U postgres -d ejournal > ./backups/prev_${TIMESTAMP}.sql
+            chmod 600 ./backups/prev_${TIMESTAMP}.sql
+            
             git pull origin main
             docker compose up -d --build
+            
+            docker compose exec -T db pg_dump -U postgres -d ejournal > ./backups/new_${TIMESTAMP}.sql
+            chmod 600 ./backups/new_${TIMESTAMP}.sql
+            
+            find ./backups/ -name "*.sql" -mtime +14 -delete
