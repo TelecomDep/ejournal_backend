@@ -142,3 +142,20 @@ type teacherAttendanceGroupResponse struct {
 	Result teacherAttendanceGroupResult `json:"result"`
 	Error  string                       `json:"error" example:""`
 }
+
+type studentAttendanceHistoryItem struct {
+	Date  string `json:"date" example:"2026-04-20"`
+	Count int32  `json:"count" example:"1"`
+}
+
+type studentAttendanceHistoryResult struct {
+	Year  int                            `json:"year" example:"2026"`
+	Items []studentAttendanceHistoryItem `json:"items"`
+}
+
+type studentAttendanceHistoryResponse struct {
+	ID     string                         `json:"id" example:"http-student-attendance-history"`
+	OK     bool                           `json:"ok" example:"true"`
+	Result studentAttendanceHistoryResult `json:"result"`
+	Error  string                         `json:"error" example:""`
+}

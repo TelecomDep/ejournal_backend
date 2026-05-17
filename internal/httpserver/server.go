@@ -389,6 +389,19 @@ func (s *Server) teacherAttendanceByGroupHandler(c *fiber.Ctx) error {
 	return c.JSON(resp)
 }
 
+// studentAttendanceHistoryHandler godoc
+// @Summary Get current student attendance history
+// @Description Returns attendance marks grouped by date for current student and selected year.
+// @Tags attendance
+// @Produce json
+// @Security BearerAuth
+// @Param year query int false "History year" default(2026)
+// @Success 200 {object} studentAttendanceHistoryResponse
+// @Failure 400 {object} app.Response
+// @Failure 401 {object} app.Response
+// @Failure 403 {object} app.Response
+// @Failure 500 {object} app.Response
+// @Router /api/student/attendance/history [get]
 func (s *Server) studentAttendanceHistoryHandler(c *fiber.Ctx) error {
 	token := c.Get("Authorization")
 	if token == "" {
