@@ -29,7 +29,7 @@ const TeacherAccount = ({ userData, onLogout, token }) => {
 
   const [activeTab, setActiveTab] = useState('attendance');
   const [sessionForm, setSessionForm] = useState({
-    subjectId: '',
+    subjectId: 0,
     groupIds: [],
     lessonName: 'Занятие',
     expiresMinutes: 20
@@ -39,7 +39,7 @@ const TeacherAccount = ({ userData, onLogout, token }) => {
     subjectId: ''
   });
   const [itemForm, setItemForm] = useState({
-    subjectId: '',
+    subjectId: 0,
     title: 'Лабораторная работа 1',
     maxScore: 10,
     itemType: 'laboratory',
@@ -54,7 +54,7 @@ const TeacherAccount = ({ userData, onLogout, token }) => {
   });
   const [sheetForm, setSheetForm] = useState({
     studentId: 2,
-    subjectId: ''
+    subjectId: 0
   });
   const [teacherSubjects, setTeacherSubjects] = useState([]);
   const [subjectsLoading, setSubjectsLoading] = useState(false);
