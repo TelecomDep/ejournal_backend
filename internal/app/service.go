@@ -77,6 +77,12 @@ type AttendanceHistoryData struct {
 	Year int `json:"year"`
 }
 
+type TeacherSubjectsResultItem struct {
+	SubjectID   int32   `json:"subject_id"`
+	SubjectName string  `json:"subject_name"`
+	GroupIDs    []int32 `json:"group_ids"`
+}
+
 type AttendanceInviteClaims struct {
 	Type      string `json:"type"`
 	LessonID  string `json:"lesson_id"`
@@ -1109,6 +1115,91 @@ func (s *Service) attendanceHistoryForStudent(sessionToken string, data Attendan
 	}
 }
 
+func (s *Service) teacherSubjects(sessionToken string) Response {
+	teacherUser, err := s.userBySessionToken(sessionToken)
+	if err != nil {
+		return Response{OK: false, Error: err.Error()}
+	}
+	if teacherUser.Role != "teacher" {
+		return Response{OK: false, Error: "forbidden: teacher role required"}
+	}
+
+	teacherProfile, err := s.teacherProfileByUser(teacherUser)
+	if err != nil {
+		return Response{OK: false, Error: err.Error()}
+	}
+
+	ctx, cancel := s.dbContext()
+	defer cancel()
+
+	items := make([]TeacherSubjectsResultItem, 0)
+	if isDemoTeacher(teacherUser) {
+		rows, err := s.store.Pool().Query(
+			ctx,
+			`SELECT sub.subject_id,
+			        sub.name,
+			        COALESCE(ARRAY_REMOVE(ARRAY_AGG(DISTINCT sch.group_id), NULL), '{}')::INTEGER[] AS group_ids
+			 FROM subjects sub
+			 LEFT JOIN schedules sch
+			        ON sch.subject_id = sub.subject_id
+			       AND sch.teacher_id = $1
+			 GROUP BY sub.subject_id, sub.name
+			 ORDER BY sub.name, sub.subject_id`,
+			teacherProfile.ID,
+		)
+		if err != nil {
+			return Response{OK: false, Error: "failed to load teacher subjects"}
+		}
+		defer rows.Close()
+
+		for rows.Next() {
+			var item TeacherSubjectsResultItem
+			if err := rows.Scan(&item.SubjectID, &item.SubjectName, &item.GroupIDs); err != nil {
+				return Response{OK: false, Error: "failed to scan teacher subjects"}
+			}
+			items = append(items, item)
+		}
+		if err := rows.Err(); err != nil {
+			return Response{OK: false, Error: "failed to iterate teacher subjects"}
+		}
+	} else {
+		rows, err := s.store.Pool().Query(
+			ctx,
+			`SELECT sch.subject_id,
+			        sub.name,
+			        COALESCE(ARRAY_REMOVE(ARRAY_AGG(DISTINCT sch.group_id), NULL), '{}')::INTEGER[] AS group_ids
+			 FROM schedules sch
+			 JOIN subjects sub ON sub.subject_id = sch.subject_id
+			 WHERE sch.teacher_id = $1
+			 GROUP BY sch.subject_id, sub.name
+			 ORDER BY sub.name, sch.subject_id`,
+			teacherProfile.ID,
+		)
+		if err != nil {
+			return Response{OK: false, Error: "failed to load teacher subjects"}
+		}
+		defer rows.Close()
+
+		for rows.Next() {
+			var item TeacherSubjectsResultItem
+			if err := rows.Scan(&item.SubjectID, &item.SubjectName, &item.GroupIDs); err != nil {
+				return Response{OK: false, Error: "failed to scan teacher subjects"}
+			}
+			items = append(items, item)
+		}
+		if err := rows.Err(); err != nil {
+			return Response{OK: false, Error: "failed to iterate teacher subjects"}
+		}
+	}
+
+	return Response{
+		OK: true,
+		Result: map[string]any{
+			"subjects": items,
+		},
+	}
+}
+
 func (s *Service) handleRequest(raw string) Response {
 	var req Request
 	if err := json.Unmarshal([]byte(raw), &req); err != nil {
@@ -1181,6 +1272,10 @@ func (s *Service) handleRequest(raw string) Response {
 			return Response{ID: req.ID, OK: false, Error: "invalid student_attendance_history payload"}
 		}
 		resp := s.attendanceHistoryForStudent(req.Token, data)
+		resp.ID = req.ID
+		return resp
+	case "teacher_subjects":
+		resp := s.teacherSubjects(req.Token)
 		resp.ID = req.ID
 		return resp
 	case "teacher_create_grade_item":

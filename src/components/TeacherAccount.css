@@ -172,6 +172,13 @@
   gap: 12px;
 }
 
+.helper-text {
+  grid-column: 1 / -1;
+  margin: -4px 0 0;
+  color: #68708e;
+  font-size: 13px;
+}
+
 .submit-btn,
 .secondary-btn {
   min-height: 42px;

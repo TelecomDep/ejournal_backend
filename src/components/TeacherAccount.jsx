@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import api from '../services/api';
 import './TeacherAccount.css';
 
@@ -29,8 +29,8 @@ const TeacherAccount = ({ userData, onLogout, token }) => {
 
   const [activeTab, setActiveTab] = useState('attendance');
   const [sessionForm, setSessionForm] = useState({
-    subjectId: 1,
-    groupIds: [2],
+    subjectId: '',
+    groupIds: [],
     lessonName: 'Занятие',
     expiresMinutes: 20
   });
@@ -39,7 +39,7 @@ const TeacherAccount = ({ userData, onLogout, token }) => {
     subjectId: ''
   });
   const [itemForm, setItemForm] = useState({
-    subjectId: 1,
+    subjectId: '',
     title: 'Лабораторная работа 1',
     maxScore: 10,
     itemType: 'laboratory',
@@ -54,8 +54,10 @@ const TeacherAccount = ({ userData, onLogout, token }) => {
   });
   const [sheetForm, setSheetForm] = useState({
     studentId: 2,
-    subjectId: 1
+    subjectId: ''
   });
+  const [teacherSubjects, setTeacherSubjects] = useState([]);
+  const [subjectsLoading, setSubjectsLoading] = useState(false);
 
   const [sessionLoading, setSessionLoading] = useState(false);
   const [statsLoading, setStatsLoading] = useState(false);
@@ -68,10 +70,65 @@ const TeacherAccount = ({ userData, onLogout, token }) => {
   const [studentSheet, setStudentSheet] = useState(null);
 
   const gradeItems = gradeItemsResult?.items || [];
+  const selectedSessionSubject = useMemo(
+    () => teacherSubjects.find((subject) => Number(subject.subject_id) === Number(sessionForm.subjectId)),
+    [teacherSubjects, sessionForm.subjectId]
+  );
   const gradeItemsTotal = useMemo(
     () => gradeItems.reduce((sum, item) => sum + Number(item.max_score || 0), 0),
     [gradeItems]
   );
+
+  useEffect(() => {
+    let active = true;
+
+    const loadTeacherSubjects = async () => {
+      setSubjectsLoading(true);
+      try {
+        const response = await api.getTeacherSubjects(token);
+        const subjects = Array.isArray(response?.subjects) ? response.subjects : [];
+        if (!active) {
+          return;
+        }
+        setTeacherSubjects(subjects);
+
+        if (subjects.length > 0) {
+          const first = subjects[0];
+          const firstSubjectID = Number(first.subject_id);
+          const firstGroupIDs = Array.isArray(first.group_ids)
+            ? first.group_ids.map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0)
+            : [];
+
+          setSessionForm((current) => ({
+            ...current,
+            subjectId: current.subjectId || firstSubjectID,
+            groupIds: current.groupIds?.length ? current.groupIds : firstGroupIDs
+          }));
+          setItemForm((current) => ({
+            ...current,
+            subjectId: current.subjectId || firstSubjectID
+          }));
+          setSheetForm((current) => ({
+            ...current,
+            subjectId: current.subjectId || firstSubjectID
+          }));
+        }
+      } catch (err) {
+        if (active) {
+          setError(api.getErrorMessage(err, 'Не удалось загрузить предметы преподавателя'));
+        }
+      } finally {
+        if (active) {
+          setSubjectsLoading(false);
+        }
+      }
+    };
+
+    loadTeacherSubjects();
+    return () => {
+      active = false;
+    };
+  }, [token]);
 
   const clearFeedback = () => {
     setError('');
@@ -92,10 +149,23 @@ const TeacherAccount = ({ userData, onLogout, token }) => {
       }));
       return;
     }
+    if (name === 'subjectId') {
+      const selectedSubjectID = parseNumber(value);
+      const selectedSubject = teacherSubjects.find((subject) => Number(subject.subject_id) === selectedSubjectID);
+      const nextGroupIDs = Array.isArray(selectedSubject?.group_ids)
+        ? selectedSubject.group_ids.map((id) => parseNumber(id)).filter((id) => id > 0)
+        : [];
+      setSessionForm((current) => ({
+        ...current,
+        subjectId: selectedSubjectID,
+        groupIds: nextGroupIDs
+      }));
+      return;
+    }
 
     setSessionForm((current) => ({
       ...current,
-      [name]: name === 'expiresMinutes' || name === 'subjectId' ? parseNumber(value) : value
+      [name]: name === 'expiresMinutes' ? parseNumber(value) : value
     }));
   };
 
@@ -138,6 +208,10 @@ const TeacherAccount = ({ userData, onLogout, token }) => {
     setSessionLoading(true);
 
     try {
+      if (!parseNumber(sessionForm.subjectId)) {
+        setError('Выберите предмет из списка ваших пар.');
+        return;
+      }
       const response = await api.createAttendanceLink(
         token,
         sessionForm.subjectId,
@@ -314,13 +388,39 @@ const TeacherAccount = ({ userData, onLogout, token }) => {
 
           <form onSubmit={handleCreateSession} className="teacher-form">
             <label className="form-group" htmlFor="subjectId">
-              ID предмета
-              <input id="subjectId" type="number" name="subjectId" value={sessionForm.subjectId} onChange={handleSessionInputChange} min="1" required />
+              Пара (предмет)
+              <select
+                id="subjectId"
+                name="subjectId"
+                value={sessionForm.subjectId}
+                onChange={handleSessionInputChange}
+                required
+                disabled={subjectsLoading || teacherSubjects.length === 0}
+              >
+                <option value="">
+                  {subjectsLoading ? 'Загрузка пар...' : 'Выберите пару'}
+                </option>
+                {teacherSubjects.map((subject) => (
+                  <option key={subject.subject_id} value={subject.subject_id}>
+                    {subject.subject_name} (ID: {subject.subject_id})
+                  </option>
+                ))}
+              </select>
             </label>
+            {!subjectsLoading && teacherSubjects.length === 0 && (
+              <p className="helper-text">
+                Для вашего профиля пока не найдено пар в расписании. Обратитесь к администратору.
+              </p>
+            )}
             <label className="form-group" htmlFor="groupIds">
               ID групп через запятую
               <input id="groupIds" type="text" name="groupIds" value={sessionForm.groupIds.join(', ')} onChange={handleSessionInputChange} placeholder="1, 2, 3" required />
             </label>
+            {selectedSessionSubject?.group_ids?.length > 0 && (
+              <p className="helper-text">
+                Для выбранной пары найдены группы: {selectedSessionSubject.group_ids.join(', ')}.
+              </p>
+            )}
             <label className="form-group" htmlFor="lessonName">
               Название занятия
               <input id="lessonName" type="text" name="lessonName" value={sessionForm.lessonName} onChange={handleSessionInputChange} placeholder="Практика по сетям" required />

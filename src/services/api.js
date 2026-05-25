@@ -123,6 +123,19 @@ const api = {
     }
   },
 
+  // Teacher: Get assigned subjects and groups
+  async getTeacherSubjects(token) {
+    try {
+      const response = await axios.get(`${BACKEND_URL}/api/teacher/subjects`, {
+        headers: authHeaders(token)
+      });
+      return unwrapApiResponse(response.data);
+    } catch (error) {
+      console.error('Ошибка загрузки предметов преподавателя:', error);
+      throw error;
+    }
+  },
+
   // Student: Confirm attendance
   async confirmAttendance(token, inviteToken) {
     try {

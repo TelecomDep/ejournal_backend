@@ -44,6 +44,7 @@ func (s *Server) Start() {
 
 	fiberApp.Post("/api/teacher/attendance-link", s.teacherAttendanceLinkHandler)
 	fiberApp.Post("/api/teacher/attendance/session", s.teacherAttendanceLinkHandler)
+	fiberApp.Get("/api/teacher/subjects", s.teacherSubjectsHandler)
 	fiberApp.Post("/api/teacher/attendance/group", s.teacherAttendanceByGroupHandler)
 	fiberApp.Post("/api/student/attendance/confirm", s.studentAttendanceConfirmHandler)
 	fiberApp.Get("/api/student/attendance/history", s.studentAttendanceHistoryHandler)
@@ -382,6 +383,44 @@ func (s *Server) teacherAttendanceByGroupHandler(c *fiber.Ctx) error {
 		}
 		if resp.Error == "invalid token" || resp.Error == "session not found" || resp.Error == "missing token" {
 			return c.Status(fiber.StatusUnauthorized).JSON(resp)
+		}
+		return c.Status(fiber.StatusBadRequest).JSON(resp)
+	}
+
+	return c.JSON(resp)
+}
+
+// teacherSubjectsHandler godoc
+// @Summary Get teacher subjects
+// @Description Returns subjects (and groups) assigned to current teacher from schedule.
+// @Tags attendance
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} app.Response
+// @Failure 401 {object} app.Response
+// @Failure 403 {object} app.Response
+// @Failure 500 {object} app.Response
+// @Router /api/teacher/subjects [get]
+func (s *Server) teacherSubjectsHandler(c *fiber.Ctx) error {
+	token := c.Get("Authorization")
+	if token == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(app.Response{OK: false, Error: "missing Authorization header"})
+	}
+
+	req := app.Request{ID: "http-teacher-subjects", Action: "teacher_subjects", Token: token}
+	raw, err := json.Marshal(req)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(app.Response{OK: false, Error: "Error marshalling envelope"})
+	}
+
+	resp, err := s.svc.DispatchRequest(string(raw), s.requestTimeout)
+	if err != nil {
+		return c.Status(fiber.StatusServiceUnavailable).JSON(app.Response{OK: false, Error: err.Error()})
+	}
+
+	if !resp.OK {
+		if resp.Error == "forbidden: teacher role required" {
+			return c.Status(fiber.StatusForbidden).JSON(resp)
 		}
 		return c.Status(fiber.StatusBadRequest).JSON(resp)
 	}
