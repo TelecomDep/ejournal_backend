@@ -77,11 +77,14 @@ type Student struct {
 }
 
 type AttendanceSession struct {
-	ID        int32     `json:"session_id"`
-	TeacherID int32     `json:"teacher_id"`
-	SubjectID int32     `json:"subject_id"`
-	ExpiresAt time.Time `json:"expires_at"`
-	CreatedAt time.Time `json:"created_at"`
+	ID         int32     `json:"session_id"`
+	TeacherID  int32     `json:"teacher_id"`
+	SubjectID  int32     `json:"subject_id"`
+	LessonName string    `json:"lesson_name,omitempty"`
+	Lat        *float64  `json:"lat,omitempty"`
+	Lon        *float64  `json:"lon,omitempty"`
+	ExpiresAt  time.Time `json:"expires_at"`
+	CreatedAt  time.Time `json:"created_at"`
 }
 
 type AttendanceMark struct {

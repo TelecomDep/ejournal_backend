@@ -46,6 +46,7 @@ services:
       ROLE_HASH_STUDENT: ${ROLE_HASH_STUDENT:-STUDENT-HASH-2026}
       DEFAULT_STUDENT_GROUP_ID: ${DEFAULT_STUDENT_GROUP_ID:-1}
       ALLOW_EARLY_ATTENDANCE: ${ALLOW_EARLY_ATTENDANCE:-true}
+      UPLOAD_DIR: ${UPLOAD_DIR:-uploads}
     depends_on:
       postgres:
         condition: service_healthy
@@ -53,6 +54,8 @@ services:
         condition: service_completed_successfully
     ports:
       - "${APP_PORT:-8888}:${APP_PORT:-8888}"
+    volumes:
+      - avataruploads:/app/uploads
     restart: unless-stopped
 
   web:
@@ -68,3 +71,4 @@ services:
 
 volumes:
   pgdata:
+  avataruploads:

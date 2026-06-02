@@ -138,7 +138,7 @@ docker compose down -v
 }
 ```
 
-Регистрация студента через тот же endpoint:
+Legacy-регистрация студента через `role_hash`:
 
 ```json
 {
@@ -148,17 +148,20 @@ docker compose down -v
 }
 ```
 
-Регистрация студента по коду из БД:
+Основной путь регистрации через invite-код из БД:
 
 `POST /register/by-invite`
 
 ```json
 {
-  "invite_code": "8D2C72771DF0",
   "login": "student_login",
-  "password": "StrongPassword123"
+  "password": "StrongPassword123",
+  "invite_code": "8D2C72771DF0"
 }
 ```
+
+`/register/by-invite` теперь определяет роль по записи в таблице `registration_invites`.
+Для старых студентских кодов данные были перенесены туда автоматически.
 
 ### 2) Логин
 
@@ -232,6 +235,62 @@ docker compose down -v
   "invite_token": "<token>"
 }
 ```
+
+### 6) Android-compatible API
+
+Регистрация через единый invite-код:
+
+`POST /register`
+
+```json
+{
+  "login": "student_login",
+  "password": "StrongPassword123",
+  "invite_code": "8D2C72771DF0"
+}
+```
+
+Создание занятия преподавателем:
+
+`POST /lessons/create`
+
+```json
+{
+  "subject": "Networks",
+  "groups": ["ИКС-433"],
+  "lat": 55.75,
+  "lon": 37.61
+}
+```
+
+Получение ссылки для QR уже созданного занятия:
+
+`POST /api/teacher/attendance-link`
+
+```json
+{
+  "lesson_id": 1
+}
+```
+
+Отметка студента из Android-приложения:
+
+`POST /api/student/mark-attendance`
+
+```json
+{
+  "lesson_id": 1,
+  "device_id": "android-device-id",
+  "lat": 55.75,
+  "lon": 37.61
+}
+```
+
+Загрузка аватара текущего пользователя:
+
+`POST /api/user/upload-avatar`
+
+Формат запроса: `multipart/form-data`, поле файла: `avatar`.
 
 ### 6) Просмотр посещаемости по группе (teacher)
 

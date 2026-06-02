@@ -1,18 +1,56 @@
 basePath: /
 definitions:
-  github_com_TelecomDep_ejournal_backend_internal_app.AttendanceConfirmData:
+  app.AndroidAttendanceMarkData:
+    properties:
+      device_id:
+        type: string
+      invite_token:
+        type: string
+      lat:
+        type: number
+      lesson_id:
+        type: integer
+      lon:
+        type: number
+    type: object
+  app.AndroidLessonCreateData:
+    properties:
+      expires_minutes:
+        type: integer
+      group_ids:
+        items:
+          type: integer
+        type: array
+      groups:
+        items:
+          type: string
+        type: array
+      lat:
+        type: number
+      lesson_name:
+        type: string
+      lon:
+        type: number
+      subject:
+        type: string
+      subject_id:
+        type: integer
+      teacher_id:
+        type: integer
+    type: object
+  app.AttendanceConfirmData:
     properties:
       invite_token:
         type: string
     type: object
-  github_com_TelecomDep_ejournal_backend_internal_app.AttendanceGroupStatsData:
+  app.AttendanceGroupStatsData:
     properties:
       group_id:
         type: integer
       subject_id:
         type: integer
     type: object
-  github_com_TelecomDep_ejournal_backend_internal_app.GradeItemCreateData:
+  app.GradeItemCreateData:
     properties:
       deadline:
         type: string
@@ -25,12 +63,12 @@ definitions:
       title:
         type: string
     type: object
-  github_com_TelecomDep_ejournal_backend_internal_app.GradeSubjectData:
+  app.GradeSubjectData:
     properties:
       subject_id:
         type: integer
     type: object
-  github_com_TelecomDep_ejournal_backend_internal_app.GradeUpsertData:
+  app.GradeUpsertData:
     properties:
       comment:
         type: string
@@ -43,14 +81,14 @@ definitions:
       student_id:
         type: integer
     type: object
-  github_com_TelecomDep_ejournal_backend_internal_app.LoginData:
+  app.LoginData:
     properties:
       login:
         type: string
       password:
         type: string
     type: object
-  github_com_TelecomDep_ejournal_backend_internal_app.RegisterByInviteData:
+  app.RegisterByInviteData:
     properties:
       invite_code:
         type: string
@@ -59,16 +97,20 @@ definitions:
       password:
         type: string
     type: object
-  github_com_TelecomDep_ejournal_backend_internal_app.RegisterData:
+  app.RegisterData:
     properties:
+      invite_code:
+        type: string
       login:
         type: string
       password:
         type: string
+      role:
+        type: string
       role_hash:
         type: string
     type: object
-  github_com_TelecomDep_ejournal_backend_internal_app.Response:
+  app.Response:
     properties:
       error:
         type: string
@@ -78,14 +120,14 @@ definitions:
         type: boolean
       result: {}
     type: object
-  github_com_TelecomDep_ejournal_backend_internal_app.TeacherStudentGradesData:
+  app.TeacherStudentGradesData:
     properties:
       student_id:
         type: integer
       subject_id:
         type: integer
     type: object
-  internal_httpserver.loginResponse:
+  httpserver.loginResponse:
     properties:
       error:
         example: ""
@@ -97,9 +139,9 @@ definitions:
         example: true
         type: boolean
       result:
-        $ref: '#/definitions/internal_httpserver.loginResult'
+        $ref: '#/definitions/httpserver.loginResult'
     type: object
-  internal_httpserver.loginResult:
+  httpserver.loginResult:
     properties:
       login:
         example: teacher_test
@@ -114,7 +156,7 @@ definitions:
         example: "3"
         type: string
     type: object
-  internal_httpserver.profileResponse:
+  httpserver.profileResponse:
     properties:
       error:
         example: ""
@@ -126,10 +168,16 @@ definitions:
         example: true
         type: boolean
       result:
-        $ref: '#/definitions/internal_httpserver.profileResult'
+        $ref: '#/definitions/httpserver.profileResult'
     type: object
-  internal_httpserver.profileResult:
+  httpserver.profileResult:
     properties:
+      avatar:
+        example: https://server.com/uploads/avatars/avatar.png
+        type: string
+      group:
+        example: ИКС-433
+        type: string
       group_id:
         example: 237
         type: integer
@@ -148,6 +196,59 @@ definitions:
       name:
         example: Демин Сергей А.
         type: string
+      nfc_tag:
+        example: 04:XX:YY:ZZ
+        type: string
+      role:
+        example: student
+        type: string
+      student_id:
+        example: 56
+        type: integer
+      student_name:
+        example: Демин Сергей А.
+        type: string
+      teacher_id:
+        example: 3
+        type: integer
+      teacher_name:
+        example: Солодов Павел Сергеевич
+        type: string
+      total_cheat_attempts:
+        example: 0
+        type: integer
+      user_id:
+        example: "3"
+        type: string
+    type: object
+  httpserver.registerByInviteResponse:
+    properties:
+      error:
+        example: ""
+        type: string
+      id:
+        example: http-register-by-invite
+        type: string
+      ok:
+        example: true
+        type: boolean
+      result:
+        $ref: '#/definitions/httpserver.registerByInviteResult'
+    type: object
+  httpserver.registerByInviteResult:
+    properties:
+      group_id:
+        example: 237
+        type: integer
+      group_name:
+        example: ИКС-433
+        type: string
+      job_title:
+        example: Преподаватель
+        type: string
+      login:
+        example: student_iks_21
+        type: string
       role:
         example: student
         type: string
@@ -164,48 +265,10 @@ definitions:
         example: Солодов Павел Сергеевич
         type: string
       user_id:
-        example: "3"
-        type: string
-    type: object
-  internal_httpserver.registerByInviteResponse:
-    properties:
-      error:
-        example: ""
-        type: string
-      id:
-        example: http-register-by-invite
-        type: string
-      ok:
-        example: true
-        type: boolean
-      result:
-        $ref: '#/definitions/internal_httpserver.registerByInviteResult'
-    type: object
-  internal_httpserver.registerByInviteResult:
-    properties:
-      group_id:
-        example: 237
-        type: integer
-      group_name:
-        example: ИКС-433
-        type: string
-      login:
-        example: student_iks_21
-        type: string
-      role:
-        example: student
-        type: string
-      student_id:
-        example: 56
-        type: integer
-      student_name:
-        example: Демин Сергей А.
-        type: string
-      user_id:
         example: "12"
         type: string
     type: object
-  internal_httpserver.registerResponse:
+  httpserver.registerResponse:
     properties:
       error:
         example: ""
@@ -217,9 +280,9 @@ definitions:
         example: true
         type: boolean
       result:
-        $ref: '#/definitions/internal_httpserver.registerResult'
+        $ref: '#/definitions/httpserver.registerResult'
     type: object
-  internal_httpserver.registerResult:
+  httpserver.registerResult:
     properties:
       login:
         example: teacher1
@@ -227,11 +290,14 @@ definitions:
       role:
         example: teacher
         type: string
+      token:
+        example: <jwt_token>
+        type: string
       user_id:
         example: "5"
         type: string
     type: object
-  internal_httpserver.studentAttendanceConfirmResponse:
+  httpserver.studentAttendanceConfirmResponse:
     properties:
       error:
         example: ""
@@ -243,9 +309,9 @@ definitions:
         example: true
         type: boolean
       result:
-        $ref: '#/definitions/internal_httpserver.studentAttendanceConfirmResult'
+        $ref: '#/definitions/httpserver.studentAttendanceConfirmResult'
     type: object
-  internal_httpserver.studentAttendanceConfirmResult:
+  httpserver.studentAttendanceConfirmResult:
     properties:
       attendance:
         example: confirmed
@@ -266,7 +332,7 @@ definitions:
         example: "3"
         type: string
     type: object
-  internal_httpserver.studentAttendanceHistoryItem:
+  httpserver.studentAttendanceHistoryItem:
     properties:
       count:
         example: 1
@@ -275,7 +341,7 @@ definitions:
         example: "2026-04-20"
         type: string
     type: object
-  internal_httpserver.studentAttendanceHistoryResponse:
+  httpserver.studentAttendanceHistoryResponse:
     properties:
       error:
         example: ""
@@ -287,19 +353,19 @@ definitions:
         example: true
         type: boolean
       result:
-        $ref: '#/definitions/internal_httpserver.studentAttendanceHistoryResult'
+        $ref: '#/definitions/httpserver.studentAttendanceHistoryResult'
     type: object
-  internal_httpserver.studentAttendanceHistoryResult:
+  httpserver.studentAttendanceHistoryResult:
     properties:
       items:
         items:
-          $ref: '#/definitions/internal_httpserver.studentAttendanceHistoryItem'
+          $ref: '#/definitions/httpserver.studentAttendanceHistoryItem'
         type: array
       year:
         example: 2026
         type: integer
     type: object
-  internal_httpserver.teacherAttendanceGroupResponse:
+  httpserver.teacherAttendanceGroupResponse:
     properties:
       error:
         example: ""
@@ -311,27 +377,27 @@ definitions:
         example: true
         type: boolean
       result:
-        $ref: '#/definitions/internal_httpserver.teacherAttendanceGroupResult'
+        $ref: '#/definitions/httpserver.teacherAttendanceGroupResult'
     type: object
-  internal_httpserver.teacherAttendanceGroupResult:
+  httpserver.teacherAttendanceGroupResult:
     properties:
       group_id:
         example: 1
         type: integer
       students:
         items:
-          $ref: '#/definitions/internal_httpserver.teacherAttendanceGroupStudent'
+          $ref: '#/definitions/httpserver.teacherAttendanceGroupStudent'
         type: array
       subject_id:
         example: 2
         type: integer
       summary:
-        $ref: '#/definitions/internal_httpserver.teacherAttendanceGroupSummary'
+        $ref: '#/definitions/httpserver.teacherAttendanceGroupSummary'
       timezone:
         example: Asia/Novosibirsk
         type: string
     type: object
-  internal_httpserver.teacherAttendanceGroupStudent:
+  httpserver.teacherAttendanceGroupStudent:
     properties:
       attendance_percent:
         example: 66.67
@@ -352,7 +418,7 @@ definitions:
         example: 3
         type: integer
     type: object
-  internal_httpserver.teacherAttendanceGroupSummary:
+  httpserver.teacherAttendanceGroupSummary:
     properties:
       sessions_count:
         example: 3
@@ -361,7 +427,7 @@ definitions:
         example: 1
         type: integer
     type: object
-  internal_httpserver.teacherAttendanceLinkRequest:
+  httpserver.teacherAttendanceLinkRequest:
     properties:
       expires_minutes:
         example: 20
@@ -372,6 +438,9 @@ definitions:
         items:
           type: integer
         type: array
+      lesson_id:
+        example: 5
+        type: integer
       lesson_name:
         example: Networks
         type: string
@@ -379,7 +448,7 @@ definitions:
         example: 2
         type: integer
     type: object
-  internal_httpserver.teacherAttendanceLinkResponse:
+  httpserver.teacherAttendanceLinkResponse:
     properties:
       error:
         example: ""
@@ -391,9 +460,9 @@ definitions:
         example: true
         type: boolean
       result:
-        $ref: '#/definitions/internal_httpserver.teacherAttendanceLinkResult'
+        $ref: '#/definitions/httpserver.teacherAttendanceLinkResult'
     type: object
-  internal_httpserver.teacherAttendanceLinkResult:
+  httpserver.teacherAttendanceLinkResult:
     properties:
       expires_at:
         example: "2026-04-21T21:25:37+07:00"
@@ -459,34 +528,34 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.AttendanceConfirmData'
+          $ref: '#/definitions/app.AttendanceConfirmData'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_httpserver.studentAttendanceConfirmResponse'
+            $ref: '#/definitions/httpserver.studentAttendanceConfirmResponse'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response'
+            $ref: '#/definitions/app.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response'
+            $ref: '#/definitions/app.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response'
+            $ref: '#/definitions/app.Response'
         "409":
           description: Conflict
           schema:
-            $ref: '#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response'
+            $ref: '#/definitions/app.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response'
+            $ref: '#/definitions/app.Response'
       security:
       - BearerAuth: []
       summary: Confirm attendance by invite token
@@ -508,23 +577,23 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_httpserver.studentAttendanceHistoryResponse'
+            $ref: '#/definitions/httpserver.studentAttendanceHistoryResponse'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response'
+            $ref: '#/definitions/app.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response'
+            $ref: '#/definitions/app.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response'
+            $ref: '#/definitions/app.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response'
+            $ref: '#/definitions/app.Response'
       security:
       - BearerAuth: []
       summary: Get current student attendance history
@@ -541,35 +610,76 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.GradeSubjectData'
+          $ref: '#/definitions/app.GradeSubjectData'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response'
+            $ref: '#/definitions/app.Response'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response'
+            $ref: '#/definitions/app.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response'
+            $ref: '#/definitions/app.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response'
+            $ref: '#/definitions/app.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response'
+            $ref: '#/definitions/app.Response'
       security:
       - BearerAuth: []
       summary: Get current student grades by subject
       tags:
       - grades
+  /api/student/mark-attendance:
+    post:
+      consumes:
+      - application/json
+      description: Student marks attendance with lesson ID, device ID, and current
+        location.
+      parameters:
+      - description: Android attendance payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/app.AndroidAttendanceMarkData'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/app.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/app.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/app.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/app.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/app.Response'
+      security:
+      - BearerAuth: []
+      summary: Mark attendance for Android client
+      tags:
+      - attendance
   /api/teacher/attendance-link:
     post:
       consumes:
@@ -582,30 +692,30 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/internal_httpserver.teacherAttendanceLinkRequest'
+          $ref: '#/definitions/httpserver.teacherAttendanceLinkRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_httpserver.teacherAttendanceLinkResponse'
+            $ref: '#/definitions/httpserver.teacherAttendanceLinkResponse'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response'
+            $ref: '#/definitions/app.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response'
+            $ref: '#/definitions/app.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response'
+            $ref: '#/definitions/app.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response'
+            $ref: '#/definitions/app.Response'
       security:
       - BearerAuth: []
       summary: Create attendance session link
@@ -623,30 +733,30 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.AttendanceGroupStatsData'
+          $ref: '#/definitions/app.AttendanceGroupStatsData'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_httpserver.teacherAttendanceGroupResponse'
+            $ref: '#/definitions/httpserver.teacherAttendanceGroupResponse'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response'
+            $ref: '#/definitions/app.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response'
+            $ref: '#/definitions/app.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response'
+            $ref: '#/definitions/app.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response'
+            $ref: '#/definitions/app.Response'
       security:
       - BearerAuth: []
       summary: Get attendance stats by group
@@ -664,30 +774,30 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/internal_httpserver.teacherAttendanceLinkRequest'
+          $ref: '#/definitions/httpserver.teacherAttendanceLinkRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_httpserver.teacherAttendanceLinkResponse'
+            $ref: '#/definitions/httpserver.teacherAttendanceLinkResponse'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response'
+            $ref: '#/definitions/app.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response'
+            $ref: '#/definitions/app.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response'
+            $ref: '#/definitions/app.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response'
+            $ref: '#/definitions/app.Response'
       security:
       - BearerAuth: []
       summary: Create attendance session link
@@ -704,30 +814,30 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.GradeUpsertData'
+          $ref: '#/definitions/app.GradeUpsertData'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response'
+            $ref: '#/definitions/app.Response'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response'
+            $ref: '#/definitions/app.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response'
+            $ref: '#/definitions/app.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response'
+            $ref: '#/definitions/app.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response'
+            $ref: '#/definitions/app.Response'
       security:
       - BearerAuth: []
       summary: Create or update student grade
@@ -744,30 +854,30 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.GradeItemCreateData'
+          $ref: '#/definitions/app.GradeItemCreateData'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response'
+            $ref: '#/definitions/app.Response'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response'
+            $ref: '#/definitions/app.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response'
+            $ref: '#/definitions/app.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response'
+            $ref: '#/definitions/app.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response'
+            $ref: '#/definitions/app.Response'
       security:
       - BearerAuth: []
       summary: Create grade item
@@ -784,30 +894,30 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.GradeSubjectData'
+          $ref: '#/definitions/app.GradeSubjectData'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response'
+            $ref: '#/definitions/app.Response'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response'
+            $ref: '#/definitions/app.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response'
+            $ref: '#/definitions/app.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response'
+            $ref: '#/definitions/app.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response'
+            $ref: '#/definitions/app.Response'
       security:
       - BearerAuth: []
       summary: List grade items by subject
@@ -824,35 +934,132 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.TeacherStudentGradesData'
+          $ref: '#/definitions/app.TeacherStudentGradesData'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response'
+            $ref: '#/definitions/app.Response'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response'
+            $ref: '#/definitions/app.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response'
+            $ref: '#/definitions/app.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response'
+            $ref: '#/definitions/app.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response'
+            $ref: '#/definitions/app.Response'
       security:
       - BearerAuth: []
       summary: Get student grades by subject
       tags:
       - grades
+  /api/teacher/subjects:
+    get:
+      description: Returns subjects (and groups) assigned to current teacher from
+        schedule.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/app.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/app.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/app.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/app.Response'
+      security:
+      - BearerAuth: []
+      summary: Get teacher subjects
+      tags:
+      - attendance
+  /api/user/upload-avatar:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Saves a JPEG, PNG, or WebP profile picture up to 5 MiB and returns
+        its public URL.
+      parameters:
+      - description: Avatar image
+        in: formData
+        name: avatar
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/app.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/app.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/app.Response'
+      security:
+      - BearerAuth: []
+      summary: Upload current user avatar
+      tags:
+      - profile
+  /lessons/create:
+    post:
+      consumes:
+      - application/json
+      description: Teacher creates an attendance lesson using subject/group names
+        or IDs and current location.
+      parameters:
+      - description: Android lesson payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/app.AndroidLessonCreateData'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/app.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/app.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/app.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/app.Response'
+      security:
+      - BearerAuth: []
+      summary: Create lesson for Android client
+      tags:
+      - attendance
   /login:
     post:
       consumes:
@@ -864,22 +1071,22 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.LoginData'
+          $ref: '#/definitions/app.LoginData'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_httpserver.loginResponse'
+            $ref: '#/definitions/httpserver.loginResponse'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response'
+            $ref: '#/definitions/app.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response'
+            $ref: '#/definitions/app.Response'
       summary: Login user
       tags:
       - auth
@@ -892,15 +1099,15 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_httpserver.profileResponse'
+            $ref: '#/definitions/httpserver.profileResponse'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response'
+            $ref: '#/definitions/app.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response'
+            $ref: '#/definitions/app.Response'
       security:
       - BearerAuth: []
       summary: Get user profile
@@ -910,29 +1117,30 @@ paths:
     post:
       consumes:
       - application/json
-      description: Registers a user by login/password and role hash.
+      description: Registers a user by one-time invite_code. Legacy role_hash registration
+        remains supported for existing clients.
       parameters:
       - description: Register payload
         in: body
         name: request
         required: true
         schema:
-          $ref: '#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.RegisterData'
+          $ref: '#/definitions/app.RegisterData'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_httpserver.registerResponse'
+            $ref: '#/definitions/httpserver.registerResponse'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response'
+            $ref: '#/definitions/app.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response'
+            $ref: '#/definitions/app.Response'
       summary: Register user
       tags:
       - auth
@@ -940,34 +1148,35 @@ paths:
     post:
       consumes:
       - application/json
-      description: Creates student account by one-time invite code from database.
+      description: Creates student, teacher, or admin account by one-time invite code
+        from database.
       parameters:
       - description: Register by invite payload
         in: body
         name: request
         required: true
         schema:
-          $ref: '#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.RegisterByInviteData'
+          $ref: '#/definitions/app.RegisterByInviteData'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_httpserver.registerByInviteResponse'
+            $ref: '#/definitions/httpserver.registerByInviteResponse'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response'
+            $ref: '#/definitions/app.Response'
         "409":
           description: Conflict
           schema:
-            $ref: '#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response'
+            $ref: '#/definitions/app.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response'
-      summary: Register student by invite code
+            $ref: '#/definitions/app.Response'
+      summary: Register user by invite code
       tags:
       - auth
 schemes:

@@ -38,9 +38,11 @@ type LoginData struct {
 }
 
 type RegisterData struct {
-	Login    string `json:"login"`
-	Password string `json:"password"`
-	RoleHash string `json:"role_hash"`
+	Login      string `json:"login"`
+	Password   string `json:"password"`
+	InviteCode string `json:"invite_code,omitempty"`
+	RoleHash   string `json:"role_hash,omitempty"`
+	Role       string `json:"role,omitempty"`
 }
 
 type RegisterByInviteData struct {
@@ -58,6 +60,7 @@ type User struct {
 }
 
 type AttendanceCreateData struct {
+	LessonID       int32   `json:"lesson_id,omitempty"`
 	SubjectID      int32   `json:"subject_id,omitempty"`
 	GroupIDs       []int32 `json:"group_ids,omitempty"`
 	LessonName     string  `json:"lesson_name,omitempty"`
@@ -428,6 +431,7 @@ func (s *Service) profileByToken(token string) Response {
 
 	result := map[string]any{
 		"user_id": user.UserID,
+		"user_ID": user.UserID,
 		"login":   user.Login,
 		"role":    user.Role,
 	}
@@ -435,24 +439,32 @@ func (s *Service) profileByToken(token string) Response {
 	ctx, cancel := s.dbContext()
 	defer cancel()
 
+	var avatarURL sql.NullString
+	if err = s.store.Pool().QueryRow(ctx, `SELECT avatar_url FROM users WHERE id = $1`, user.ID).Scan(&avatarURL); err == nil && avatarURL.Valid {
+		result["avatar"] = avatarURL.String
+	}
+
 	switch user.Role {
 	case "student":
 		var studentID int32
 		var studentName sql.NullString
 		var groupID sql.NullInt32
 		var groupName sql.NullString
+		var nfcID sql.NullString
+		var totalCheatAttempts int32
 		err = s.store.Pool().QueryRow(
 			ctx,
-			`SELECT s.student_id, s.student_name, s.group_id, g.group_name
+			`SELECT s.student_id, s.student_name, s.group_id, g.group_name, s.nfc_id, s.total_cheat_attempts
 			 FROM students s
 			 LEFT JOIN groups g ON g.group_id = s.group_id
 			 WHERE s.user_id = $1 OR s.student_id = $1
 			 ORDER BY CASE WHEN s.user_id = $1 THEN 0 ELSE 1 END
 			 LIMIT 1`,
 			user.ID,
-		).Scan(&studentID, &studentName, &groupID, &groupName)
+		).Scan(&studentID, &studentName, &groupID, &groupName, &nfcID, &totalCheatAttempts)
 		if err == nil {
 			result["student_id"] = studentID
+			result["total_cheat_attempts"] = totalCheatAttempts
 			if studentName.Valid {
 				result["name"] = studentName.String
 				result["student_name"] = studentName.String
@@ -462,6 +474,10 @@ func (s *Service) profileByToken(token string) Response {
 			}
 			if groupName.Valid {
 				result["group_name"] = groupName.String
+				result["group"] = groupName.String
+			}
+			if nfcID.Valid {
+				result["nfc_tag"] = nfcID.String
 			}
 		}
 	case "teacher":
@@ -499,7 +515,10 @@ func (s *Service) profileByToken(token string) Response {
 func (s *Service) generateAttendanceInviteToken(lessonID, teacherID string, expiresMinutes int) (string, time.Time, error) {
 	expiresMinutes = normalizeInviteTTL(expiresMinutes)
 
-	exp := time.Now().Add(time.Duration(expiresMinutes) * time.Minute)
+	return s.generateAttendanceInviteTokenUntil(lessonID, teacherID, time.Now().Add(time.Duration(expiresMinutes)*time.Minute))
+}
+
+func (s *Service) generateAttendanceInviteTokenUntil(lessonID, teacherID string, exp time.Time) (string, time.Time, error) {
 	claims := AttendanceInviteClaims{
 		Type:      "attendance_invite",
 		LessonID:  lessonID,
@@ -550,6 +569,14 @@ func (s *Service) parseAttendanceInviteToken(inviteToken string) (*AttendanceInv
 }
 
 func (s *Service) register(data RegisterData) Response {
+	if strings.TrimSpace(data.InviteCode) != "" {
+		return s.registerByInvite(RegisterByInviteData{
+			InviteCode: data.InviteCode,
+			Login:      data.Login,
+			Password:   data.Password,
+		})
+	}
+
 	login := strings.TrimSpace(data.Login)
 	password := strings.TrimSpace(data.Password)
 	if login == "" || password == "" {
@@ -634,38 +661,41 @@ func (s *Service) registerByInvite(data RegisterByInviteData) Response {
 		_ = tx.Rollback(ctx)
 	}()
 
-	var studentID int32
-	var studentName string
-	var groupID sql.NullInt32
-	var groupName sql.NullString
+	var inviteID int32
+	var inviteRole string
+	var studentID sql.NullInt32
+	var teacherID sql.NullInt32
 	err = tx.QueryRow(
 		ctx,
-		`SELECT s.student_id, s.student_name, s.group_id, g.group_name
-		 FROM students s
-		 LEFT JOIN groups g ON g.group_id = s.group_id
-		 WHERE s.user_id IS NULL
-		   AND s.invite_code_used_at IS NULL
-		   AND s.invite_code_hash IS NOT NULL
-		   AND s.invite_code_hash = crypt($1, s.invite_code_hash)
-		 LIMIT 1
-		 FOR UPDATE OF s`,
+		`SELECT invite_id, role::text, student_id, teacher_id
+		 FROM registration_invites
+		 WHERE used_at IS NULL
+		   AND invite_code_hash = crypt($1, invite_code_hash)
+		 FOR UPDATE
+		 LIMIT 1`,
 		inviteCode,
-	).Scan(&studentID, &studentName, &groupID, &groupName)
+	).Scan(&inviteID, &inviteRole, &studentID, &teacherID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Response{OK: false, Error: "invalid or used invite_code"}
 	}
 	if err != nil {
 		return Response{OK: false, Error: "failed to validate invite_code"}
 	}
+	switch inviteRole {
+	case "student", "teacher", "admin":
+	default:
+		return Response{OK: false, Error: "invalid invite role"}
+	}
 
 	var created db.User
 	err = tx.QueryRow(
 		ctx,
 		`INSERT INTO users (login, password_hash, role)
-		 VALUES ($1, $2, 'student')
+		 VALUES ($1, $2, $3)
 		 RETURNING id, login, password_hash, role, created_at`,
 		login,
 		string(hashedPassword),
+		inviteRole,
 	).Scan(&created.ID, &created.Login, &created.PasswordHash, &created.Role, &created.CreatedAt)
 	if err != nil {
 		var pgErr *pgconn.PgError
@@ -675,24 +705,64 @@ func (s *Service) registerByInvite(data RegisterByInviteData) Response {
 		return Response{OK: false, Error: "failed to create user"}
 	}
 
+	switch inviteRole {
+	case "student":
+		if !studentID.Valid {
+			return Response{OK: false, Error: "invalid invite configuration"}
+		}
+		cmd, err := tx.Exec(
+			ctx,
+			`UPDATE students
+			 SET user_id = $2
+			 WHERE student_id = $1
+			   AND user_id IS NULL`,
+			studentID.Int32,
+			created.ID,
+		)
+		if err != nil {
+			return Response{OK: false, Error: "failed to bind student profile"}
+		}
+		if cmd.RowsAffected() == 0 {
+			return Response{OK: false, Error: "failed to bind student profile"}
+		}
+	case "teacher":
+		if !teacherID.Valid {
+			return Response{OK: false, Error: "invalid invite configuration"}
+		}
+		cmd, err := tx.Exec(
+			ctx,
+			`UPDATE teachers
+			 SET user_id = $2
+			 WHERE teacher_id = $1
+			   AND user_id IS NULL`,
+			teacherID.Int32,
+			created.ID,
+		)
+		if err != nil {
+			return Response{OK: false, Error: "failed to bind teacher profile"}
+		}
+		if cmd.RowsAffected() == 0 {
+			return Response{OK: false, Error: "failed to bind teacher profile"}
+		}
+	case "admin":
+		// Admin invites do not bind to a profile table.
+	default:
+		return Response{OK: false, Error: "invalid invite role"}
+	}
+
 	cmd, err := tx.Exec(
 		ctx,
-		`UPDATE students
-		 SET user_id = $2,
-		     invite_code_used_at = NOW(),
-		     invite_code = NULL,
-		     invite_code_hash = NULL
-		 WHERE student_id = $1
-		   AND user_id IS NULL
-		   AND invite_code_used_at IS NULL`,
-		studentID,
-		created.ID,
+		`UPDATE registration_invites
+		 SET used_at = NOW()
+		 WHERE invite_id = $1
+		   AND used_at IS NULL`,
+		inviteID,
 	)
 	if err != nil {
-		return Response{OK: false, Error: "failed to bind student profile"}
+		return Response{OK: false, Error: "failed to mark invite as used"}
 	}
 	if cmd.RowsAffected() == 0 {
-		return Response{OK: false, Error: "failed to bind student profile"}
+		return Response{OK: false, Error: "invalid or used invite_code"}
 	}
 
 	if err = tx.Commit(ctx); err != nil {
@@ -705,26 +775,31 @@ func (s *Service) registerByInvite(data RegisterByInviteData) Response {
 		return Response{OK: false, Error: "EROR_generateJWT: " + err.Error()}
 	}
 
-	result := map[string]any{
-		"token":        token,
-		"user_id":      userID,
-		"user_ID":      userID,
-		"login":        created.Login,
-		"role":         created.Role,
-		"student_id":   studentID,
-		"student_name": studentName,
-	}
-	if groupID.Valid {
-		result["group_id"] = groupID.Int32
-	}
-	if groupName.Valid {
-		result["group_name"] = groupName.String
+	resultResp := s.profileByToken(token)
+	if !resultResp.OK {
+		return Response{OK: false, Error: resultResp.Error}
 	}
 
-	return Response{
-		OK:     true,
-		Result: result,
+	result := map[string]any{
+		"token":   token,
+		"user_ID": userID,
 	}
+	if profileResult, ok := resultResp.Result.(map[string]any); ok {
+		for key, value := range profileResult {
+			result[key] = value
+		}
+	}
+	if _, ok := result["user_id"]; !ok {
+		result["user_id"] = userID
+	}
+	if _, ok := result["login"]; !ok {
+		result["login"] = created.Login
+	}
+	if _, ok := result["role"]; !ok {
+		result["role"] = created.Role
+	}
+
+	return Response{OK: true, Result: result}
 }
 
 func (s *Service) login(data LoginData) Response {
@@ -782,6 +857,10 @@ func (s *Service) passwordMatches(ctx context.Context, storedHash, password stri
 }
 
 func (s *Service) createAttendanceLinkByTeacher(sessionToken string, data AttendanceCreateData) Response {
+	if data.LessonID > 0 {
+		return s.attendanceLinkForExistingLessonByTeacher(sessionToken, data.LessonID)
+	}
+
 	teacherUser, err := s.userBySessionToken(sessionToken)
 	if err != nil {
 		return Response{OK: false, Error: err.Error()}
@@ -912,6 +991,10 @@ func (s *Service) confirmAttendanceByStudent(sessionToken string, data Attendanc
 	if student.Role != "student" {
 		return Response{OK: false, Error: "forbidden: student role required"}
 	}
+	studentProfile, err := s.studentProfileByUser(student)
+	if err != nil {
+		return Response{OK: false, Error: err.Error()}
+	}
 
 	claims, err := s.parseAttendanceInviteToken(data.InviteToken)
 	if err != nil {
@@ -945,7 +1028,7 @@ func (s *Service) confirmAttendanceByStudent(sessionToken string, data Attendanc
 	}
 
 	markedAt := time.Now().UTC()
-	markResult, err := s.store.Attendance.MarkStudentPresent(ctx, session.ID, student.ID, markedAt)
+	markResult, err := s.store.Attendance.MarkStudentPresent(ctx, session.ID, studentProfile.ID, markedAt)
 	if err != nil {
 		return Response{OK: false, Error: "failed to confirm attendance"}
 	}
@@ -1250,12 +1333,28 @@ func (s *Service) handleRequest(raw string) Response {
 		resp := s.createAttendanceLinkByTeacher(req.Token, data)
 		resp.ID = req.ID
 		return resp
+	case "create_android_lesson":
+		var data AndroidLessonCreateData
+		if err := json.Unmarshal(req.Data, &data); err != nil {
+			return Response{ID: req.ID, OK: false, Error: "invalid create_android_lesson payload"}
+		}
+		resp := s.createLessonForAndroid(req.Token, data)
+		resp.ID = req.ID
+		return resp
 	case "confirm_attendance":
 		var data AttendanceConfirmData
 		if err := json.Unmarshal(req.Data, &data); err != nil {
 			return Response{ID: req.ID, OK: false, Error: "invalid confirm_attendance payload"}
 		}
 		resp := s.confirmAttendanceByStudent(req.Token, data)
+		resp.ID = req.ID
+		return resp
+	case "mark_android_attendance":
+		var data AndroidAttendanceMarkData
+		if err := json.Unmarshal(req.Data, &data); err != nil {
+			return Response{ID: req.ID, OK: false, Error: "invalid mark_android_attendance payload"}
+		}
+		resp := s.markAttendanceForAndroid(req.Token, data)
 		resp.ID = req.ID
 		return resp
 	case "teacher_attendance_by_group":

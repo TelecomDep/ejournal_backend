@@ -1,9 +1,14 @@
 package httpserver
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log"
+	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	_ "github.com/TelecomDep/ejournal_backend/docs"
@@ -41,18 +46,22 @@ func (s *Server) Start() {
 	fiberApp.Post("/register/by-invite", s.registerByInviteHandler)
 	fiberApp.Post("/login", s.loginHandler)
 	fiberApp.Get("/profile", s.profileHandler)
+	fiberApp.Post("/lessons/create", s.androidLessonCreateHandler)
 
 	fiberApp.Post("/api/teacher/attendance-link", s.teacherAttendanceLinkHandler)
 	fiberApp.Post("/api/teacher/attendance/session", s.teacherAttendanceLinkHandler)
 	fiberApp.Get("/api/teacher/subjects", s.teacherSubjectsHandler)
 	fiberApp.Post("/api/teacher/attendance/group", s.teacherAttendanceByGroupHandler)
 	fiberApp.Post("/api/student/attendance/confirm", s.studentAttendanceConfirmHandler)
+	fiberApp.Post("/api/student/mark-attendance", s.androidStudentAttendanceMarkHandler)
 	fiberApp.Get("/api/student/attendance/history", s.studentAttendanceHistoryHandler)
+	fiberApp.Post("/api/user/upload-avatar", s.uploadAvatarHandler)
 	fiberApp.Post("/api/teacher/grades/items", s.teacherCreateGradeItemHandler)
 	fiberApp.Post("/api/teacher/grades/items/list", s.teacherGradeItemsBySubjectHandler)
 	fiberApp.Post("/api/teacher/grades", s.teacherUpsertGradeHandler)
 	fiberApp.Post("/api/teacher/grades/student", s.teacherStudentGradesBySubjectHandler)
 	fiberApp.Post("/api/student/grades", s.studentGradesBySubjectHandler)
+	fiberApp.Static("/uploads", s.cfg.UploadDir)
 	fiberApp.Get("/swagger/*", swagger.HandlerDefault)
 
 	addr := fmt.Sprintf(":%s", s.cfg.AppPort)
@@ -62,9 +71,149 @@ func (s *Server) Start() {
 	}
 }
 
+// androidLessonCreateHandler godoc
+// @Summary Create lesson for Android client
+// @Description Teacher creates an attendance lesson using subject/group names or IDs and current location.
+// @Tags attendance
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body app.AndroidLessonCreateData true "Android lesson payload"
+// @Success 200 {object} app.Response
+// @Failure 400 {object} app.Response
+// @Failure 401 {object} app.Response
+// @Failure 403 {object} app.Response
+// @Router /lessons/create [post]
+func (s *Server) androidLessonCreateHandler(c *fiber.Ctx) error {
+	var body app.AndroidLessonCreateData
+	return s.androidJSONActionHandler(c, "http-android-lesson-create", "create_android_lesson", &body)
+}
+
+// androidStudentAttendanceMarkHandler godoc
+// @Summary Mark attendance for Android client
+// @Description Student marks attendance with lesson ID, device ID, and current location.
+// @Tags attendance
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body app.AndroidAttendanceMarkData true "Android attendance payload"
+// @Success 200 {object} app.Response
+// @Failure 400 {object} app.Response
+// @Failure 401 {object} app.Response
+// @Failure 403 {object} app.Response
+// @Failure 409 {object} app.Response
+// @Router /api/student/mark-attendance [post]
+func (s *Server) androidStudentAttendanceMarkHandler(c *fiber.Ctx) error {
+	var body app.AndroidAttendanceMarkData
+	return s.androidJSONActionHandler(c, "http-android-mark-attendance", "mark_android_attendance", &body)
+}
+
+func (s *Server) androidJSONActionHandler(c *fiber.Ctx, requestID, action string, body any) error {
+	token := c.Get("Authorization")
+	if token == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(app.Response{OK: false, Error: "missing Authorization header"})
+	}
+	if err := c.BodyParser(body); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(app.Response{OK: false, Error: "Error parsing body"})
+	}
+
+	data, err := json.Marshal(body)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(app.Response{OK: false, Error: "Error marshalling request"})
+	}
+	raw, err := json.Marshal(app.Request{ID: requestID, Action: action, Token: token, Data: data})
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(app.Response{OK: false, Error: "Error marshalling envelope"})
+	}
+
+	resp, err := s.svc.DispatchRequest(string(raw), s.requestTimeout)
+	if err != nil {
+		return c.Status(fiber.StatusServiceUnavailable).JSON(app.Response{OK: false, Error: err.Error()})
+	}
+	if !resp.OK {
+		switch resp.Error {
+		case "invalid token", "session not found", "missing token":
+			return c.Status(fiber.StatusUnauthorized).JSON(resp)
+		case "forbidden: teacher role required",
+			"forbidden: student role required",
+			"forbidden: student is not in session roster",
+			"forbidden: teacher_id does not match current user",
+			"forbidden: teacher is not assigned to subject",
+			"forbidden: lesson belongs to another teacher":
+			return c.Status(fiber.StatusForbidden).JSON(resp)
+		case "attendance already confirmed":
+			return c.Status(fiber.StatusConflict).JSON(resp)
+		default:
+			return c.Status(fiber.StatusBadRequest).JSON(resp)
+		}
+	}
+	return c.JSON(resp)
+}
+
+// uploadAvatarHandler godoc
+// @Summary Upload current user avatar
+// @Description Saves a JPEG, PNG, or WebP profile picture up to 5 MiB and returns its public URL.
+// @Tags profile
+// @Accept mpfd
+// @Produce json
+// @Security BearerAuth
+// @Param avatar formData file true "Avatar image"
+// @Success 200 {object} app.Response
+// @Failure 400 {object} app.Response
+// @Failure 401 {object} app.Response
+// @Router /api/user/upload-avatar [post]
+func (s *Server) uploadAvatarHandler(c *fiber.Ctx) error {
+	token := c.Get("Authorization")
+	if token == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(app.Response{OK: false, Error: "missing Authorization header"})
+	}
+
+	file, err := c.FormFile("avatar")
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(app.Response{OK: false, Error: "avatar file is required"})
+	}
+	if file.Size <= 0 || file.Size > 5*1024*1024 {
+		return c.Status(fiber.StatusBadRequest).JSON(app.Response{OK: false, Error: "avatar file must be between 1 byte and 5 MiB"})
+	}
+
+	extension := strings.ToLower(filepath.Ext(file.Filename))
+	allowedExtensions := map[string]bool{".jpg": true, ".jpeg": true, ".png": true, ".webp": true}
+	if !allowedExtensions[extension] {
+		return c.Status(fiber.StatusBadRequest).JSON(app.Response{OK: false, Error: "avatar file type is not supported"})
+	}
+
+	randomBytes := make([]byte, 16)
+	if _, err = rand.Read(randomBytes); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(app.Response{OK: false, Error: "failed to generate avatar filename"})
+	}
+	filename := hex.EncodeToString(randomBytes) + extension
+	avatarDir := filepath.Join(s.cfg.UploadDir, "avatars")
+	if err = os.MkdirAll(avatarDir, 0o755); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(app.Response{OK: false, Error: "failed to prepare avatar storage"})
+	}
+	avatarPath := filepath.Join(avatarDir, filename)
+	if err = c.SaveFile(file, avatarPath); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(app.Response{OK: false, Error: "failed to save avatar"})
+	}
+
+	avatarURL := fmt.Sprintf("%s/uploads/avatars/%s", strings.TrimRight(s.cfg.SiteBaseURL, "/"), filename)
+	resp := s.svc.UpdateAvatarByToken(token, avatarURL)
+	if !resp.OK {
+		_ = os.Remove(avatarPath)
+		switch resp.Error {
+		case "invalid token", "session not found", "missing token":
+			return c.Status(fiber.StatusUnauthorized).JSON(resp)
+		default:
+			return c.Status(fiber.StatusBadRequest).JSON(resp)
+		}
+	}
+	resp.ID = "http-upload-avatar"
+	return c.JSON(resp)
+}
+
 // registerHandler godoc
 // @Summary Register user
-// @Description Registers a user by login/password and role hash.
+// @Description Registers a user by one-time invite_code. Legacy role_hash registration remains supported for existing clients.
 // @Tags auth
 // @Accept json
 // @Produce json
@@ -143,8 +292,8 @@ func (s *Server) loginHandler(c *fiber.Ctx) error {
 }
 
 // registerByInviteHandler godoc
-// @Summary Register student by invite code
-// @Description Creates student account by one-time invite code from database.
+// @Summary Register user by invite code
+// @Description Creates student, teacher, or admin account by one-time invite code from database.
 // @Tags auth
 // @Accept json
 // @Produce json

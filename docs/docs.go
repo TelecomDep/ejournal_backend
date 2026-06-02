@@ -40,7 +40,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.AttendanceConfirmData"
+                            "$ref": "#/definitions/app.AttendanceConfirmData"
                         }
                     }
                 ],
@@ -48,37 +48,37 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/internal_httpserver.studentAttendanceConfirmResponse"
+                            "$ref": "#/definitions/httpserver.studentAttendanceConfirmResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response"
+                            "$ref": "#/definitions/app.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response"
+                            "$ref": "#/definitions/app.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response"
+                            "$ref": "#/definitions/app.Response"
                         }
                     },
                     "409": {
                         "description": "Conflict",
                         "schema": {
-                            "$ref": "#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response"
+                            "$ref": "#/definitions/app.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response"
+                            "$ref": "#/definitions/app.Response"
                         }
                     }
                 }
@@ -112,31 +112,31 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/internal_httpserver.studentAttendanceHistoryResponse"
+                            "$ref": "#/definitions/httpserver.studentAttendanceHistoryResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response"
+                            "$ref": "#/definitions/app.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response"
+                            "$ref": "#/definitions/app.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response"
+                            "$ref": "#/definitions/app.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response"
+                            "$ref": "#/definitions/app.Response"
                         }
                     }
                 }
@@ -167,7 +167,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.GradeSubjectData"
+                            "$ref": "#/definitions/app.GradeSubjectData"
                         }
                     }
                 ],
@@ -175,31 +175,94 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response"
+                            "$ref": "#/definitions/app.Response"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response"
+                            "$ref": "#/definitions/app.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response"
+                            "$ref": "#/definitions/app.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response"
+                            "$ref": "#/definitions/app.Response"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response"
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/student/mark-attendance": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Student marks attendance with lesson ID, device ID, and current location.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "attendance"
+                ],
+                "summary": "Mark attendance for Android client",
+                "parameters": [
+                    {
+                        "description": "Android attendance payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/app.AndroidAttendanceMarkData"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
                         }
                     }
                 }
@@ -230,7 +293,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/internal_httpserver.teacherAttendanceLinkRequest"
+                            "$ref": "#/definitions/httpserver.teacherAttendanceLinkRequest"
                         }
                     }
                 ],
@@ -238,31 +301,31 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/internal_httpserver.teacherAttendanceLinkResponse"
+                            "$ref": "#/definitions/httpserver.teacherAttendanceLinkResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response"
+                            "$ref": "#/definitions/app.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response"
+                            "$ref": "#/definitions/app.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response"
+                            "$ref": "#/definitions/app.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response"
+                            "$ref": "#/definitions/app.Response"
                         }
                     }
                 }
@@ -293,7 +356,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.AttendanceGroupStatsData"
+                            "$ref": "#/definitions/app.AttendanceGroupStatsData"
                         }
                     }
                 ],
@@ -301,31 +364,31 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/internal_httpserver.teacherAttendanceGroupResponse"
+                            "$ref": "#/definitions/httpserver.teacherAttendanceGroupResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response"
+                            "$ref": "#/definitions/app.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response"
+                            "$ref": "#/definitions/app.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response"
+                            "$ref": "#/definitions/app.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response"
+                            "$ref": "#/definitions/app.Response"
                         }
                     }
                 }
@@ -356,7 +419,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/internal_httpserver.teacherAttendanceLinkRequest"
+                            "$ref": "#/definitions/httpserver.teacherAttendanceLinkRequest"
                         }
                     }
                 ],
@@ -364,31 +427,31 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/internal_httpserver.teacherAttendanceLinkResponse"
+                            "$ref": "#/definitions/httpserver.teacherAttendanceLinkResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response"
+                            "$ref": "#/definitions/app.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response"
+                            "$ref": "#/definitions/app.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response"
+                            "$ref": "#/definitions/app.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response"
+                            "$ref": "#/definitions/app.Response"
                         }
                     }
                 }
@@ -419,7 +482,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.GradeUpsertData"
+                            "$ref": "#/definitions/app.GradeUpsertData"
                         }
                     }
                 ],
@@ -427,31 +490,31 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response"
+                            "$ref": "#/definitions/app.Response"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response"
+                            "$ref": "#/definitions/app.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response"
+                            "$ref": "#/definitions/app.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response"
+                            "$ref": "#/definitions/app.Response"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response"
+                            "$ref": "#/definitions/app.Response"
                         }
                     }
                 }
@@ -482,7 +545,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.GradeItemCreateData"
+                            "$ref": "#/definitions/app.GradeItemCreateData"
                         }
                     }
                 ],
@@ -490,31 +553,31 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response"
+                            "$ref": "#/definitions/app.Response"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response"
+                            "$ref": "#/definitions/app.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response"
+                            "$ref": "#/definitions/app.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response"
+                            "$ref": "#/definitions/app.Response"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response"
+                            "$ref": "#/definitions/app.Response"
                         }
                     }
                 }
@@ -545,7 +608,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.GradeSubjectData"
+                            "$ref": "#/definitions/app.GradeSubjectData"
                         }
                     }
                 ],
@@ -553,31 +616,31 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response"
+                            "$ref": "#/definitions/app.Response"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response"
+                            "$ref": "#/definitions/app.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response"
+                            "$ref": "#/definitions/app.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response"
+                            "$ref": "#/definitions/app.Response"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response"
+                            "$ref": "#/definitions/app.Response"
                         }
                     }
                 }
@@ -608,7 +671,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.TeacherStudentGradesData"
+                            "$ref": "#/definitions/app.TeacherStudentGradesData"
                         }
                     }
                 ],
@@ -616,31 +679,180 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response"
+                            "$ref": "#/definitions/app.Response"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response"
+                            "$ref": "#/definitions/app.Response"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response"
+                            "$ref": "#/definitions/app.Response"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response"
+                            "$ref": "#/definitions/app.Response"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response"
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/teacher/subjects": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns subjects (and groups) assigned to current teacher from schedule.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "attendance"
+                ],
+                "summary": "Get teacher subjects",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/user/upload-avatar": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Saves a JPEG, PNG, or WebP profile picture up to 5 MiB and returns its public URL.",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "profile"
+                ],
+                "summary": "Upload current user avatar",
+                "parameters": [
+                    {
+                        "type": "file",
+                        "description": "Avatar image",
+                        "name": "avatar",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/lessons/create": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Teacher creates an attendance lesson using subject/group names or IDs and current location.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "attendance"
+                ],
+                "summary": "Create lesson for Android client",
+                "parameters": [
+                    {
+                        "description": "Android lesson payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/app.AndroidLessonCreateData"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
                         }
                     }
                 }
@@ -666,7 +878,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.LoginData"
+                            "$ref": "#/definitions/app.LoginData"
                         }
                     }
                 ],
@@ -674,19 +886,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/internal_httpserver.loginResponse"
+                            "$ref": "#/definitions/httpserver.loginResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response"
+                            "$ref": "#/definitions/app.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response"
+                            "$ref": "#/definitions/app.Response"
                         }
                     }
                 }
@@ -711,19 +923,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/internal_httpserver.profileResponse"
+                            "$ref": "#/definitions/httpserver.profileResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response"
+                            "$ref": "#/definitions/app.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response"
+                            "$ref": "#/definitions/app.Response"
                         }
                     }
                 }
@@ -731,7 +943,7 @@ const docTemplate = `{
         },
         "/register": {
             "post": {
-                "description": "Registers a user by login/password and role hash.",
+                "description": "Registers a user by one-time invite_code. Legacy role_hash registration remains supported for existing clients.",
                 "consumes": [
                     "application/json"
                 ],
@@ -749,7 +961,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.RegisterData"
+                            "$ref": "#/definitions/app.RegisterData"
                         }
                     }
                 ],
@@ -757,19 +969,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/internal_httpserver.registerResponse"
+                            "$ref": "#/definitions/httpserver.registerResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response"
+                            "$ref": "#/definitions/app.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response"
+                            "$ref": "#/definitions/app.Response"
                         }
                     }
                 }
@@ -777,7 +989,7 @@ const docTemplate = `{
         },
         "/register/by-invite": {
             "post": {
-                "description": "Creates student account by one-time invite code from database.",
+                "description": "Creates student, teacher, or admin account by one-time invite code from database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -787,7 +999,7 @@ const docTemplate = `{
                 "tags": [
                     "auth"
                 ],
-                "summary": "Register student by invite code",
+                "summary": "Register user by invite code",
                 "parameters": [
                     {
                         "description": "Register by invite payload",
@@ -795,7 +1007,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.RegisterByInviteData"
+                            "$ref": "#/definitions/app.RegisterByInviteData"
                         }
                     }
                 ],
@@ -803,25 +1015,25 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/internal_httpserver.registerByInviteResponse"
+                            "$ref": "#/definitions/httpserver.registerByInviteResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response"
+                            "$ref": "#/definitions/app.Response"
                         }
                     },
                     "409": {
                         "description": "Conflict",
                         "schema": {
-                            "$ref": "#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response"
+                            "$ref": "#/definitions/app.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_TelecomDep_ejournal_backend_internal_app.Response"
+                            "$ref": "#/definitions/app.Response"
                         }
                     }
                 }
@@ -829,7 +1041,65 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "github_com_TelecomDep_ejournal_backend_internal_app.AttendanceConfirmData": {
+        "app.AndroidAttendanceMarkData": {
+            "type": "object",
+            "properties": {
+                "device_id": {
+                    "type": "string"
+                },
+                "invite_token": {
+                    "type": "string"
+                },
+                "lat": {
+                    "type": "number"
+                },
+                "lesson_id": {
+                    "type": "integer"
+                },
+                "lon": {
+                    "type": "number"
+                }
+            }
+        },
+        "app.AndroidLessonCreateData": {
+            "type": "object",
+            "properties": {
+                "expires_minutes": {
+                    "type": "integer"
+                },
+                "group_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "groups": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "lat": {
+                    "type": "number"
+                },
+                "lesson_name": {
+                    "type": "string"
+                },
+                "lon": {
+                    "type": "number"
+                },
+                "subject": {
+                    "type": "string"
+                },
+                "subject_id": {
+                    "type": "integer"
+                },
+                "teacher_id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "app.AttendanceConfirmData": {
             "type": "object",
             "properties": {
                 "invite_token": {
@@ -837,7 +1107,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_TelecomDep_ejournal_backend_internal_app.AttendanceGroupStatsData": {
+        "app.AttendanceGroupStatsData": {
             "type": "object",
             "properties": {
                 "group_id": {
@@ -848,7 +1118,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_TelecomDep_ejournal_backend_internal_app.GradeItemCreateData": {
+        "app.GradeItemCreateData": {
             "type": "object",
             "properties": {
                 "deadline": {
@@ -868,7 +1138,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_TelecomDep_ejournal_backend_internal_app.GradeSubjectData": {
+        "app.GradeSubjectData": {
             "type": "object",
             "properties": {
                 "subject_id": {
@@ -876,7 +1146,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_TelecomDep_ejournal_backend_internal_app.GradeUpsertData": {
+        "app.GradeUpsertData": {
             "type": "object",
             "properties": {
                 "comment": {
@@ -896,7 +1166,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_TelecomDep_ejournal_backend_internal_app.LoginData": {
+        "app.LoginData": {
             "type": "object",
             "properties": {
                 "login": {
@@ -907,7 +1177,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_TelecomDep_ejournal_backend_internal_app.RegisterByInviteData": {
+        "app.RegisterByInviteData": {
             "type": "object",
             "properties": {
                 "invite_code": {
@@ -921,13 +1191,19 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_TelecomDep_ejournal_backend_internal_app.RegisterData": {
+        "app.RegisterData": {
             "type": "object",
             "properties": {
+                "invite_code": {
+                    "type": "string"
+                },
                 "login": {
                     "type": "string"
                 },
                 "password": {
+                    "type": "string"
+                },
+                "role": {
                     "type": "string"
                 },
                 "role_hash": {
@@ -935,7 +1211,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_TelecomDep_ejournal_backend_internal_app.Response": {
+        "app.Response": {
             "type": "object",
             "properties": {
                 "error": {
@@ -950,7 +1226,7 @@ const docTemplate = `{
                 "result": {}
             }
         },
-        "github_com_TelecomDep_ejournal_backend_internal_app.TeacherStudentGradesData": {
+        "app.TeacherStudentGradesData": {
             "type": "object",
             "properties": {
                 "student_id": {
@@ -961,7 +1237,7 @@ const docTemplate = `{
                 }
             }
         },
-        "internal_httpserver.loginResponse": {
+        "httpserver.loginResponse": {
             "type": "object",
             "properties": {
                 "error": {
@@ -977,11 +1253,11 @@ const docTemplate = `{
                     "example": true
                 },
                 "result": {
-                    "$ref": "#/definitions/internal_httpserver.loginResult"
+                    "$ref": "#/definitions/httpserver.loginResult"
                 }
             }
         },
-        "internal_httpserver.loginResult": {
+        "httpserver.loginResult": {
             "type": "object",
             "properties": {
                 "login": {
@@ -1002,7 +1278,7 @@ const docTemplate = `{
                 }
             }
         },
-        "internal_httpserver.profileResponse": {
+        "httpserver.profileResponse": {
             "type": "object",
             "properties": {
                 "error": {
@@ -1018,13 +1294,21 @@ const docTemplate = `{
                     "example": true
                 },
                 "result": {
-                    "$ref": "#/definitions/internal_httpserver.profileResult"
+                    "$ref": "#/definitions/httpserver.profileResult"
                 }
             }
         },
-        "internal_httpserver.profileResult": {
+        "httpserver.profileResult": {
             "type": "object",
             "properties": {
+                "avatar": {
+                    "type": "string",
+                    "example": "https://server.com/uploads/avatars/avatar.png"
+                },
+                "group": {
+                    "type": "string",
+                    "example": "ИКС-433"
+                },
                 "group_id": {
                     "type": "integer",
                     "example": 237
@@ -1049,6 +1333,79 @@ const docTemplate = `{
                     "type": "string",
                     "example": "Демин Сергей А."
                 },
+                "nfc_tag": {
+                    "type": "string",
+                    "example": "04:XX:YY:ZZ"
+                },
+                "role": {
+                    "type": "string",
+                    "example": "student"
+                },
+                "student_id": {
+                    "type": "integer",
+                    "example": 56
+                },
+                "student_name": {
+                    "type": "string",
+                    "example": "Демин Сергей А."
+                },
+                "teacher_id": {
+                    "type": "integer",
+                    "example": 3
+                },
+                "teacher_name": {
+                    "type": "string",
+                    "example": "Солодов Павел Сергеевич"
+                },
+                "total_cheat_attempts": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "user_id": {
+                    "type": "string",
+                    "example": "3"
+                }
+            }
+        },
+        "httpserver.registerByInviteResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string",
+                    "example": ""
+                },
+                "id": {
+                    "type": "string",
+                    "example": "http-register-by-invite"
+                },
+                "ok": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "result": {
+                    "$ref": "#/definitions/httpserver.registerByInviteResult"
+                }
+            }
+        },
+        "httpserver.registerByInviteResult": {
+            "type": "object",
+            "properties": {
+                "group_id": {
+                    "type": "integer",
+                    "example": 237
+                },
+                "group_name": {
+                    "type": "string",
+                    "example": "ИКС-433"
+                },
+                "job_title": {
+                    "type": "string",
+                    "example": "Преподаватель"
+                },
+                "login": {
+                    "type": "string",
+                    "example": "student_iks_21"
+                },
                 "role": {
                     "type": "string",
                     "example": "student"
@@ -1071,64 +1428,11 @@ const docTemplate = `{
                 },
                 "user_id": {
                     "type": "string",
-                    "example": "3"
-                }
-            }
-        },
-        "internal_httpserver.registerByInviteResponse": {
-            "type": "object",
-            "properties": {
-                "error": {
-                    "type": "string",
-                    "example": ""
-                },
-                "id": {
-                    "type": "string",
-                    "example": "http-register-by-invite"
-                },
-                "ok": {
-                    "type": "boolean",
-                    "example": true
-                },
-                "result": {
-                    "$ref": "#/definitions/internal_httpserver.registerByInviteResult"
-                }
-            }
-        },
-        "internal_httpserver.registerByInviteResult": {
-            "type": "object",
-            "properties": {
-                "group_id": {
-                    "type": "integer",
-                    "example": 237
-                },
-                "group_name": {
-                    "type": "string",
-                    "example": "ИКС-433"
-                },
-                "login": {
-                    "type": "string",
-                    "example": "student_iks_21"
-                },
-                "role": {
-                    "type": "string",
-                    "example": "student"
-                },
-                "student_id": {
-                    "type": "integer",
-                    "example": 56
-                },
-                "student_name": {
-                    "type": "string",
-                    "example": "Демин Сергей А."
-                },
-                "user_id": {
-                    "type": "string",
                     "example": "12"
                 }
             }
         },
-        "internal_httpserver.registerResponse": {
+        "httpserver.registerResponse": {
             "type": "object",
             "properties": {
                 "error": {
@@ -1144,11 +1448,11 @@ const docTemplate = `{
                     "example": true
                 },
                 "result": {
-                    "$ref": "#/definitions/internal_httpserver.registerResult"
+                    "$ref": "#/definitions/httpserver.registerResult"
                 }
             }
         },
-        "internal_httpserver.registerResult": {
+        "httpserver.registerResult": {
             "type": "object",
             "properties": {
                 "login": {
@@ -1159,13 +1463,17 @@ const docTemplate = `{
                     "type": "string",
                     "example": "teacher"
                 },
+                "token": {
+                    "type": "string",
+                    "example": "\u003cjwt_token\u003e"
+                },
                 "user_id": {
                     "type": "string",
                     "example": "5"
                 }
             }
         },
-        "internal_httpserver.studentAttendanceConfirmResponse": {
+        "httpserver.studentAttendanceConfirmResponse": {
             "type": "object",
             "properties": {
                 "error": {
@@ -1181,11 +1489,11 @@ const docTemplate = `{
                     "example": true
                 },
                 "result": {
-                    "$ref": "#/definitions/internal_httpserver.studentAttendanceConfirmResult"
+                    "$ref": "#/definitions/httpserver.studentAttendanceConfirmResult"
                 }
             }
         },
-        "internal_httpserver.studentAttendanceConfirmResult": {
+        "httpserver.studentAttendanceConfirmResult": {
             "type": "object",
             "properties": {
                 "attendance": {
@@ -1214,7 +1522,7 @@ const docTemplate = `{
                 }
             }
         },
-        "internal_httpserver.studentAttendanceHistoryItem": {
+        "httpserver.studentAttendanceHistoryItem": {
             "type": "object",
             "properties": {
                 "count": {
@@ -1227,7 +1535,7 @@ const docTemplate = `{
                 }
             }
         },
-        "internal_httpserver.studentAttendanceHistoryResponse": {
+        "httpserver.studentAttendanceHistoryResponse": {
             "type": "object",
             "properties": {
                 "error": {
@@ -1243,17 +1551,17 @@ const docTemplate = `{
                     "example": true
                 },
                 "result": {
-                    "$ref": "#/definitions/internal_httpserver.studentAttendanceHistoryResult"
+                    "$ref": "#/definitions/httpserver.studentAttendanceHistoryResult"
                 }
             }
         },
-        "internal_httpserver.studentAttendanceHistoryResult": {
+        "httpserver.studentAttendanceHistoryResult": {
             "type": "object",
             "properties": {
                 "items": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/internal_httpserver.studentAttendanceHistoryItem"
+                        "$ref": "#/definitions/httpserver.studentAttendanceHistoryItem"
                     }
                 },
                 "year": {
@@ -1262,7 +1570,7 @@ const docTemplate = `{
                 }
             }
         },
-        "internal_httpserver.teacherAttendanceGroupResponse": {
+        "httpserver.teacherAttendanceGroupResponse": {
             "type": "object",
             "properties": {
                 "error": {
@@ -1278,11 +1586,11 @@ const docTemplate = `{
                     "example": true
                 },
                 "result": {
-                    "$ref": "#/definitions/internal_httpserver.teacherAttendanceGroupResult"
+                    "$ref": "#/definitions/httpserver.teacherAttendanceGroupResult"
                 }
             }
         },
-        "internal_httpserver.teacherAttendanceGroupResult": {
+        "httpserver.teacherAttendanceGroupResult": {
             "type": "object",
             "properties": {
                 "group_id": {
@@ -1292,7 +1600,7 @@ const docTemplate = `{
                 "students": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/internal_httpserver.teacherAttendanceGroupStudent"
+                        "$ref": "#/definitions/httpserver.teacherAttendanceGroupStudent"
                     }
                 },
                 "subject_id": {
@@ -1300,7 +1608,7 @@ const docTemplate = `{
                     "example": 2
                 },
                 "summary": {
-                    "$ref": "#/definitions/internal_httpserver.teacherAttendanceGroupSummary"
+                    "$ref": "#/definitions/httpserver.teacherAttendanceGroupSummary"
                 },
                 "timezone": {
                     "type": "string",
@@ -1308,7 +1616,7 @@ const docTemplate = `{
                 }
             }
         },
-        "internal_httpserver.teacherAttendanceGroupStudent": {
+        "httpserver.teacherAttendanceGroupStudent": {
             "type": "object",
             "properties": {
                 "attendance_percent": {
@@ -1337,7 +1645,7 @@ const docTemplate = `{
                 }
             }
         },
-        "internal_httpserver.teacherAttendanceGroupSummary": {
+        "httpserver.teacherAttendanceGroupSummary": {
             "type": "object",
             "properties": {
                 "sessions_count": {
@@ -1350,7 +1658,7 @@ const docTemplate = `{
                 }
             }
         },
-        "internal_httpserver.teacherAttendanceLinkRequest": {
+        "httpserver.teacherAttendanceLinkRequest": {
             "type": "object",
             "properties": {
                 "expires_minutes": {
@@ -1366,6 +1674,10 @@ const docTemplate = `{
                         1
                     ]
                 },
+                "lesson_id": {
+                    "type": "integer",
+                    "example": 5
+                },
                 "lesson_name": {
                     "type": "string",
                     "example": "Networks"
@@ -1376,7 +1688,7 @@ const docTemplate = `{
                 }
             }
         },
-        "internal_httpserver.teacherAttendanceLinkResponse": {
+        "httpserver.teacherAttendanceLinkResponse": {
             "type": "object",
             "properties": {
                 "error": {
@@ -1392,11 +1704,11 @@ const docTemplate = `{
                     "example": true
                 },
                 "result": {
-                    "$ref": "#/definitions/internal_httpserver.teacherAttendanceLinkResult"
+                    "$ref": "#/definitions/httpserver.teacherAttendanceLinkResult"
                 }
             }
         },
-        "internal_httpserver.teacherAttendanceLinkResult": {
+        "httpserver.teacherAttendanceLinkResult": {
             "type": "object",
             "properties": {
                 "expires_at": {

@@ -1,6 +1,7 @@
 package httpserver
 
 type teacherAttendanceLinkRequest struct {
+	LessonID       *int32  `json:"lesson_id,omitempty" example:"5"`
 	SubjectID      *int32  `json:"subject_id,omitempty" example:"2"`
 	GroupIDs       []int32 `json:"group_ids,omitempty" example:"1"`
 	LessonName     string  `json:"lesson_name,omitempty" example:"Networks"`
@@ -8,6 +9,7 @@ type teacherAttendanceLinkRequest struct {
 }
 
 type registerResult struct {
+	Token  string `json:"token,omitempty" example:"<jwt_token>"`
 	UserID string `json:"user_id" example:"5"`
 	Login  string `json:"login" example:"teacher1"`
 	Role   string `json:"role" example:"teacher"`
@@ -24,10 +26,13 @@ type registerByInviteResult struct {
 	UserID      string `json:"user_id" example:"12"`
 	Login       string `json:"login" example:"student_iks_21"`
 	Role        string `json:"role" example:"student"`
-	StudentID   int32  `json:"student_id" example:"56"`
-	StudentName string `json:"student_name" example:"Демин Сергей А."`
+	StudentID   int32  `json:"student_id,omitempty" example:"56"`
+	StudentName string `json:"student_name,omitempty" example:"Демин Сергей А."`
 	GroupID     *int32 `json:"group_id,omitempty" example:"237"`
 	GroupName   string `json:"group_name,omitempty" example:"ИКС-433"`
+	TeacherID   int32  `json:"teacher_id,omitempty" example:"3"`
+	TeacherName string `json:"teacher_name,omitempty" example:"Солодов Павел Сергеевич"`
+	JobTitle    string `json:"job_title,omitempty" example:"Преподаватель"`
 }
 
 type registerByInviteResponse struct {
@@ -55,11 +60,15 @@ type profileResult struct {
 	UserID      string `json:"user_id" example:"3"`
 	Login       string `json:"login" example:"student_iks_21"`
 	Role        string `json:"role" example:"student"`
+	Avatar      string `json:"avatar,omitempty" example:"https://server.com/uploads/avatars/avatar.png"`
 	Name        string `json:"name,omitempty" example:"Демин Сергей А."`
 	StudentID   int32  `json:"student_id,omitempty" example:"56"`
 	StudentName string `json:"student_name,omitempty" example:"Демин Сергей А."`
 	GroupID     *int32 `json:"group_id,omitempty" example:"237"`
 	GroupName   string `json:"group_name,omitempty" example:"ИКС-433"`
+	Group       string `json:"group,omitempty" example:"ИКС-433"`
+	NFCTag      string `json:"nfc_tag,omitempty" example:"04:XX:YY:ZZ"`
+	CheatCount  int32  `json:"total_cheat_attempts,omitempty" example:"0"`
 	TeacherID   int32  `json:"teacher_id,omitempty" example:"3"`
 	TeacherName string `json:"teacher_name,omitempty" example:"Солодов Павел Сергеевич"`
 	LecternID   *int32 `json:"lectern_id,omitempty" example:"1"`

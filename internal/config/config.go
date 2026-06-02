@@ -18,6 +18,7 @@ type AppConfig struct {
 	RoleHashStudent      string
 	DefaultGroupID       int32
 	AllowEarlyAttendance bool
+	UploadDir            string
 }
 
 func Load() AppConfig {
@@ -33,6 +34,7 @@ func Load() AppConfig {
 		RoleHashStudent:      getEnv("ROLE_HASH_STUDENT", "STUDENT-HASH-2026"),
 		DefaultGroupID:       getEnvInt32("DEFAULT_STUDENT_GROUP_ID", 1),
 		AllowEarlyAttendance: getEnvBool("ALLOW_EARLY_ATTENDANCE", false),
+		UploadDir:            getEnv("UPLOAD_DIR", "uploads"),
 	}
 
 	if cfg.JWTSecret == "" {

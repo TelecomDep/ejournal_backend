@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -23,6 +24,17 @@ func (r *AttendanceRepository) CreateSessionWithGroups(
 	teacherID, subjectID int32,
 	groupIDs []int32,
 	expiresAt time.Time,
+) (AttendanceSession, int32, error) {
+	return r.CreateSessionWithGroupsAndLocation(ctx, teacherID, subjectID, groupIDs, expiresAt, "", nil, nil)
+}
+
+func (r *AttendanceRepository) CreateSessionWithGroupsAndLocation(
+	ctx context.Context,
+	teacherID, subjectID int32,
+	groupIDs []int32,
+	expiresAt time.Time,
+	lessonName string,
+	lat, lon *float64,
 ) (AttendanceSession, int32, error) {
 	if teacherID <= 0 {
 		return AttendanceSession{}, 0, fmt.Errorf("teacher id is required")
@@ -48,13 +60,16 @@ func (r *AttendanceRepository) CreateSessionWithGroups(
 	var out AttendanceSession
 	err = tx.QueryRow(
 		ctx,
-		`INSERT INTO attendance_sessions (teacher_id, subject_id, expires_at)
-		 VALUES ($1, $2, $3)
-		 RETURNING session_id, teacher_id, subject_id, expires_at, created_at`,
+		`INSERT INTO attendance_sessions (teacher_id, subject_id, expires_at, lesson_name, lat, lon)
+		 VALUES ($1, $2, $3, NULLIF($4, ''), $5, $6)
+		 RETURNING session_id, teacher_id, subject_id, COALESCE(lesson_name, ''), lat, lon, expires_at, created_at`,
 		teacherID,
 		subjectID,
 		expiresAt.UTC(),
-	).Scan(&out.ID, &out.TeacherID, &out.SubjectID, &out.ExpiresAt, &out.CreatedAt)
+		strings.TrimSpace(lessonName),
+		lat,
+		lon,
+	).Scan(&out.ID, &out.TeacherID, &out.SubjectID, &out.LessonName, &out.Lat, &out.Lon, &out.ExpiresAt, &out.CreatedAt)
 	if err != nil {
 		return AttendanceSession{}, 0, fmt.Errorf("insert attendance session: %w", err)
 	}
@@ -104,11 +119,11 @@ func (r *AttendanceRepository) GetSessionByID(ctx context.Context, sessionID int
 	var out AttendanceSession
 	err := r.pool.QueryRow(
 		ctx,
-		`SELECT session_id, teacher_id, subject_id, expires_at, created_at
+		`SELECT session_id, teacher_id, subject_id, COALESCE(lesson_name, ''), lat, lon, expires_at, created_at
 		 FROM attendance_sessions
 		 WHERE session_id = $1`,
 		sessionID,
-	).Scan(&out.ID, &out.TeacherID, &out.SubjectID, &out.ExpiresAt, &out.CreatedAt)
+	).Scan(&out.ID, &out.TeacherID, &out.SubjectID, &out.LessonName, &out.Lat, &out.Lon, &out.ExpiresAt, &out.CreatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return AttendanceSession{}, false, nil
 	}
@@ -189,6 +204,148 @@ func (r *AttendanceRepository) MarkStudentPresent(ctx context.Context, sessionID
 	}
 
 	return markResult, nil
+}
+
+func (r *AttendanceRepository) MarkStudentPresentFromDevice(
+	ctx context.Context,
+	sessionID, studentID int32,
+	markedAt time.Time,
+	deviceID string,
+	lat, lon float64,
+	fraudReason string,
+) (string, error) {
+	if sessionID <= 0 {
+		return "", fmt.Errorf("session id is required")
+	}
+	if studentID <= 0 {
+		return "", fmt.Errorf("student id is required")
+	}
+	deviceID = strings.TrimSpace(deviceID)
+	if deviceID == "" {
+		return "", fmt.Errorf("device id is required")
+	}
+	if markedAt.IsZero() {
+		markedAt = time.Now().UTC()
+	}
+
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return "", fmt.Errorf("begin mobile attendance tx: %w", err)
+	}
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
+
+	var currentStatus string
+	err = tx.QueryRow(
+		ctx,
+		`SELECT status
+		 FROM attendance_session_students
+		 WHERE session_id = $1 AND student_id = $2
+		 FOR UPDATE`,
+		sessionID,
+		studentID,
+	).Scan(&currentStatus)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "not_found", nil
+	}
+	if err != nil {
+		return "", fmt.Errorf("load attendance roster row: %w", err)
+	}
+	if currentStatus == "present" {
+		return "already", nil
+	}
+
+	if fraudReason == "" {
+		var duplicateDevice bool
+		err = tx.QueryRow(
+			ctx,
+			`SELECT EXISTS (
+			     SELECT 1
+			     FROM attendance_session_students
+			     WHERE session_id = $1
+			       AND student_id <> $2
+			       AND device_id = $3
+			       AND status = 'present'
+			 )`,
+			sessionID,
+			studentID,
+			deviceID,
+		).Scan(&duplicateDevice)
+		if err != nil {
+			return "", fmt.Errorf("check duplicate attendance device: %w", err)
+		}
+		if duplicateDevice {
+			fraudReason = "device_id already used in this lesson"
+		}
+	}
+
+	if fraudReason != "" {
+		_, err = tx.Exec(
+			ctx,
+			`UPDATE attendance_session_students
+			 SET marked_at = $3,
+			     marked_by = 'self',
+			     device_id = $4,
+			     check_in_lat = $5,
+			     check_in_lon = $6,
+			     is_fraud = TRUE,
+			     fraud_reason = $7
+			 WHERE session_id = $1 AND student_id = $2`,
+			sessionID,
+			studentID,
+			markedAt.UTC(),
+			deviceID,
+			lat,
+			lon,
+			fraudReason,
+		)
+		if err != nil {
+			return "", fmt.Errorf("save attendance fraud attempt: %w", err)
+		}
+		_, err = tx.Exec(
+			ctx,
+			`UPDATE students
+			 SET total_cheat_attempts = total_cheat_attempts + 1
+			 WHERE student_id = $1`,
+			studentID,
+		)
+		if err != nil {
+			return "", fmt.Errorf("increment student cheat attempts: %w", err)
+		}
+		if err = tx.Commit(ctx); err != nil {
+			return "", fmt.Errorf("commit attendance fraud attempt: %w", err)
+		}
+		return "fraud", nil
+	}
+
+	_, err = tx.Exec(
+		ctx,
+		`UPDATE attendance_session_students
+		 SET status = 'present',
+		     marked_at = $3,
+		     marked_by = 'self',
+		     device_id = $4,
+		     check_in_lat = $5,
+		     check_in_lon = $6,
+		     is_fraud = FALSE,
+		     fraud_reason = NULL
+		 WHERE session_id = $1 AND student_id = $2`,
+		sessionID,
+		studentID,
+		markedAt.UTC(),
+		deviceID,
+		lat,
+		lon,
+	)
+	if err != nil {
+		return "", fmt.Errorf("mark mobile student present: %w", err)
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return "", fmt.Errorf("commit mobile attendance tx: %w", err)
+	}
+
+	return "updated", nil
 }
 
 func (r *AttendanceRepository) GetTeacherGroupAttendanceStats(
