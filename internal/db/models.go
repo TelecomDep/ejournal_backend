@@ -101,6 +101,11 @@ type AttendanceGroupStat struct {
 	LastMarkedAt     *time.Time `json:"last_marked_at,omitempty"`
 }
 
+type AttendanceSessionProgress struct {
+	RosterSize  int32 `json:"roster_size"`
+	MarkedCount int32 `json:"marked_count"`
+}
+
 type GradeItem struct {
 	ID        int32      `json:"item_id"`
 	SubjectID int32      `json:"subject_id"`

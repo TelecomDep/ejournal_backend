@@ -134,6 +134,57 @@ func (r *AttendanceRepository) GetSessionByID(ctx context.Context, sessionID int
 	return out, true, nil
 }
 
+func (r *AttendanceRepository) GetActiveSessionByTeacherID(ctx context.Context, teacherID int32, now time.Time) (AttendanceSession, bool, error) {
+	if teacherID <= 0 {
+		return AttendanceSession{}, false, fmt.Errorf("teacher id is required")
+	}
+	if now.IsZero() {
+		now = time.Now().UTC()
+	}
+
+	var out AttendanceSession
+	err := r.pool.QueryRow(
+		ctx,
+		`SELECT session_id, teacher_id, subject_id, COALESCE(lesson_name, ''), lat, lon, expires_at, created_at
+		 FROM attendance_sessions
+		 WHERE teacher_id = $1
+		   AND expires_at > $2
+		 ORDER BY expires_at DESC, session_id DESC
+		 LIMIT 1`,
+		teacherID,
+		now.UTC(),
+	).Scan(&out.ID, &out.TeacherID, &out.SubjectID, &out.LessonName, &out.Lat, &out.Lon, &out.ExpiresAt, &out.CreatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return AttendanceSession{}, false, nil
+	}
+	if err != nil {
+		return AttendanceSession{}, false, fmt.Errorf("get active attendance session: %w", err)
+	}
+
+	return out, true, nil
+}
+
+func (r *AttendanceRepository) GetSessionProgress(ctx context.Context, sessionID int32) (AttendanceSessionProgress, error) {
+	if sessionID <= 0 {
+		return AttendanceSessionProgress{}, fmt.Errorf("session id is required")
+	}
+
+	var out AttendanceSessionProgress
+	err := r.pool.QueryRow(
+		ctx,
+		`SELECT COUNT(*)::INTEGER AS roster_size,
+		        COUNT(*) FILTER (WHERE status = 'present')::INTEGER AS marked_count
+		 FROM attendance_session_students
+		 WHERE session_id = $1`,
+		sessionID,
+	).Scan(&out.RosterSize, &out.MarkedCount)
+	if err != nil {
+		return AttendanceSessionProgress{}, fmt.Errorf("get attendance session progress: %w", err)
+	}
+
+	return out, nil
+}
+
 func (r *AttendanceRepository) Mark(ctx context.Context, sessionID, studentID int32, markedAt time.Time) (bool, error) {
 	if sessionID <= 0 {
 		return false, fmt.Errorf("session id is required")

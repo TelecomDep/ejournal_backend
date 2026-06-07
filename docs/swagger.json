@@ -454,6 +454,153 @@
                 }
             }
         },
+        "/api/teacher/attendance/session/active": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns current teacher attendance session that has not expired yet.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "attendance"
+                ],
+                "summary": "Get active attendance session",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/httpserver.teacherActiveAttendanceSessionResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/teacher/attendance/session/marked-count": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns how many students have marked attendance in a teacher-owned session.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "attendance"
+                ],
+                "summary": "Get attendance marked count",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Attendance session ID",
+                        "name": "lesson_id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/httpserver.teacherAttendanceMarkedCountResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/teacher/attendance/session/timer": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns remaining seconds for a teacher-owned attendance session.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "attendance"
+                ],
+                "summary": "Get attendance session timer",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Attendance session ID",
+                        "name": "lesson_id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/httpserver.teacherAttendanceSessionTimerResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/api/teacher/grades": {
             "post": {
                 "security": [
@@ -1567,6 +1714,119 @@
                 }
             }
         },
+        "httpserver.teacherActiveAttendanceSessionItem": {
+            "type": "object",
+            "properties": {
+                "attendance_percent": {
+                    "type": "number",
+                    "example": 72
+                },
+                "created_at": {
+                    "type": "string",
+                    "example": "2026-04-21T21:05:37+07:00"
+                },
+                "expires_at": {
+                    "type": "string",
+                    "example": "2026-04-21T21:25:37+07:00"
+                },
+                "id": {
+                    "type": "integer",
+                    "example": 5
+                },
+                "is_active": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "lesson_id": {
+                    "type": "integer",
+                    "example": 5
+                },
+                "lesson_name": {
+                    "type": "string",
+                    "example": "Networks"
+                },
+                "marked_count": {
+                    "type": "integer",
+                    "example": 18
+                },
+                "remaining_seconds": {
+                    "type": "integer",
+                    "example": 900
+                },
+                "roster_size": {
+                    "type": "integer",
+                    "example": 25
+                },
+                "seconds_remaining": {
+                    "type": "integer",
+                    "example": 900
+                },
+                "server_time": {
+                    "type": "string",
+                    "example": "2026-04-21T21:10:37+07:00"
+                },
+                "subject_id": {
+                    "type": "integer",
+                    "example": 2
+                },
+                "teacher_id": {
+                    "type": "integer",
+                    "example": 3
+                },
+                "timezone": {
+                    "type": "string",
+                    "example": "Asia/Novosibirsk"
+                }
+            }
+        },
+        "httpserver.teacherActiveAttendanceSessionResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string",
+                    "example": ""
+                },
+                "id": {
+                    "type": "string",
+                    "example": "http-teacher-active-attendance-session"
+                },
+                "ok": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "result": {
+                    "$ref": "#/definitions/httpserver.teacherActiveAttendanceSessionResult"
+                }
+            }
+        },
+        "httpserver.teacherActiveAttendanceSessionResult": {
+            "type": "object",
+            "properties": {
+                "active": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "remaining_seconds": {
+                    "type": "integer",
+                    "example": 900
+                },
+                "seconds_remaining": {
+                    "type": "integer",
+                    "example": 900
+                },
+                "server_time": {
+                    "type": "string",
+                    "example": "2026-04-21T21:10:37+07:00"
+                },
+                "session": {
+                    "$ref": "#/definitions/httpserver.teacherActiveAttendanceSessionItem"
+                },
+                "timezone": {
+                    "type": "string",
+                    "example": "Asia/Novosibirsk"
+                }
+            }
+        },
         "httpserver.teacherAttendanceGroupResponse": {
             "type": "object",
             "properties": {
@@ -1769,6 +2029,100 @@
                 "url": {
                     "type": "string",
                     "example": "http://localhost:3000/attendance/join?token=\u003cattendance_invite_jwt\u003e"
+                }
+            }
+        },
+        "httpserver.teacherAttendanceMarkedCountResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string",
+                    "example": ""
+                },
+                "id": {
+                    "type": "string",
+                    "example": "http-teacher-attendance-marked-count"
+                },
+                "ok": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "result": {
+                    "$ref": "#/definitions/httpserver.teacherAttendanceMarkedCountResult"
+                }
+            }
+        },
+        "httpserver.teacherAttendanceMarkedCountResult": {
+            "type": "object",
+            "properties": {
+                "attendance_percent": {
+                    "type": "number",
+                    "example": 72
+                },
+                "lesson_id": {
+                    "type": "integer",
+                    "example": 5
+                },
+                "marked_count": {
+                    "type": "integer",
+                    "example": 18
+                },
+                "roster_size": {
+                    "type": "integer",
+                    "example": 25
+                }
+            }
+        },
+        "httpserver.teacherAttendanceSessionTimerResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string",
+                    "example": ""
+                },
+                "id": {
+                    "type": "string",
+                    "example": "http-teacher-attendance-session-timer"
+                },
+                "ok": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "result": {
+                    "$ref": "#/definitions/httpserver.teacherAttendanceSessionTimerResult"
+                }
+            }
+        },
+        "httpserver.teacherAttendanceSessionTimerResult": {
+            "type": "object",
+            "properties": {
+                "expires_at": {
+                    "type": "string",
+                    "example": "2026-04-21T21:25:37+07:00"
+                },
+                "is_active": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "lesson_id": {
+                    "type": "integer",
+                    "example": 5
+                },
+                "remaining_seconds": {
+                    "type": "integer",
+                    "example": 900
+                },
+                "seconds_remaining": {
+                    "type": "integer",
+                    "example": 900
+                },
+                "server_time": {
+                    "type": "string",
+                    "example": "2026-04-21T21:10:37+07:00"
+                },
+                "timezone": {
+                    "type": "string",
+                    "example": "Asia/Novosibirsk"
                 }
             }
         }

@@ -50,6 +50,9 @@ func (s *Server) Start() {
 
 	fiberApp.Post("/api/teacher/attendance-link", s.teacherAttendanceLinkHandler)
 	fiberApp.Post("/api/teacher/attendance/session", s.teacherAttendanceLinkHandler)
+	fiberApp.Get("/api/teacher/attendance/session/marked-count", s.teacherAttendanceMarkedCountHandler)
+	fiberApp.Get("/api/teacher/attendance/session/timer", s.teacherAttendanceSessionTimerHandler)
+	fiberApp.Get("/api/teacher/attendance/session/active", s.teacherActiveAttendanceSessionHandler)
 	fiberApp.Get("/api/teacher/subjects", s.teacherSubjectsHandler)
 	fiberApp.Post("/api/teacher/attendance/group", s.teacherAttendanceByGroupHandler)
 	fiberApp.Post("/api/student/attendance/confirm", s.studentAttendanceConfirmHandler)
@@ -528,6 +531,89 @@ func (s *Server) teacherAttendanceByGroupHandler(c *fiber.Ctx) error {
 
 	if !resp.OK {
 		if resp.Error == "forbidden: teacher role required" {
+			return c.Status(fiber.StatusForbidden).JSON(resp)
+		}
+		if resp.Error == "invalid token" || resp.Error == "session not found" || resp.Error == "missing token" {
+			return c.Status(fiber.StatusUnauthorized).JSON(resp)
+		}
+		return c.Status(fiber.StatusBadRequest).JSON(resp)
+	}
+
+	return c.JSON(resp)
+}
+
+// teacherAttendanceMarkedCountHandler godoc
+// @Summary Get attendance marked count
+// @Description Returns how many students have marked attendance in a teacher-owned session.
+// @Tags attendance
+// @Produce json
+// @Security BearerAuth
+// @Param lesson_id query int true "Attendance session ID"
+// @Success 200 {object} teacherAttendanceMarkedCountResponse
+// @Failure 400 {object} app.Response
+// @Failure 401 {object} app.Response
+// @Failure 403 {object} app.Response
+// @Router /api/teacher/attendance/session/marked-count [get]
+func (s *Server) teacherAttendanceMarkedCountHandler(c *fiber.Ctx) error {
+	body := app.AttendanceSessionData{LessonID: int32(c.QueryInt("lesson_id", 0))}
+	return s.teacherAttendanceReadHandler(c, "http-teacher-attendance-marked-count", "teacher_attendance_marked_count", body)
+}
+
+// teacherAttendanceSessionTimerHandler godoc
+// @Summary Get attendance session timer
+// @Description Returns remaining seconds for a teacher-owned attendance session.
+// @Tags attendance
+// @Produce json
+// @Security BearerAuth
+// @Param lesson_id query int true "Attendance session ID"
+// @Success 200 {object} teacherAttendanceSessionTimerResponse
+// @Failure 400 {object} app.Response
+// @Failure 401 {object} app.Response
+// @Failure 403 {object} app.Response
+// @Router /api/teacher/attendance/session/timer [get]
+func (s *Server) teacherAttendanceSessionTimerHandler(c *fiber.Ctx) error {
+	body := app.AttendanceSessionData{LessonID: int32(c.QueryInt("lesson_id", 0))}
+	return s.teacherAttendanceReadHandler(c, "http-teacher-attendance-session-timer", "teacher_attendance_session_timer", body)
+}
+
+// teacherActiveAttendanceSessionHandler godoc
+// @Summary Get active attendance session
+// @Description Returns current teacher attendance session that has not expired yet.
+// @Tags attendance
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} teacherActiveAttendanceSessionResponse
+// @Failure 400 {object} app.Response
+// @Failure 401 {object} app.Response
+// @Failure 403 {object} app.Response
+// @Router /api/teacher/attendance/session/active [get]
+func (s *Server) teacherActiveAttendanceSessionHandler(c *fiber.Ctx) error {
+	return s.teacherAttendanceReadHandler(c, "http-teacher-active-attendance-session", "teacher_active_attendance_session", nil)
+}
+
+func (s *Server) teacherAttendanceReadHandler(c *fiber.Ctx, requestID, action string, body any) error {
+	token := c.Get("Authorization")
+	if token == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(app.Response{OK: false, Error: "missing Authorization header"})
+	}
+
+	data, err := json.Marshal(body)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(app.Response{OK: false, Error: "Error marshalling request"})
+	}
+
+	req := app.Request{ID: requestID, Action: action, Token: token, Data: data}
+	raw, err := json.Marshal(req)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(app.Response{OK: false, Error: "Error marshalling envelope"})
+	}
+
+	resp, err := s.svc.DispatchRequest(string(raw), s.requestTimeout)
+	if err != nil {
+		return c.Status(fiber.StatusServiceUnavailable).JSON(app.Response{OK: false, Error: err.Error()})
+	}
+	if !resp.OK {
+		if resp.Error == "forbidden: teacher role required" || resp.Error == "forbidden: lesson belongs to another teacher" {
 			return c.Status(fiber.StatusForbidden).JSON(resp)
 		}
 		if resp.Error == "invalid token" || resp.Error == "session not found" || resp.Error == "missing token" {

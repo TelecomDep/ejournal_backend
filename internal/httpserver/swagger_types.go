@@ -152,6 +152,71 @@ type teacherAttendanceGroupResponse struct {
 	Error  string                       `json:"error" example:""`
 }
 
+type teacherAttendanceMarkedCountResult struct {
+	LessonID          int32   `json:"lesson_id" example:"5"`
+	MarkedCount       int32   `json:"marked_count" example:"18"`
+	RosterSize        int32   `json:"roster_size" example:"25"`
+	AttendancePercent float64 `json:"attendance_percent" example:"72"`
+}
+
+type teacherAttendanceMarkedCountResponse struct {
+	ID     string                             `json:"id" example:"http-teacher-attendance-marked-count"`
+	OK     bool                               `json:"ok" example:"true"`
+	Result teacherAttendanceMarkedCountResult `json:"result"`
+	Error  string                             `json:"error" example:""`
+}
+
+type teacherAttendanceSessionTimerResult struct {
+	LessonID         int32  `json:"lesson_id" example:"5"`
+	ExpiresAt        string `json:"expires_at" example:"2026-04-21T21:25:37+07:00"`
+	ServerTime       string `json:"server_time" example:"2026-04-21T21:10:37+07:00"`
+	Timezone         string `json:"timezone" example:"Asia/Novosibirsk"`
+	IsActive         bool   `json:"is_active" example:"true"`
+	SecondsRemaining int64  `json:"seconds_remaining" example:"900"`
+	RemainingSeconds int64  `json:"remaining_seconds" example:"900"`
+}
+
+type teacherAttendanceSessionTimerResponse struct {
+	ID     string                              `json:"id" example:"http-teacher-attendance-session-timer"`
+	OK     bool                                `json:"ok" example:"true"`
+	Result teacherAttendanceSessionTimerResult `json:"result"`
+	Error  string                              `json:"error" example:""`
+}
+
+type teacherActiveAttendanceSessionItem struct {
+	ID                int32   `json:"id" example:"5"`
+	LessonID          int32   `json:"lesson_id" example:"5"`
+	TeacherID         int32   `json:"teacher_id" example:"3"`
+	SubjectID         int32   `json:"subject_id" example:"2"`
+	LessonName        string  `json:"lesson_name" example:"Networks"`
+	CreatedAt         string  `json:"created_at" example:"2026-04-21T21:05:37+07:00"`
+	ExpiresAt         string  `json:"expires_at" example:"2026-04-21T21:25:37+07:00"`
+	ServerTime        string  `json:"server_time" example:"2026-04-21T21:10:37+07:00"`
+	Timezone          string  `json:"timezone" example:"Asia/Novosibirsk"`
+	IsActive          bool    `json:"is_active" example:"true"`
+	SecondsRemaining  int64   `json:"seconds_remaining" example:"900"`
+	RemainingSeconds  int64   `json:"remaining_seconds" example:"900"`
+	MarkedCount       int32   `json:"marked_count" example:"18"`
+	RosterSize        int32   `json:"roster_size" example:"25"`
+	AttendancePercent float64 `json:"attendance_percent" example:"72"`
+}
+
+type teacherActiveAttendanceSessionResult struct {
+	Active           bool                                `json:"active" example:"true"`
+	Session          *teacherActiveAttendanceSessionItem `json:"session,omitempty"`
+	SecondsRemaining int64                               `json:"seconds_remaining" example:"900"`
+	RemainingSeconds int64                               `json:"remaining_seconds" example:"900"`
+	ServerTime       string                              `json:"server_time" example:"2026-04-21T21:10:37+07:00"`
+	Timezone         string                              `json:"timezone" example:"Asia/Novosibirsk"`
+}
+
+type teacherActiveAttendanceSessionResponse struct {
+	ID     string                               `json:"id" example:"http-teacher-active-attendance-session"`
+	OK     bool                                 `json:"ok" example:"true"`
+	Result teacherActiveAttendanceSessionResult `json:"result"`
+	Error  string                               `json:"error" example:""`
+}
+
 type studentAttendanceHistoryItem struct {
 	Date  string `json:"date" example:"2026-04-20"`
 	Count int32  `json:"count" example:"1"`

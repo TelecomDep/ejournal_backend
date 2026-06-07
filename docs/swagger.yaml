@@ -365,6 +365,88 @@ definitions:
         example: 2026
         type: integer
     type: object
+  httpserver.teacherActiveAttendanceSessionItem:
+    properties:
+      attendance_percent:
+        example: 72
+        type: number
+      created_at:
+        example: "2026-04-21T21:05:37+07:00"
+        type: string
+      expires_at:
+        example: "2026-04-21T21:25:37+07:00"
+        type: string
+      id:
+        example: 5
+        type: integer
+      is_active:
+        example: true
+        type: boolean
+      lesson_id:
+        example: 5
+        type: integer
+      lesson_name:
+        example: Networks
+        type: string
+      marked_count:
+        example: 18
+        type: integer
+      remaining_seconds:
+        example: 900
+        type: integer
+      roster_size:
+        example: 25
+        type: integer
+      seconds_remaining:
+        example: 900
+        type: integer
+      server_time:
+        example: "2026-04-21T21:10:37+07:00"
+        type: string
+      subject_id:
+        example: 2
+        type: integer
+      teacher_id:
+        example: 3
+        type: integer
+      timezone:
+        example: Asia/Novosibirsk
+        type: string
+    type: object
+  httpserver.teacherActiveAttendanceSessionResponse:
+    properties:
+      error:
+        example: ""
+        type: string
+      id:
+        example: http-teacher-active-attendance-session
+        type: string
+      ok:
+        example: true
+        type: boolean
+      result:
+        $ref: '#/definitions/httpserver.teacherActiveAttendanceSessionResult'
+    type: object
+  httpserver.teacherActiveAttendanceSessionResult:
+    properties:
+      active:
+        example: true
+        type: boolean
+      remaining_seconds:
+        example: 900
+        type: integer
+      seconds_remaining:
+        example: 900
+        type: integer
+      server_time:
+        example: "2026-04-21T21:10:37+07:00"
+        type: string
+      session:
+        $ref: '#/definitions/httpserver.teacherActiveAttendanceSessionItem'
+      timezone:
+        example: Asia/Novosibirsk
+        type: string
+    type: object
   httpserver.teacherAttendanceGroupResponse:
     properties:
       error:
@@ -509,6 +591,73 @@ definitions:
         type: string
       url:
         example: http://localhost:3000/attendance/join?token=<attendance_invite_jwt>
+        type: string
+    type: object
+  httpserver.teacherAttendanceMarkedCountResponse:
+    properties:
+      error:
+        example: ""
+        type: string
+      id:
+        example: http-teacher-attendance-marked-count
+        type: string
+      ok:
+        example: true
+        type: boolean
+      result:
+        $ref: '#/definitions/httpserver.teacherAttendanceMarkedCountResult'
+    type: object
+  httpserver.teacherAttendanceMarkedCountResult:
+    properties:
+      attendance_percent:
+        example: 72
+        type: number
+      lesson_id:
+        example: 5
+        type: integer
+      marked_count:
+        example: 18
+        type: integer
+      roster_size:
+        example: 25
+        type: integer
+    type: object
+  httpserver.teacherAttendanceSessionTimerResponse:
+    properties:
+      error:
+        example: ""
+        type: string
+      id:
+        example: http-teacher-attendance-session-timer
+        type: string
+      ok:
+        example: true
+        type: boolean
+      result:
+        $ref: '#/definitions/httpserver.teacherAttendanceSessionTimerResult'
+    type: object
+  httpserver.teacherAttendanceSessionTimerResult:
+    properties:
+      expires_at:
+        example: "2026-04-21T21:25:37+07:00"
+        type: string
+      is_active:
+        example: true
+        type: boolean
+      lesson_id:
+        example: 5
+        type: integer
+      remaining_seconds:
+        example: 900
+        type: integer
+      seconds_remaining:
+        example: 900
+        type: integer
+      server_time:
+        example: "2026-04-21T21:10:37+07:00"
+        type: string
+      timezone:
+        example: Asia/Novosibirsk
         type: string
     type: object
 info:
@@ -801,6 +950,101 @@ paths:
       security:
       - BearerAuth: []
       summary: Create attendance session link
+      tags:
+      - attendance
+  /api/teacher/attendance/session/active:
+    get:
+      description: Returns current teacher attendance session that has not expired
+        yet.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httpserver.teacherActiveAttendanceSessionResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/app.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/app.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/app.Response'
+      security:
+      - BearerAuth: []
+      summary: Get active attendance session
+      tags:
+      - attendance
+  /api/teacher/attendance/session/marked-count:
+    get:
+      description: Returns how many students have marked attendance in a teacher-owned
+        session.
+      parameters:
+      - description: Attendance session ID
+        in: query
+        name: lesson_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httpserver.teacherAttendanceMarkedCountResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/app.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/app.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/app.Response'
+      security:
+      - BearerAuth: []
+      summary: Get attendance marked count
+      tags:
+      - attendance
+  /api/teacher/attendance/session/timer:
+    get:
+      description: Returns remaining seconds for a teacher-owned attendance session.
+      parameters:
+      - description: Attendance session ID
+        in: query
+        name: lesson_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httpserver.teacherAttendanceSessionTimerResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/app.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/app.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/app.Response'
+      security:
+      - BearerAuth: []
+      summary: Get attendance session timer
       tags:
       - attendance
   /api/teacher/grades:

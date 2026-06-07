@@ -76,6 +76,10 @@ type AttendanceGroupStatsData struct {
 	SubjectID *int32 `json:"subject_id,omitempty"`
 }
 
+type AttendanceSessionData struct {
+	LessonID int32 `json:"lesson_id"`
+}
+
 type AttendanceHistoryData struct {
 	Year int `json:"year"`
 }
@@ -1128,6 +1132,176 @@ func (s *Service) attendanceByGroupForTeacher(sessionToken string, data Attendan
 	}
 }
 
+func (s *Service) attendanceSessionByTeacher(ctx context.Context, sessionToken string, lessonID int32) (db.AttendanceSession, bool, Response) {
+	teacherUser, err := s.userBySessionToken(sessionToken)
+	if err != nil {
+		return db.AttendanceSession{}, false, Response{OK: false, Error: err.Error()}
+	}
+	if teacherUser.Role != "teacher" {
+		return db.AttendanceSession{}, false, Response{OK: false, Error: "forbidden: teacher role required"}
+	}
+	teacherProfile, err := s.teacherProfileByUser(teacherUser)
+	if err != nil {
+		return db.AttendanceSession{}, false, Response{OK: false, Error: err.Error()}
+	}
+	if lessonID <= 0 {
+		return db.AttendanceSession{}, false, Response{OK: false, Error: "lesson_id is required"}
+	}
+
+	session, found, err := s.store.Attendance.GetSessionByID(ctx, lessonID)
+	if err != nil {
+		return db.AttendanceSession{}, false, Response{OK: false, Error: "failed to load attendance session"}
+	}
+	if !found {
+		return db.AttendanceSession{}, false, Response{OK: false, Error: "attendance session not found"}
+	}
+	if session.TeacherID != teacherProfile.ID {
+		return db.AttendanceSession{}, false, Response{OK: false, Error: "forbidden: lesson belongs to another teacher"}
+	}
+
+	return session, true, Response{}
+}
+
+func (s *Service) attendanceProgressResult(ctx context.Context, session db.AttendanceSession, now time.Time) (map[string]any, error) {
+	progress, err := s.store.Attendance.GetSessionProgress(ctx, session.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	secondsRemaining := int64(session.ExpiresAt.UTC().Sub(now.UTC()).Seconds())
+	if secondsRemaining < 0 {
+		secondsRemaining = 0
+	}
+	attendancePercent := 0.0
+	if progress.RosterSize > 0 {
+		attendancePercent = float64(progress.MarkedCount) * 100 / float64(progress.RosterSize)
+	}
+
+	return map[string]any{
+		"id":                 session.ID,
+		"lesson_id":          session.ID,
+		"teacher_id":         session.TeacherID,
+		"subject_id":         session.SubjectID,
+		"lesson_name":        session.LessonName,
+		"created_at":         formatAPITime(session.CreatedAt),
+		"expires_at":         formatAPITime(session.ExpiresAt),
+		"server_time":        formatAPITime(now),
+		"timezone":           "Asia/Novosibirsk",
+		"is_active":          secondsRemaining > 0,
+		"seconds_remaining":  secondsRemaining,
+		"remaining_seconds":  secondsRemaining,
+		"marked_count":       progress.MarkedCount,
+		"roster_size":        progress.RosterSize,
+		"attendance_percent": attendancePercent,
+	}, nil
+}
+
+func (s *Service) attendanceMarkedCountForTeacher(sessionToken string, data AttendanceSessionData) Response {
+	ctx, cancel := s.dbContext()
+	defer cancel()
+
+	session, ok, resp := s.attendanceSessionByTeacher(ctx, sessionToken, data.LessonID)
+	if !ok {
+		return resp
+	}
+
+	result, err := s.attendanceProgressResult(ctx, session, time.Now().UTC())
+	if err != nil {
+		return Response{OK: false, Error: "failed to load attendance progress"}
+	}
+
+	return Response{
+		OK: true,
+		Result: map[string]any{
+			"lesson_id":          result["lesson_id"],
+			"marked_count":       result["marked_count"],
+			"roster_size":        result["roster_size"],
+			"attendance_percent": result["attendance_percent"],
+		},
+	}
+}
+
+func (s *Service) attendanceSessionTimerForTeacher(sessionToken string, data AttendanceSessionData) Response {
+	ctx, cancel := s.dbContext()
+	defer cancel()
+
+	session, ok, resp := s.attendanceSessionByTeacher(ctx, sessionToken, data.LessonID)
+	if !ok {
+		return resp
+	}
+
+	result, err := s.attendanceProgressResult(ctx, session, time.Now().UTC())
+	if err != nil {
+		return Response{OK: false, Error: "failed to load attendance progress"}
+	}
+
+	return Response{
+		OK: true,
+		Result: map[string]any{
+			"lesson_id":         result["lesson_id"],
+			"expires_at":        result["expires_at"],
+			"server_time":       result["server_time"],
+			"timezone":          result["timezone"],
+			"is_active":         result["is_active"],
+			"seconds_remaining": result["seconds_remaining"],
+			"remaining_seconds": result["remaining_seconds"],
+		},
+	}
+}
+
+func (s *Service) activeAttendanceSessionForTeacher(sessionToken string) Response {
+	teacherUser, err := s.userBySessionToken(sessionToken)
+	if err != nil {
+		return Response{OK: false, Error: err.Error()}
+	}
+	if teacherUser.Role != "teacher" {
+		return Response{OK: false, Error: "forbidden: teacher role required"}
+	}
+	teacherProfile, err := s.teacherProfileByUser(teacherUser)
+	if err != nil {
+		return Response{OK: false, Error: err.Error()}
+	}
+
+	ctx, cancel := s.dbContext()
+	defer cancel()
+
+	now := time.Now().UTC()
+	session, found, err := s.store.Attendance.GetActiveSessionByTeacherID(ctx, teacherProfile.ID, now)
+	if err != nil {
+		return Response{OK: false, Error: "failed to load active attendance session"}
+	}
+	if !found {
+		return Response{
+			OK: true,
+			Result: map[string]any{
+				"active":            false,
+				"session":           nil,
+				"seconds_remaining": int64(0),
+				"remaining_seconds": int64(0),
+				"server_time":       formatAPITime(now),
+				"timezone":          "Asia/Novosibirsk",
+			},
+		}
+	}
+
+	sessionResult, err := s.attendanceProgressResult(ctx, session, now)
+	if err != nil {
+		return Response{OK: false, Error: "failed to load attendance progress"}
+	}
+
+	return Response{
+		OK: true,
+		Result: map[string]any{
+			"active":            true,
+			"session":           sessionResult,
+			"seconds_remaining": sessionResult["seconds_remaining"],
+			"remaining_seconds": sessionResult["remaining_seconds"],
+			"server_time":       sessionResult["server_time"],
+			"timezone":          sessionResult["timezone"],
+		},
+	}
+}
+
 func (s *Service) attendanceHistoryForStudent(sessionToken string, data AttendanceHistoryData) Response {
 	studentUser, err := s.userBySessionToken(sessionToken)
 	if err != nil {
@@ -1363,6 +1537,26 @@ func (s *Service) handleRequest(raw string) Response {
 			return Response{ID: req.ID, OK: false, Error: "invalid teacher_attendance_by_group payload"}
 		}
 		resp := s.attendanceByGroupForTeacher(req.Token, data)
+		resp.ID = req.ID
+		return resp
+	case "teacher_attendance_marked_count":
+		var data AttendanceSessionData
+		if err := json.Unmarshal(req.Data, &data); err != nil {
+			return Response{ID: req.ID, OK: false, Error: "invalid teacher_attendance_marked_count payload"}
+		}
+		resp := s.attendanceMarkedCountForTeacher(req.Token, data)
+		resp.ID = req.ID
+		return resp
+	case "teacher_attendance_session_timer":
+		var data AttendanceSessionData
+		if err := json.Unmarshal(req.Data, &data); err != nil {
+			return Response{ID: req.ID, OK: false, Error: "invalid teacher_attendance_session_timer payload"}
+		}
+		resp := s.attendanceSessionTimerForTeacher(req.Token, data)
+		resp.ID = req.ID
+		return resp
+	case "teacher_active_attendance_session":
+		resp := s.activeAttendanceSessionForTeacher(req.Token)
 		resp.ID = req.ID
 		return resp
 	case "student_attendance_history":
