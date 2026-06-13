@@ -76,6 +76,11 @@ type AttendanceGroupStatsData struct {
 	SubjectID *int32 `json:"subject_id,omitempty"`
 }
 
+type GroupPerformanceData struct {
+	GroupID   int32 `json:"group_id"`
+	SubjectID int32 `json:"subject_id"`
+}
+
 type AttendanceSessionData struct {
 	LessonID int32 `json:"lesson_id"`
 }
@@ -84,10 +89,21 @@ type AttendanceHistoryData struct {
 	Year int `json:"year"`
 }
 
+type TeacherAttendanceStudentHistoryData struct {
+	StudentID int32 `json:"student_id"`
+	SubjectID int32 `json:"subject_id"`
+}
+
 type TeacherSubjectsResultItem struct {
-	SubjectID   int32   `json:"subject_id"`
-	SubjectName string  `json:"subject_name"`
-	GroupIDs    []int32 `json:"group_ids"`
+	SubjectID   int32                 `json:"subject_id"`
+	SubjectName string                `json:"subject_name"`
+	GroupIDs    []int32               `json:"group_ids"`
+	Groups      []TeacherSubjectGroup `json:"groups"`
+}
+
+type TeacherSubjectGroup struct {
+	ID   int32  `json:"id"`
+	Name string `json:"name"`
 }
 
 type AttendanceInviteClaims struct {
@@ -1132,6 +1148,116 @@ func (s *Service) attendanceByGroupForTeacher(sessionToken string, data Attendan
 	}
 }
 
+// groupPerformanceForTeacher returns a combined overview for a group on a
+// subject: per-student attendance and grade totals plus group averages.
+func (s *Service) groupPerformanceForTeacher(sessionToken string, data GroupPerformanceData) Response {
+	teacherUser, err := s.userBySessionToken(sessionToken)
+	if err != nil {
+		return Response{OK: false, Error: err.Error()}
+	}
+	if teacherUser.Role != "teacher" {
+		return Response{OK: false, Error: "forbidden: teacher role required"}
+	}
+	teacherProfile, err := s.teacherProfileByUser(teacherUser)
+	if err != nil {
+		return Response{OK: false, Error: err.Error()}
+	}
+	if data.GroupID <= 0 {
+		return Response{OK: false, Error: "group_id is required"}
+	}
+	if data.SubjectID <= 0 {
+		return Response{OK: false, Error: "subject_id is required"}
+	}
+
+	ctx, cancel := s.dbContext()
+	defer cancel()
+
+	if resp := s.ensureTeacherSubjectAccess(ctx, teacherProfile.ID, data.SubjectID); !resp.OK {
+		return resp
+	}
+
+	group, found, err := s.store.Groups.GetByID(ctx, data.GroupID)
+	if err != nil {
+		return Response{OK: false, Error: "failed to load group"}
+	}
+	if !found {
+		return Response{OK: false, Error: "group not found"}
+	}
+	subject, found, err := s.store.Subjects.GetByID(ctx, data.SubjectID)
+	if err != nil {
+		return Response{OK: false, Error: "failed to load subject"}
+	}
+	if !found {
+		return Response{OK: false, Error: "subject not found"}
+	}
+
+	rows, err := s.store.Attendance.GetGroupSubjectPerformance(ctx, teacherProfile.ID, data.GroupID, data.SubjectID)
+	if err != nil {
+		return Response{OK: false, Error: "failed to load group performance"}
+	}
+
+	students := make([]map[string]any, 0, len(rows))
+	var (
+		sessionsCount      int32
+		attendancePctSum   float64
+		gradePctSum        float64
+		gradedStudentCount int
+	)
+	for _, row := range rows {
+		attendancePercent := 0.0
+		if row.TotalSessions > 0 {
+			attendancePercent = float64(row.AttendedSessions) * 100 / float64(row.TotalSessions)
+		}
+		gradePercent := 0.0
+		if row.TotalMax > 0 {
+			gradePercent = float64(row.CurrentScore) * 100 / float64(row.TotalMax)
+		}
+		if row.TotalSessions > sessionsCount {
+			sessionsCount = row.TotalSessions
+		}
+		attendancePctSum += attendancePercent
+		gradePctSum += gradePercent
+		gradedStudentCount++
+
+		students = append(students, map[string]any{
+			"student_id":         row.StudentID,
+			"student_name":       row.StudentName,
+			"total_sessions":     row.TotalSessions,
+			"attended_sessions":  row.AttendedSessions,
+			"attendance_percent": attendancePercent,
+			"current_score":      row.CurrentScore,
+			"total_max":          row.TotalMax,
+			"passed_max":         row.PassedMax,
+			"grade_percent":      gradePercent,
+		})
+	}
+
+	avgAttendance := 0.0
+	avgGrade := 0.0
+	if gradedStudentCount > 0 {
+		avgAttendance = attendancePctSum / float64(gradedStudentCount)
+		avgGrade = gradePctSum / float64(gradedStudentCount)
+	}
+
+	return Response{
+		OK: true,
+		Result: map[string]any{
+			"group_id":     data.GroupID,
+			"group_name":   group.GroupName,
+			"subject_id":   subject.ID,
+			"subject_name": subject.Name,
+			"timezone":     "Asia/Novosibirsk",
+			"students":     students,
+			"summary": map[string]any{
+				"students_count":         len(students),
+				"sessions_count":         sessionsCount,
+				"avg_attendance_percent": avgAttendance,
+				"avg_grade_percent":      avgGrade,
+			},
+		},
+	}
+}
+
 func (s *Service) attendanceSessionByTeacher(ctx context.Context, sessionToken string, lessonID int32) (db.AttendanceSession, bool, Response) {
 	teacherUser, err := s.userBySessionToken(sessionToken)
 	if err != nil {
@@ -1372,6 +1498,66 @@ func (s *Service) attendanceHistoryForStudent(sessionToken string, data Attendan
 	}
 }
 
+func attendanceStatusLabel(status string) string {
+	if status == "present" {
+		return "attended"
+	}
+	return status
+}
+
+func (s *Service) attendanceHistoryForTeacherStudent(sessionToken string, data TeacherAttendanceStudentHistoryData) Response {
+	teacherUser, err := s.userBySessionToken(sessionToken)
+	if err != nil {
+		return Response{OK: false, Error: err.Error()}
+	}
+	if teacherUser.Role != "teacher" {
+		return Response{OK: false, Error: "forbidden: teacher role required"}
+	}
+	teacherProfile, err := s.teacherProfileByUser(teacherUser)
+	if err != nil {
+		return Response{OK: false, Error: err.Error()}
+	}
+	if data.StudentID <= 0 {
+		return Response{OK: false, Error: "student_id is required"}
+	}
+
+	ctx, cancel := s.dbContext()
+	defer cancel()
+
+	if resp := s.ensureTeacherSubjectAccess(ctx, teacherProfile.ID, data.SubjectID); !resp.OK {
+		return resp
+	}
+
+	_, found, err := s.store.Students.GetByID(ctx, data.StudentID)
+	if err != nil {
+		return Response{OK: false, Error: "failed to load student"}
+	}
+	if !found {
+		return Response{OK: false, Error: "student not found"}
+	}
+
+	rows, err := s.store.Attendance.GetStudentSubjectAttendanceHistory(ctx, data.StudentID, data.SubjectID)
+	if err != nil {
+		return Response{OK: false, Error: "failed to load attendance history"}
+	}
+
+	items := make([]map[string]any, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, map[string]any{
+			"date":        row.Date.Format("2006-01-02"),
+			"lesson_name": row.LessonName,
+			"status":      attendanceStatusLabel(row.Status),
+		})
+	}
+
+	return Response{
+		OK: true,
+		Result: map[string]any{
+			"items": items,
+		},
+	}
+}
+
 func (s *Service) teacherSubjects(sessionToken string) Response {
 	teacherUser, err := s.userBySessionToken(sessionToken)
 	if err != nil {
@@ -1449,12 +1635,76 @@ func (s *Service) teacherSubjects(sessionToken string) Response {
 		}
 	}
 
+	if err := s.populateSubjectGroupNames(ctx, items); err != nil {
+		return Response{OK: false, Error: "failed to load group names"}
+	}
+
 	return Response{
 		OK: true,
 		Result: map[string]any{
 			"subjects": items,
 		},
 	}
+}
+
+// populateSubjectGroupNames fills the Groups field ({id, name}) of each subject
+// item using the group IDs already collected, with a single lookup query.
+func (s *Service) populateSubjectGroupNames(ctx context.Context, items []TeacherSubjectsResultItem) error {
+	idSet := make(map[int32]struct{})
+	for i := range items {
+		for _, id := range items[i].GroupIDs {
+			idSet[id] = struct{}{}
+		}
+	}
+	if len(idSet) == 0 {
+		for i := range items {
+			items[i].Groups = make([]TeacherSubjectGroup, 0)
+		}
+		return nil
+	}
+
+	ids := make([]int32, 0, len(idSet))
+	for id := range idSet {
+		ids = append(ids, id)
+	}
+
+	rows, err := s.store.Pool().Query(
+		ctx,
+		`SELECT group_id, group_name FROM groups WHERE group_id = ANY($1)`,
+		ids,
+	)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	names := make(map[int32]string, len(ids))
+	for rows.Next() {
+		var (
+			id   int32
+			name string
+		)
+		if err := rows.Scan(&id, &name); err != nil {
+			return err
+		}
+		names[id] = name
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+
+	for i := range items {
+		groups := make([]TeacherSubjectGroup, 0, len(items[i].GroupIDs))
+		for _, id := range items[i].GroupIDs {
+			name := names[id]
+			if name == "" {
+				name = fmt.Sprintf("Группа %d", id)
+			}
+			groups = append(groups, TeacherSubjectGroup{ID: id, Name: name})
+		}
+		items[i].Groups = groups
+	}
+	return nil
 }
 
 func (s *Service) handleRequest(raw string) Response {
@@ -1539,6 +1789,14 @@ func (s *Service) handleRequest(raw string) Response {
 		resp := s.attendanceByGroupForTeacher(req.Token, data)
 		resp.ID = req.ID
 		return resp
+	case "teacher_group_performance":
+		var data GroupPerformanceData
+		if err := json.Unmarshal(req.Data, &data); err != nil {
+			return Response{ID: req.ID, OK: false, Error: "invalid teacher_group_performance payload"}
+		}
+		resp := s.groupPerformanceForTeacher(req.Token, data)
+		resp.ID = req.ID
+		return resp
 	case "teacher_attendance_marked_count":
 		var data AttendanceSessionData
 		if err := json.Unmarshal(req.Data, &data); err != nil {
@@ -1565,6 +1823,14 @@ func (s *Service) handleRequest(raw string) Response {
 			return Response{ID: req.ID, OK: false, Error: "invalid student_attendance_history payload"}
 		}
 		resp := s.attendanceHistoryForStudent(req.Token, data)
+		resp.ID = req.ID
+		return resp
+	case "teacher_attendance_student_history":
+		var data TeacherAttendanceStudentHistoryData
+		if err := json.Unmarshal(req.Data, &data); err != nil {
+			return Response{ID: req.ID, OK: false, Error: "invalid teacher_attendance_student_history payload"}
+		}
+		resp := s.attendanceHistoryForTeacherStudent(req.Token, data)
 		resp.ID = req.ID
 		return resp
 	case "teacher_subjects":

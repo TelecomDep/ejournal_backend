@@ -106,6 +106,24 @@ type AttendanceSessionProgress struct {
 	MarkedCount int32 `json:"marked_count"`
 }
 
+type AttendanceHistoryItem struct {
+	Date       time.Time `json:"date"`
+	LessonName string    `json:"lesson_name"`
+	Status     string    `json:"status"`
+}
+
+// GroupSubjectPerformanceRow combines a student's attendance and grade totals
+// for one group on one subject (used by the teacher group overview table).
+type GroupSubjectPerformanceRow struct {
+	StudentID        int32  `json:"student_id"`
+	StudentName      string `json:"student_name"`
+	TotalSessions    int32  `json:"total_sessions"`
+	AttendedSessions int32  `json:"attended_sessions"`
+	TotalMax         int32  `json:"total_max"`
+	PassedMax        int32  `json:"passed_max"`
+	CurrentScore     int32  `json:"current_score"`
+}
+
 type GradeItem struct {
 	ID        int32      `json:"item_id"`
 	SubjectID int32      `json:"subject_id"`

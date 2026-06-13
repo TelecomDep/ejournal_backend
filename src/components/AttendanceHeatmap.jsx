@@ -1,9 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import './AttendanceHeatmap.css';
 
+// Локальная дата в формате YYYY-MM-DD без перевода в UTC,
+// чтобы ячейки совпадали с датами посещений из БД (часовой пояс сервера).
+const toLocalDateStr = (date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 const AttendanceHeatmap = ({ attendanceData = [], year = new Date().getFullYear() }) => {
   const [selectedCell, setSelectedCell] = useState(null);
-  
+
   // Генерация данных для тепловой карты (52 недели × 7 дней)
   const generateHeatmapData = () => {
     const today = new Date();
@@ -23,7 +32,7 @@ const AttendanceHeatmap = ({ attendanceData = [], year = new Date().getFullYear(
       const week = [];
       for (let i = 0; i < 7; i++) {
         const date = new Date(currentDate);
-        const dateStr = date.toISOString().split('T')[0];
+        const dateStr = toLocalDateStr(date);
         const attendance = attendanceData.find(a => a.date === dateStr);
         week.push({
           date: dateStr,

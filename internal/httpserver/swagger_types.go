@@ -233,3 +233,56 @@ type studentAttendanceHistoryResponse struct {
 	Result studentAttendanceHistoryResult `json:"result"`
 	Error  string                         `json:"error" example:""`
 }
+
+type teacherAttendanceStudentHistoryItem struct {
+	Date       string `json:"date" example:"2026-04-20"`
+	LessonName string `json:"lesson_name" example:"Math"`
+	Status     string `json:"status" example:"attended"`
+}
+
+type teacherAttendanceStudentHistoryResult struct {
+	Items []teacherAttendanceStudentHistoryItem `json:"items"`
+}
+
+type teacherAttendanceStudentHistoryResponse struct {
+	ID     string                                `json:"id" example:"http-teacher-attendance-student-history"`
+	OK     bool                                  `json:"ok" example:"true"`
+	Result teacherAttendanceStudentHistoryResult `json:"result"`
+	Error  string                                `json:"error" example:""`
+}
+
+type teacherGroupPerformanceStudent struct {
+	StudentID         int32   `json:"student_id" example:"4"`
+	StudentName       string  `json:"student_name" example:"Test Student"`
+	TotalSessions     int32   `json:"total_sessions" example:"4"`
+	AttendedSessions  int32   `json:"attended_sessions" example:"3"`
+	AttendancePercent float64 `json:"attendance_percent" example:"75"`
+	CurrentScore      int32   `json:"current_score" example:"13"`
+	TotalMax          int32   `json:"total_max" example:"20"`
+	PassedMax         int32   `json:"passed_max" example:"10"`
+	GradePercent      float64 `json:"grade_percent" example:"65"`
+}
+
+type teacherGroupPerformanceSummary struct {
+	StudentsCount        int     `json:"students_count" example:"1"`
+	SessionsCount        int32   `json:"sessions_count" example:"4"`
+	AvgAttendancePercent float64 `json:"avg_attendance_percent" example:"75"`
+	AvgGradePercent      float64 `json:"avg_grade_percent" example:"65"`
+}
+
+type teacherGroupPerformanceResult struct {
+	GroupID     int32                            `json:"group_id" example:"2"`
+	GroupName   string                           `json:"group_name" example:"ИКС-433"`
+	SubjectID   int32                            `json:"subject_id" example:"1"`
+	SubjectName string                           `json:"subject_name" example:"Networks"`
+	Timezone    string                           `json:"timezone" example:"Asia/Novosibirsk"`
+	Students    []teacherGroupPerformanceStudent `json:"students"`
+	Summary     teacherGroupPerformanceSummary   `json:"summary"`
+}
+
+type teacherGroupPerformanceResponse struct {
+	ID     string                        `json:"id" example:"http-teacher-group-performance"`
+	OK     bool                          `json:"ok" example:"true"`
+	Result teacherGroupPerformanceResult `json:"result"`
+	Error  string                        `json:"error" example:""`
+}

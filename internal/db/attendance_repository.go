@@ -399,6 +399,50 @@ func (r *AttendanceRepository) MarkStudentPresentFromDevice(
 	return "updated", nil
 }
 
+func (r *AttendanceRepository) GetStudentSubjectAttendanceHistory(
+	ctx context.Context,
+	studentID, subjectID int32,
+) ([]AttendanceHistoryItem, error) {
+	if studentID <= 0 {
+		return nil, fmt.Errorf("student id is required")
+	}
+	if subjectID <= 0 {
+		return nil, fmt.Errorf("subject id is required")
+	}
+
+	rows, err := r.pool.Query(
+		ctx,
+		`SELECT (s.created_at AT TIME ZONE 'Asia/Novosibirsk')::date AS day,
+		        COALESCE(s.lesson_name, ''),
+		        ass.status
+		 FROM attendance_session_students ass
+		 INNER JOIN attendance_sessions s ON s.session_id = ass.session_id
+		 WHERE ass.student_id = $1
+		   AND s.subject_id = $2
+		 ORDER BY s.created_at`,
+		studentID,
+		subjectID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("list student subject attendance history: %w", err)
+	}
+	defer rows.Close()
+
+	result := make([]AttendanceHistoryItem, 0)
+	for rows.Next() {
+		var item AttendanceHistoryItem
+		if err := rows.Scan(&item.Date, &item.LessonName, &item.Status); err != nil {
+			return nil, fmt.Errorf("scan student subject attendance history: %w", err)
+		}
+		result = append(result, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate student subject attendance history rows: %w", err)
+	}
+
+	return result, nil
+}
+
 func (r *AttendanceRepository) GetTeacherGroupAttendanceStats(
 	ctx context.Context,
 	teacherID int32,
@@ -474,6 +518,101 @@ func (r *AttendanceRepository) GetTeacherGroupAttendanceStats(
 
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("iterate teacher group attendance stats rows: %w", err)
+	}
+
+	return result, nil
+}
+
+// GetGroupSubjectPerformance returns, for each student of the group, combined
+// attendance (sessions) and grade totals on the given subject.
+func (r *AttendanceRepository) GetGroupSubjectPerformance(
+	ctx context.Context,
+	teacherID int32,
+	groupID int32,
+	subjectID int32,
+) ([]GroupSubjectPerformanceRow, error) {
+	if teacherID <= 0 {
+		return nil, fmt.Errorf("teacher id is required")
+	}
+	if groupID <= 0 {
+		return nil, fmt.Errorf("group id is required")
+	}
+	if subjectID <= 0 {
+		return nil, fmt.Errorf("subject id is required")
+	}
+
+	rows, err := r.pool.Query(
+		ctx,
+		`WITH scoped_sessions AS (
+		     SELECT s.session_id
+		     FROM attendance_sessions s
+		     INNER JOIN attendance_session_groups sg
+		             ON sg.session_id = s.session_id
+		     WHERE s.teacher_id = $1
+		       AND sg.group_id = $2
+		       AND s.subject_id = $3
+		   ),
+		   att AS (
+		     SELECT ass.student_id,
+		            COUNT(*)::INTEGER AS total_sessions,
+		            SUM(CASE WHEN ass.status = 'present' THEN 1 ELSE 0 END)::INTEGER AS attended_sessions
+		     FROM attendance_session_students ass
+		     INNER JOIN scoped_sessions ss
+		             ON ss.session_id = ass.session_id
+		     WHERE ass.group_id_snapshot = $2
+		     GROUP BY ass.student_id
+		   ),
+		   grd AS (
+		     SELECT st.student_id,
+		            COALESCE(SUM(gi.max_score), 0)::INTEGER AS total_max,
+		            COALESCE(SUM(CASE WHEN gi.deadline < now() THEN gi.max_score ELSE 0 END), 0)::INTEGER AS passed_max,
+		            COALESCE(SUM(g.score), 0)::INTEGER AS current_score
+		     FROM students st
+		     LEFT JOIN grade_items gi ON gi.subject_id = $3
+		     LEFT JOIN grades g ON g.item_id = gi.item_id AND g.student_id = st.student_id
+		     WHERE st.group_id = $2
+		     GROUP BY st.student_id
+		   )
+		   SELECT st.student_id,
+		          st.student_name,
+		          COALESCE(att.total_sessions, 0),
+		          COALESCE(att.attended_sessions, 0),
+		          COALESCE(grd.total_max, 0),
+		          COALESCE(grd.passed_max, 0),
+		          COALESCE(grd.current_score, 0)
+		   FROM students st
+		   LEFT JOIN att ON att.student_id = st.student_id
+		   LEFT JOIN grd ON grd.student_id = st.student_id
+		   WHERE st.group_id = $2
+		   ORDER BY st.student_name, st.student_id`,
+		teacherID,
+		groupID,
+		subjectID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("list group subject performance: %w", err)
+	}
+	defer rows.Close()
+
+	result := make([]GroupSubjectPerformanceRow, 0)
+	for rows.Next() {
+		var item GroupSubjectPerformanceRow
+		if err := rows.Scan(
+			&item.StudentID,
+			&item.StudentName,
+			&item.TotalSessions,
+			&item.AttendedSessions,
+			&item.TotalMax,
+			&item.PassedMax,
+			&item.CurrentScore,
+		); err != nil {
+			return nil, fmt.Errorf("scan group subject performance row: %w", err)
+		}
+		result = append(result, item)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate group subject performance rows: %w", err)
 	}
 
 	return result, nil

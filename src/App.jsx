@@ -1,15 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import api from './services/api';
-import AttendanceGrid from './components/AttendanceGrid';
-import DataTable from './components/DataTable';
+import AttendanceHeatmap from './components/AttendanceHeatmap';
 import LoginPage from './components/LoginPage';
 import ProfileDescription from './components/ProfileDescription';
 import ProfileSquare from './components/ProfileSquare';
 import StudentGradesPanel from './components/StudentGradesPanel';
 import TeacherAccount from './components/TeacherAccount';
-
-const sampleStudents = [];
-const sampleAttendance = [];
 
 function StudentDashboard({ token, userData, onLogout }) {
   const [attendanceHeatmapData, setAttendanceHeatmapData] = useState([]);
@@ -48,14 +44,9 @@ function StudentDashboard({ token, userData, onLogout }) {
 
         <main className="dashboard-main">
           <ProfileDescription userData={userData} />
-          <AttendanceGrid attendanceData={attendanceHeatmapData} maxPerDay={8} />
+          <AttendanceHeatmap attendanceData={attendanceHeatmapData} year={new Date().getFullYear()} />
           <StudentGradesPanel token={token} />
         </main>
-      </div>
-
-      <div className="tables-row">
-        <DataTable data={sampleStudents} type="students" title="Список студентов" />
-        <DataTable data={sampleAttendance} type="attendance" title="Таблица посещаемости" />
       </div>
     </div>
   );

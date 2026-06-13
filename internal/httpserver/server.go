@@ -55,6 +55,8 @@ func (s *Server) Start() {
 	fiberApp.Get("/api/teacher/attendance/session/active", s.teacherActiveAttendanceSessionHandler)
 	fiberApp.Get("/api/teacher/subjects", s.teacherSubjectsHandler)
 	fiberApp.Post("/api/teacher/attendance/group", s.teacherAttendanceByGroupHandler)
+	fiberApp.Post("/api/teacher/group/performance", s.teacherGroupPerformanceHandler)
+	fiberApp.Post("/api/teacher/attendance/student/history", s.teacherAttendanceStudentHistoryHandler)
 	fiberApp.Post("/api/student/attendance/confirm", s.studentAttendanceConfirmHandler)
 	fiberApp.Post("/api/student/mark-attendance", s.androidStudentAttendanceMarkHandler)
 	fiberApp.Get("/api/student/attendance/history", s.studentAttendanceHistoryHandler)
@@ -540,6 +542,44 @@ func (s *Server) teacherAttendanceByGroupHandler(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(resp)
+}
+
+// teacherAttendanceStudentHistoryHandler godoc
+// @Summary Get a student's attendance history for a subject
+// @Description Teacher gets the detailed attendance history of a specific student for a specific subject.
+// @Tags attendance
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body app.TeacherAttendanceStudentHistoryData true "Student and subject payload"
+// @Success 200 {object} teacherAttendanceStudentHistoryResponse
+// @Failure 400 {object} app.Response
+// @Failure 401 {object} app.Response
+// @Failure 403 {object} app.Response
+// @Failure 404 {object} app.Response
+// @Router /api/teacher/attendance/student/history [post]
+func (s *Server) teacherAttendanceStudentHistoryHandler(c *fiber.Ctx) error {
+	var body app.TeacherAttendanceStudentHistoryData
+	return s.gradeActionHandler(c, "http-teacher-attendance-student-history", "teacher_attendance_student_history", &body)
+}
+
+// teacherGroupPerformanceHandler godoc
+// @Summary Get a group performance overview for a subject
+// @Description Teacher gets a combined per-student overview (attendance and grade totals) for a group on a subject.
+// @Tags attendance
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body app.GroupPerformanceData true "Group and subject payload"
+// @Success 200 {object} teacherGroupPerformanceResponse
+// @Failure 400 {object} app.Response
+// @Failure 401 {object} app.Response
+// @Failure 403 {object} app.Response
+// @Failure 404 {object} app.Response
+// @Router /api/teacher/group/performance [post]
+func (s *Server) teacherGroupPerformanceHandler(c *fiber.Ctx) error {
+	var body app.GroupPerformanceData
+	return s.gradeActionHandler(c, "http-teacher-group-performance", "teacher_group_performance", &body)
 }
 
 // teacherAttendanceMarkedCountHandler godoc

@@ -178,6 +178,24 @@ const api = {
     }
   },
 
+  // Teacher: Get combined group performance (attendance + grades) for a subject
+  async getGroupPerformance(token, groupId, subjectId) {
+    try {
+      const response = await axios.post(
+        `${BACKEND_URL}/api/teacher/group/performance`,
+        {
+          group_id: groupId,
+          subject_id: subjectId
+        },
+        { headers: authHeaders(token) }
+      );
+      return unwrapApiResponse(response.data);
+    } catch (error) {
+      console.error('Ошибка загрузки сводки по группе:', error);
+      throw error;
+    }
+  },
+
   // Student: Get attendance history for the heatmap
   async getStudentAttendanceHeatmap(token, year) {
     try {
