@@ -66,6 +66,8 @@ func (s *Server) Start() {
 	fiberApp.Post("/api/teacher/grades", s.teacherUpsertGradeHandler)
 	fiberApp.Post("/api/teacher/grades/student", s.teacherStudentGradesBySubjectHandler)
 	fiberApp.Post("/api/student/grades", s.studentGradesBySubjectHandler)
+	fiberApp.Get("/api/student/performance/radar", s.studentPerformanceRadarHandler)
+	fiberApp.Post("/api/teacher/student/performance/radar", s.teacherStudentPerformanceRadarHandler)
 	fiberApp.Static("/uploads", s.cfg.UploadDir)
 	fiberApp.Get("/swagger/*", swagger.HandlerDefault)
 
@@ -849,6 +851,59 @@ func (s *Server) teacherStudentGradesBySubjectHandler(c *fiber.Ctx) error {
 func (s *Server) studentGradesBySubjectHandler(c *fiber.Ctx) error {
 	var body app.GradeSubjectData
 	return s.gradeActionHandler(c, "http-student-grades", "student_grades_by_subject", &body)
+}
+
+// studentPerformanceRadarHandler godoc
+// @Summary Get current student performance radar
+// @Description Returns one point per subject (from the student's group schedule) with the score/percent the student earned on graded-so-far work this semester.
+// @Tags grades
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} app.Response
+// @Failure 401 {object} app.Response
+// @Failure 403 {object} app.Response
+// @Failure 500 {object} app.Response
+// @Router /api/student/performance/radar [get]
+func (s *Server) studentPerformanceRadarHandler(c *fiber.Ctx) error {
+	token := c.Get("Authorization")
+	if token == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(app.Response{OK: false, Error: "missing Authorization header"})
+	}
+
+	req := app.Request{ID: "http-student-performance-radar", Action: "student_performance_radar", Token: token}
+	raw, err := json.Marshal(req)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(app.Response{OK: false, Error: "Error marshalling envelope"})
+	}
+
+	resp, err := s.svc.DispatchRequest(string(raw), s.requestTimeout)
+	if err != nil {
+		return c.Status(fiber.StatusServiceUnavailable).JSON(app.Response{OK: false, Error: err.Error()})
+	}
+	if !resp.OK {
+		return c.Status(app.GradeHTTPStatus(resp)).JSON(resp)
+	}
+
+	return c.JSON(resp)
+}
+
+// teacherStudentPerformanceRadarHandler godoc
+// @Summary Get a student's performance radar (teacher)
+// @Description Teacher gets the per-subject performance radar for a student they teach.
+// @Tags grades
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body app.TeacherStudentRadarData true "Student payload"
+// @Success 200 {object} app.Response
+// @Failure 400 {object} app.Response
+// @Failure 401 {object} app.Response
+// @Failure 403 {object} app.Response
+// @Failure 404 {object} app.Response
+// @Router /api/teacher/student/performance/radar [post]
+func (s *Server) teacherStudentPerformanceRadarHandler(c *fiber.Ctx) error {
+	var body app.TeacherStudentRadarData
+	return s.gradeActionHandler(c, "http-teacher-student-performance-radar", "teacher_student_performance_radar", &body)
 }
 
 func (s *Server) gradeActionHandler(c *fiber.Ctx, requestID, action string, body any) error {

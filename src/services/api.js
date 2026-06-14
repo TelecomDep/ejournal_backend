@@ -286,6 +286,32 @@ const api = {
     }
   },
 
+  async getStudentPerformanceRadar(token) {
+    try {
+      const response = await axios.get(`${BACKEND_URL}/api/student/performance/radar`, {
+        headers: authHeaders(token)
+      });
+      return unwrapApiResponse(response.data);
+    } catch (error) {
+      console.error('Ошибка загрузки диаграммы успеваемости:', error);
+      throw error;
+    }
+  },
+
+  async getTeacherStudentPerformanceRadar(token, studentId) {
+    try {
+      const response = await axios.post(
+        `${BACKEND_URL}/api/teacher/student/performance/radar`,
+        { student_id: studentId },
+        { headers: authHeaders(token) }
+      );
+      return unwrapApiResponse(response.data);
+    } catch (error) {
+      console.error('Ошибка загрузки диаграммы успеваемости студента:', error);
+      throw error;
+    }
+  },
+
   getErrorMessage(error, fallback) {
     return extractError(error) || fallback;
   }

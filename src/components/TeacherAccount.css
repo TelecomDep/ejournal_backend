@@ -523,3 +523,35 @@
     grid-template-columns: 1fr;
   }
 }
+
+.student-radar-block {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #e3e7f3;
+}
+
+.row-action-btn {
+  border: 0;
+  border-radius: 8px;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  padding: 6px 12px;
+  background: #eef1f9;
+  color: #37406d;
+}
+
+.row-action-btn:hover {
+  background: #e3e7f3;
+}
+
+.student-radar-row td {
+  padding: 16px 12px;
+  background: #fbfcff;
+}
+
+.student-radar-block h4 {
+  margin: 0 0 10px;
+  color: #24305f;
+  font-size: 15px;
+}

@@ -1877,6 +1877,18 @@ func (s *Service) handleRequest(raw string) Response {
 		resp := s.gradesBySubjectForStudent(req.Token, data)
 		resp.ID = req.ID
 		return resp
+	case "student_performance_radar":
+		resp := s.studentPerformanceRadar(req.Token)
+		resp.ID = req.ID
+		return resp
+	case "teacher_student_performance_radar":
+		var data TeacherStudentRadarData
+		if err := json.Unmarshal(req.Data, &data); err != nil {
+			return Response{ID: req.ID, OK: false, Error: "invalid teacher_student_performance_radar payload"}
+		}
+		resp := s.teacherStudentPerformanceRadar(req.Token, data)
+		resp.ID = req.ID
+		return resp
 	default:
 		return Response{ID: req.ID, OK: false, Error: "unknown_action: " + req.Action}
 	}

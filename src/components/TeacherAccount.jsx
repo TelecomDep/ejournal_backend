@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import api from '../services/api';
+import RadarChart from './RadarChart';
 import './TeacherAccount.css';
 
 const gradeTypes = [
@@ -81,6 +82,11 @@ const TeacherAccount = ({ userData, onLogout, token }) => {
   const [statsResult, setStatsResult] = useState(null);
   const [gradeItemsResult, setGradeItemsResult] = useState(null);
   const [studentSheet, setStudentSheet] = useState(null);
+  const [studentRadar, setStudentRadar] = useState([]);
+  const [radarLoading, setRadarLoading] = useState(false);
+  const [expandedStudentId, setExpandedStudentId] = useState(0);
+  const [expandedRadar, setExpandedRadar] = useState([]);
+  const [expandedRadarLoading, setExpandedRadarLoading] = useState(false);
 
   const gradeItems = gradeItemsResult?.items || [];
   const selectedSessionSubject = useMemo(
@@ -111,6 +117,73 @@ const TeacherAccount = ({ userData, onLogout, token }) => {
   const parseNumber = (value) => {
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : 0;
+  };
+
+  useEffect(() => {
+    const studentId = parseNumber(gradeSelection.studentId);
+    if (!token || studentId <= 0) {
+      setStudentRadar([]);
+      return;
+    }
+
+    let active = true;
+    setRadarLoading(true);
+    api
+      .getTeacherStudentPerformanceRadar(token, studentId)
+      .then((response) => {
+        if (active) {
+          setStudentRadar(Array.isArray(response?.subjects) ? response.subjects : []);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setStudentRadar([]);
+        }
+      })
+      .finally(() => {
+        if (active) {
+          setRadarLoading(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [token, gradeSelection.studentId]);
+
+  useEffect(() => {
+    if (!token || !expandedStudentId) {
+      setExpandedRadar([]);
+      return undefined;
+    }
+
+    let active = true;
+    setExpandedRadarLoading(true);
+    api
+      .getTeacherStudentPerformanceRadar(token, expandedStudentId)
+      .then((response) => {
+        if (active) {
+          setExpandedRadar(Array.isArray(response?.subjects) ? response.subjects : []);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setExpandedRadar([]);
+        }
+      })
+      .finally(() => {
+        if (active) {
+          setExpandedRadarLoading(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [token, expandedStudentId]);
+
+  const handleToggleStudentRadar = (studentId) => {
+    setExpandedStudentId((current) => (current === studentId ? 0 : studentId));
   };
 
   // Загрузка предметов преподавателя + инициализация выборов по первому предмету.
@@ -725,6 +798,7 @@ const TeacherAccount = ({ userData, onLogout, token }) => {
                       <th>Посещаемость</th>
                       <th>Успеваемость</th>
                       <th>Баллы</th>
+                      <th>Диаграмма</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -732,27 +806,50 @@ const TeacherAccount = ({ userData, onLogout, token }) => {
                       statsResult.students.map((student) => {
                         const attendance = Number(student.attendance_percent);
                         const grade = Number(student.grade_percent);
+                        const isExpanded = Number(expandedStudentId) === Number(student.student_id);
                         return (
-                          <tr key={student.student_id}>
-                            <td>{student.student_name}</td>
-                            <td>
-                              {student.attended_sessions}/{student.total_sessions}
-                              {' · '}
-                              <span className={`badge ${attendance >= 75 ? 'badge-ok' : attendance >= 50 ? 'badge-warn' : 'badge-bad'}`}>
-                                {Number.isFinite(attendance) ? `${attendance.toFixed(0)}%` : '—'}
-                              </span>
-                            </td>
-                            <td>
-                              <span className={`badge ${grade >= 75 ? 'badge-ok' : grade >= 50 ? 'badge-warn' : 'badge-bad'}`}>
-                                {Number.isFinite(grade) ? `${grade.toFixed(0)}%` : '—'}
-                              </span>
-                            </td>
-                            <td>{student.current_score} / {student.total_max}</td>
-                          </tr>
+                          <React.Fragment key={student.student_id}>
+                            <tr>
+                              <td>{student.student_name}</td>
+                              <td>
+                                {student.attended_sessions}/{student.total_sessions}
+                                {' · '}
+                                <span className={`badge ${attendance >= 75 ? 'badge-ok' : attendance >= 50 ? 'badge-warn' : 'badge-bad'}`}>
+                                  {Number.isFinite(attendance) ? `${attendance.toFixed(0)}%` : '—'}
+                                </span>
+                              </td>
+                              <td>
+                                <span className={`badge ${grade >= 75 ? 'badge-ok' : grade >= 50 ? 'badge-warn' : 'badge-bad'}`}>
+                                  {Number.isFinite(grade) ? `${grade.toFixed(0)}%` : '—'}
+                                </span>
+                              </td>
+                              <td>{student.current_score} / {student.total_max}</td>
+                              <td>
+                                <button
+                                  type="button"
+                                  className="row-action-btn"
+                                  onClick={() => handleToggleStudentRadar(student.student_id)}
+                                >
+                                  {isExpanded ? 'Скрыть' : 'Подробнее'}
+                                </button>
+                              </td>
+                            </tr>
+                            {isExpanded && (
+                              <tr className="student-radar-row">
+                                <td colSpan={5}>
+                                  {expandedRadarLoading ? (
+                                    <p className="empty-state">Загрузка диаграммы…</p>
+                                  ) : (
+                                    <RadarChart data={expandedRadar} />
+                                  )}
+                                </td>
+                              </tr>
+                            )}
+                          </React.Fragment>
                         );
                       })
                     ) : (
-                      <tr><td colSpan={4}>В группе пока нет студентов</td></tr>
+                      <tr><td colSpan={5}>В группе пока нет студентов</td></tr>
                     )}
                   </tbody>
                 </table>
@@ -933,6 +1030,17 @@ const TeacherAccount = ({ userData, onLogout, token }) => {
                 </p>
                 <button type="submit" className="secondary-btn" disabled={gradesLoading || !gradeSelection.studentId}>Показать</button>
               </form>
+
+              <div className="student-radar-block">
+                <h4>Диаграмма успеваемости за семестр</h4>
+                {radarLoading ? (
+                  <p className="empty-state">Загрузка диаграммы…</p>
+                ) : selectedStudent ? (
+                  <RadarChart data={studentRadar} />
+                ) : (
+                  <p className="empty-state">Выберите студента, чтобы увидеть диаграмму по всем предметам.</p>
+                )}
+              </div>
 
               {studentSheet ? (
                 <>

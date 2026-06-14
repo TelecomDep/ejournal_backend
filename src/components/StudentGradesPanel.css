@@ -190,3 +190,23 @@
     grid-template-columns: 1fr;
   }
 }
+
+.student-radar-card {
+  background: #ffffff;
+  margin: 18px;
+  padding: 18px 20px 22px;
+  border-radius: 16px;
+  box-shadow: inset 0 0 0 1px rgba(36, 48, 95, 0.06);
+}
+
+.student-radar-head h3 {
+  margin: 0;
+  color: #24305f;
+  font-size: 18px;
+}
+
+.student-radar-head p {
+  margin: 4px 0 12px;
+  color: #68708e;
+  font-size: 13px;
+}

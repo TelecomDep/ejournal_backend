@@ -161,3 +161,11 @@ type PredictionStats struct {
 	PassedMax    int32 `json:"passed_max"`
 	CurrentScore int32 `json:"current_score"`
 }
+
+type SubjectPerformancePoint struct {
+	SubjectID   int32  `json:"subject_id"`
+	SubjectName string `json:"subject_name"`
+	Score       int32  `json:"score"`
+	MaxScore    int32  `json:"max_score"`
+	Percent     int32  `json:"percent"`
+}

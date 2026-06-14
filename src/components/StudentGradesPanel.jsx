@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import api from '../services/api';
+import RadarChart from './RadarChart';
 import './StudentGradesPanel.css';
 
 const formatDateTime = (value) => {
@@ -14,6 +15,22 @@ const StudentGradesPanel = ({ token }) => {
   const [gradesData, setGradesData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [radarSubjects, setRadarSubjects] = useState([]);
+  const [radarLoading, setRadarLoading] = useState(false);
+  const [radarError, setRadarError] = useState('');
+
+  const loadRadar = async () => {
+    setRadarError('');
+    setRadarLoading(true);
+    try {
+      const response = await api.getStudentPerformanceRadar(token);
+      setRadarSubjects(Array.isArray(response?.subjects) ? response.subjects : []);
+    } catch (err) {
+      setRadarError(api.getErrorMessage(err, 'Не удалось загрузить диаграмму успеваемости'));
+    } finally {
+      setRadarLoading(false);
+    }
+  };
 
   const loadGrades = async (event) => {
     if (event) {
@@ -35,6 +52,7 @@ const StudentGradesPanel = ({ token }) => {
   useEffect(() => {
     if (token) {
       loadGrades();
+      loadRadar();
     }
   }, [token]);
 
@@ -65,6 +83,19 @@ const StudentGradesPanel = ({ token }) => {
             {loading ? 'Загрузка...' : 'Показать'}
           </button>
         </form>
+      </div>
+
+      <div className="student-radar-card">
+        <div className="student-radar-head">
+          <h3>Диаграмма успеваемости за семестр</h3>
+          <p>По всем предметам учебного плана — доля набранных баллов среди прошедших работ.</p>
+        </div>
+        {radarError && <div className="student-grades-error">{radarError}</div>}
+        {radarLoading ? (
+          <p className="radar-empty">Загрузка диаграммы…</p>
+        ) : (
+          <RadarChart data={radarSubjects} />
+        )}
       </div>
 
       {error && <div className="student-grades-error">{error}</div>}

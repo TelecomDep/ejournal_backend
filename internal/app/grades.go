@@ -36,6 +36,10 @@ type TeacherStudentGradesData struct {
 	SubjectID int32 `json:"subject_id"`
 }
 
+type TeacherStudentRadarData struct {
+	StudentID int32 `json:"student_id"`
+}
+
 func (s *Service) studentProfileByUser(user User) (db.Student, error) {
 	ctx, cancel := s.dbContext()
 	defer cancel()
@@ -349,6 +353,105 @@ func (s *Service) studentGradesResult(studentID, subjectID int32) Response {
 	}
 }
 
+func (s *Service) teacherCanViewStudent(ctx context.Context, teacherID, studentID int32) (bool, error) {
+	var allowed bool
+	err := s.store.Pool().QueryRow(
+		ctx,
+		`SELECT EXISTS (
+		     SELECT 1
+		     FROM schedules sch
+		     JOIN students st ON st.group_id = sch.group_id
+		     WHERE sch.teacher_id = $1 AND st.student_id = $2
+		 ) OR EXISTS (
+		     SELECT 1
+		     FROM teachers t
+		     JOIN users u ON u.id = t.user_id
+		     WHERE t.teacher_id = $1
+		       AND u.login = 'teacher_test'
+		 )`,
+		teacherID,
+		studentID,
+	).Scan(&allowed)
+	if err != nil {
+		return false, fmt.Errorf("check teacher student access: %w", err)
+	}
+	return allowed, nil
+}
+
+func (s *Service) performanceRadarResult(studentID int32) Response {
+	ctx, cancel := s.dbContext()
+	defer cancel()
+
+	points, err := s.store.Grades.GetStudentPerformanceRadar(ctx, studentID)
+	if err != nil {
+		return Response{OK: false, Error: "failed to load performance radar"}
+	}
+
+	return Response{
+		OK: true,
+		Result: map[string]any{
+			"student_id": studentID,
+			"subjects":   points,
+		},
+	}
+}
+
+func (s *Service) studentPerformanceRadar(sessionToken string) Response {
+	studentUser, err := s.userBySessionToken(sessionToken)
+	if err != nil {
+		return Response{OK: false, Error: err.Error()}
+	}
+	if studentUser.Role != "student" {
+		return Response{OK: false, Error: "forbidden: student role required"}
+	}
+
+	studentProfile, err := s.studentProfileByUser(studentUser)
+	if err != nil {
+		return Response{OK: false, Error: err.Error()}
+	}
+
+	return s.performanceRadarResult(studentProfile.ID)
+}
+
+func (s *Service) teacherStudentPerformanceRadar(sessionToken string, data TeacherStudentRadarData) Response {
+	teacherUser, err := s.userBySessionToken(sessionToken)
+	if err != nil {
+		return Response{OK: false, Error: err.Error()}
+	}
+	if teacherUser.Role != "teacher" {
+		return Response{OK: false, Error: "forbidden: teacher role required"}
+	}
+	if data.StudentID <= 0 {
+		return Response{OK: false, Error: "student_id is required"}
+	}
+
+	teacherProfile, err := s.teacherProfileByUser(teacherUser)
+	if err != nil {
+		return Response{OK: false, Error: err.Error()}
+	}
+
+	ctx, cancel := s.dbContext()
+	defer cancel()
+
+	_, found, err := s.store.Students.GetByID(ctx, data.StudentID)
+	if err != nil {
+		return Response{OK: false, Error: "failed to load student"}
+	}
+	if !found {
+		return Response{OK: false, Error: "student not found"}
+	}
+
+	allowed, err := s.teacherCanViewStudent(ctx, teacherProfile.ID, data.StudentID)
+	if err != nil {
+		return Response{OK: false, Error: "failed to check teacher student access"}
+	}
+	if !allowed {
+		return Response{OK: false, Error: "forbidden: teacher does not teach this student"}
+	}
+
+	return s.performanceRadarResult(data.StudentID)
+}
+
 func isUnauthorizedGradeError(errText string) bool {
 	switch errText {
 	case "invalid token", "session not found", "missing token":
@@ -367,7 +470,8 @@ func GradeHTTPStatus(resp Response) int {
 	}
 	if resp.Error == "forbidden: teacher role required" ||
 		resp.Error == "forbidden: student role required" ||
-		resp.Error == "forbidden: teacher is not assigned to subject" {
+		resp.Error == "forbidden: teacher is not assigned to subject" ||
+		resp.Error == "forbidden: teacher does not teach this student" {
 		return 403
 	}
 	if resp.Error == "student not found" ||

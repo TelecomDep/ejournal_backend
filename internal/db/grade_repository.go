@@ -263,3 +263,58 @@ func (r *GradeRepository) GetSubjectStatsForPrediction(ctx context.Context, stud
 
 	return stats, nil
 }
+
+func (r *GradeRepository) GetStudentPerformanceRadar(ctx context.Context, studentID int32) ([]SubjectPerformancePoint, error) {
+	if studentID <= 0 {
+		return nil, fmt.Errorf("student id is required")
+	}
+
+	rows, err := r.pool.Query(
+		ctx,
+		`WITH student_subjects AS (
+		     SELECT DISTINCT sch.subject_id
+		     FROM students st
+		     JOIN schedules sch ON sch.group_id = st.group_id
+		     WHERE st.student_id = $1
+		 )
+		 SELECT sub.subject_id,
+		        sub.name,
+		        COALESCE(SUM(g.score)      FILTER (WHERE gi.deadline < now()), 0)::INTEGER AS passed_score,
+		        COALESCE(SUM(gi.max_score) FILTER (WHERE gi.deadline < now()), 0)::INTEGER AS passed_max
+		 FROM student_subjects ss
+		 JOIN subjects sub ON sub.subject_id = ss.subject_id
+		 LEFT JOIN grade_items gi ON gi.subject_id = sub.subject_id
+		 LEFT JOIN grades g ON g.item_id = gi.item_id AND g.student_id = $1
+		 GROUP BY sub.subject_id, sub.name
+		 ORDER BY sub.name, sub.subject_id`,
+		studentID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("get student performance radar: %w", err)
+	}
+	defer rows.Close()
+
+	result := make([]SubjectPerformancePoint, 0)
+	for rows.Next() {
+		var point SubjectPerformancePoint
+		if err := rows.Scan(&point.SubjectID, &point.SubjectName, &point.Score, &point.MaxScore); err != nil {
+			return nil, fmt.Errorf("scan student performance radar row: %w", err)
+		}
+		if point.MaxScore > 0 {
+			percent := int32((float64(point.Score) / float64(point.MaxScore)) * 100)
+			if percent < 0 {
+				percent = 0
+			}
+			if percent > 100 {
+				percent = 100
+			}
+			point.Percent = percent
+		}
+		result = append(result, point)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate student performance radar rows: %w", err)
+	}
+
+	return result, nil
+}
