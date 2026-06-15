@@ -32,7 +32,7 @@ function App() {
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [route, navigate] = useHashRoute();
+  const { route, navigate } = useHashRoute();
 
   const handleLogout = () => {
     localStorage.removeItem('ejournal_token');

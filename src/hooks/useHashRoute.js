@@ -15,5 +15,5 @@ export default function useHashRoute() {
     window.location.hash = to;
   };
 
-  return [route, navigate];
+  return { route, navigate };
 }
