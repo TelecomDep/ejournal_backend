@@ -22,14 +22,14 @@
 }
 
 .radar-area {
-  fill: rgba(79, 102, 201, 0.22);
-  stroke: #4f66c9;
+  fill: rgba(31, 47, 143, 0.22);
+  stroke: #1f2f8f;
   stroke-width: 2;
   stroke-linejoin: round;
 }
 
 .radar-dot {
-  fill: #4f66c9;
+  fill: #1f2f8f;
   stroke: #ffffff;
   stroke-width: 1.5;
 }
@@ -73,7 +73,7 @@
 }
 
 .radar-circle-fill {
-  stroke: #4f66c9;
+  stroke: #1f2f8f;
   stroke-linecap: round;
   transition: stroke-dashoffset 0.3s ease;
 }

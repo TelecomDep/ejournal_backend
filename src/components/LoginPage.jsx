@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import SibLogo from './SibLogo';
 import './LoginPage.css';
 
 const LoginPage = ({ onLogin, onRegister, loading, error }) => {
@@ -20,6 +21,9 @@ const LoginPage = ({ onLogin, onRegister, loading, error }) => {
   return (
     <div className="login-page">
       <div className="login-card">
+        <div className="login-brand">
+          <SibLogo size={56} withWordmark />
+        </div>
         <h1>{isRegister ? 'Регистрация' : 'Вход в личный кабинет'}</h1>
         <div className="toggle-buttons">
           <button

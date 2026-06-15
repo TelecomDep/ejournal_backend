@@ -3,7 +3,7 @@
   width: 100%;
   min-width: 0;
   border-radius: 18px;
-  background: linear-gradient(180deg, #6B8ED4, #5E3E9F);
+  background: linear-gradient(180deg, #2c44b8, #15226e);
   padding: 1px;
   overflow: hidden;
   font-family: 'Inter', Arial, sans-serif;
@@ -35,7 +35,7 @@
 }
 
 .tabulator .tabulator-header {
-  background: linear-gradient(180deg, #6B8ED4, #5E3E9F);
+  background: linear-gradient(180deg, #2c44b8, #15226e);
   color: #ffffff;
   border-bottom: 1px solid rgba(255, 255, 255, 0.12);
 }
@@ -54,7 +54,7 @@
 }
 
 .tabulator .tabulator-row:hover {
-  background-color: rgba(107, 142, 212, 0.14);
+  background-color: rgba(44, 68, 184, 0.14);
 }
 
 .tabulator .tabulator-footer {
@@ -70,6 +70,6 @@
 }
 
 .tabulator .tabulator-footer .tabulator-page.active {
-  background: linear-gradient(180deg, #6B8ED4, #5E3E9F);
+  background: linear-gradient(180deg, #2c44b8, #15226e);
   color: white;
 }

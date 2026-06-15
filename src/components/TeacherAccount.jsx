@@ -41,10 +41,10 @@ const groupsOf = (subject) => {
     .filter((group) => Number.isFinite(group.id) && group.id > 0);
 };
 
-const TeacherAccount = ({ userData, onLogout, token }) => {
+const TeacherAccount = ({ userData, token, section = 'attendance' }) => {
   const displayName = userData?.teacher_name || userData?.name || userData?.login || 'Преподаватель';
 
-  const [activeTab, setActiveTab] = useState('attendance');
+  const activeTab = section;
   const [sessionForm, setSessionForm] = useState({
     subjectId: 0,
     groupIds: [],
@@ -588,35 +588,11 @@ const TeacherAccount = ({ userData, onLogout, token }) => {
 
   return (
     <div className="teacher-account">
-      <header className="teacher-header">
-        <div className="teacher-info">
-          <h1>Панель преподавателя</h1>
-          <p className="teacher-subtitle">
-            {displayName} · роль: {userData?.role || 'преподаватель'} · ID: {userData?.teacher_id || userData?.user_id || userData?.id}
-          </p>
-        </div>
-        <div className="teacher-actions">
-          <button className="logout-btn" onClick={onLogout}>Выйти</button>
-        </div>
-      </header>
-
       {(message || error) && (
         <div className={error ? 'feedback feedback-error' : 'feedback feedback-success'}>
           {error || message}
         </div>
       )}
-
-      <nav className="teacher-tabs" aria-label="Разделы преподавателя">
-        <button className={`tab-btn ${activeTab === 'attendance' ? 'active' : ''}`} onClick={() => setActiveTab('attendance')}>
-          Посещаемость
-        </button>
-        <button className={`tab-btn ${activeTab === 'statistics' ? 'active' : ''}`} onClick={() => setActiveTab('statistics')}>
-          Статистика группы
-        </button>
-        <button className={`tab-btn ${activeTab === 'grades' ? 'active' : ''}`} onClick={() => setActiveTab('grades')}>
-          Оценки
-        </button>
-      </nav>
 
       {activeTab === 'attendance' && (
         <section className="teacher-section">

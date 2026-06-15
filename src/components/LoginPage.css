@@ -18,12 +18,19 @@
   background: #ffffff;
   border-radius: 16px;
   box-shadow: 0 20px 50px rgba(42, 52, 84, 0.15);
-  padding: 28px;
+  padding: clamp(20px, 5vw, 28px);
+}
+
+.login-brand {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 18px;
 }
 
 .login-card h1 {
   margin-bottom: 20px;
-  font-size: 24px;
+  font-size: clamp(20px, 5vw, 24px);
+  text-align: center;
   color: #2b2f5c;
 }
 
@@ -46,8 +53,8 @@
 }
 
 .toggle-buttons button.active {
-  background: #5e3e9f;
-  color: white;
+  background: var(--sib-blue);
+  color: #ffffff;
 }
 
 .login-form label {
@@ -73,7 +80,7 @@
   padding: 14px;
   border: none;
   border-radius: 12px;
-  background: #5e3e9f;
+  background: #15226e;
   color: white;
   font-size: 15px;
   cursor: pointer;

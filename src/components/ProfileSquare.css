@@ -3,7 +3,7 @@
   width: 260px;
   aspect-ratio: 1;
   border-radius: 18px;
-  background: linear-gradient(180deg, #6B8ED4, #5E3E9F);
+  background: linear-gradient(180deg, #2c44b8, #15226e);
   padding: 2px;
   display: flex;
   align-items: center;
@@ -40,7 +40,7 @@
   align-items: center;
   justify-content: center;
   gap: 10px;
-  background: linear-gradient(180deg, #6B8ED4, #5E3E9F);
+  background: linear-gradient(180deg, #2c44b8, #15226e);
   border-radius: 14px;
   padding: 20px;
 }

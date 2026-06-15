@@ -1,7 +1,7 @@
 .student-grades {
   margin: 0;
   border-radius: 18px;
-  background: linear-gradient(180deg, #6B8ED4, #5E3E9F);
+  background: linear-gradient(180deg, #2c44b8, #15226e);
   padding: 1px;
   overflow: hidden;
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.2);
@@ -61,7 +61,7 @@
   border: none;
   border-radius: 14px;
   padding: 12px 20px;
-  background: linear-gradient(180deg, #6B8ED4, #5E3E9F);
+  background: linear-gradient(180deg, #2c44b8, #15226e);
   color: #ffffff;
   cursor: pointer;
   font-weight: 700;
@@ -109,8 +109,8 @@
 }
 
 .student-score-main {
-  background: rgba(107, 142, 212, 0.12) !important;
-  border-color: rgba(107, 142, 212, 0.25) !important;
+  background: rgba(44, 68, 184, 0.12) !important;
+  border-color: rgba(44, 68, 184, 0.25) !important;
 }
 
 .student-progress {
@@ -124,7 +124,7 @@
 .student-progress div {
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, #6B8ED4, #5E3E9F);
+  background: linear-gradient(90deg, #2c44b8, #15226e);
 }
 
 .student-grades-table-wrap {
@@ -140,7 +140,7 @@
 }
 
 .student-grades-table thead {
-  background: linear-gradient(180deg, #6B8ED4, #5E3E9F);
+  background: linear-gradient(180deg, #2c44b8, #15226e);
 }
 
 .student-grades-table th,
@@ -168,7 +168,7 @@
 }
 
 .student-grades-table tbody tr:hover {
-  background-color: rgba(107, 142, 212, 0.12);
+  background-color: rgba(44, 68, 184, 0.12);
 }
 
 .student-grades-table td[colspan] {

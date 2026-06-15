@@ -1,7 +1,4 @@
 .teacher-account {
-  min-height: 100vh;
-  padding: 32px;
-  background: #eef1f9;
   color: #202442;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
 }
@@ -90,7 +87,7 @@
 
 .tab-btn.active {
   color: #ffffff;
-  background: #4f66c9;
+  background: #1f2f8f;
 }
 
 .teacher-section {
@@ -173,8 +170,8 @@
 .form-group textarea:focus,
 .sheet-toolbar input:focus {
   outline: none;
-  border-color: #4f66c9;
-  box-shadow: 0 0 0 3px rgba(79, 102, 201, 0.14);
+  border-color: #1f2f8f;
+  box-shadow: 0 0 0 3px rgba(31, 47, 143, 0.14);
 }
 
 .form-actions {
@@ -207,12 +204,12 @@
 }
 
 .group-chip:hover {
-  border-color: #4f66c9;
+  border-color: #1f2f8f;
 }
 
 .group-chip.checked {
   background: #eef1fc;
-  border-color: #4f66c9;
+  border-color: #1f2f8f;
   color: #2b3470;
 }
 
@@ -220,7 +217,7 @@
   width: auto;
   min-height: 0;
   margin: 0;
-  accent-color: #4f66c9;
+  accent-color: #1f2f8f;
   cursor: pointer;
 }
 
@@ -261,7 +258,7 @@
 }
 
 .submit-btn {
-  background: #4f66c9;
+  background: #1f2f8f;
   color: #ffffff;
 }
 
@@ -415,8 +412,8 @@
 }
 
 .grade-item-row.selected {
-  border-color: #4f66c9;
-  box-shadow: 0 0 0 3px rgba(79, 102, 201, 0.1);
+  border-color: #1f2f8f;
+  box-shadow: 0 0 0 3px rgba(31, 47, 143, 0.1);
 }
 
 .grade-item-row span {
@@ -424,7 +421,7 @@
 }
 
 .grade-item-row strong {
-  color: #4f66c9;
+  color: #1f2f8f;
 }
 
 .grade-item-row small {

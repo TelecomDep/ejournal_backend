@@ -1,62 +1,38 @@
 import React, { useEffect, useState } from 'react';
 import api from './services/api';
-import AttendanceHeatmap from './components/AttendanceHeatmap';
 import LoginPage from './components/LoginPage';
-import ProfileDescription from './components/ProfileDescription';
-import ProfileSquare from './components/ProfileSquare';
-import StudentGradesPanel from './components/StudentGradesPanel';
+import AppShell from './components/AppShell';
+import ThemeToggle from './components/ThemeToggle';
 import TeacherAccount from './components/TeacherAccount';
+import ProfilePage from './pages/ProfilePage';
+import AttendancePage from './pages/AttendancePage';
+import GradesPage from './pages/GradesPage';
+import useHashRoute from './hooks/useHashRoute';
 
-function StudentDashboard({ token, userData, onLogout }) {
-  const [attendanceHeatmapData, setAttendanceHeatmapData] = useState([]);
+const STUDENT_NAV = [
+  { key: 'profile', label: 'Профиль', route: '/profile' },
+  { key: 'attendance', label: 'Посещаемость', route: '/attendance' },
+  { key: 'grades', label: 'Оценки', route: '/grades' }
+];
 
-  useEffect(() => {
-    let cancelled = false;
-    api.getStudentAttendanceHeatmap(token, new Date().getFullYear())
-      .then((data) => {
-        if (!cancelled) {
-          setAttendanceHeatmapData(data.items || []);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setAttendanceHeatmapData([]);
-        }
-      });
+const TEACHER_NAV = [
+  { key: 'attendance', label: 'Посещаемость', route: '/teacher/attendance' },
+  { key: 'stats', label: 'Статистика группы', route: '/teacher/stats' },
+  { key: 'grades', label: 'Оценки', route: '/teacher/grades' }
+];
 
-    return () => {
-      cancelled = true;
-    };
-  }, [token]);
-
-  return (
-    <div className="contentContainer">
-      <div className="logout-top-right">
-        <button className="logout-button-top" onClick={onLogout}>
-          Выйти
-        </button>
-      </div>
-
-      <div className="dashboard-grid">
-        <aside className="dashboard-sidebar">
-          <ProfileSquare userData={userData} />
-        </aside>
-
-        <main className="dashboard-main">
-          <ProfileDescription userData={userData} />
-          <AttendanceHeatmap attendanceData={attendanceHeatmapData} year={new Date().getFullYear()} />
-          <StudentGradesPanel token={token} />
-        </main>
-      </div>
-    </div>
-  );
-}
+const TEACHER_SECTION = {
+  attendance: 'attendance',
+  stats: 'statistics',
+  grades: 'grades'
+};
 
 function App() {
   const [token, setToken] = useState(() => localStorage.getItem('ejournal_token') || '');
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [route, navigate] = useHashRoute();
 
   const handleLogout = () => {
     localStorage.removeItem('ejournal_token');
@@ -67,7 +43,7 @@ function App() {
 
   useEffect(() => {
     if (!token) {
-      return;
+      return undefined;
     }
 
     let cancelled = false;
@@ -124,8 +100,14 @@ function App() {
     }
   };
 
+  const handleAvatarUpdated = (url) => {
+    setUserData((prev) => (prev ? { ...prev, avatar: url } : prev));
+  };
+
+  let body;
+
   if (!token) {
-    return (
+    body = (
       <LoginPage
         onLogin={handleLogin}
         onRegister={handleRegister}
@@ -133,17 +115,52 @@ function App() {
         error={error}
       />
     );
+  } else if (!userData) {
+    body = <div className="app-loading">Загрузка…</div>;
+  } else {
+    const isTeacher = userData.role === 'teacher';
+    const navItems = isTeacher ? TEACHER_NAV : STUDENT_NAV;
+    const activeItem = navItems.find((item) => item.route === route) || navItems[0];
+    const displayName = userData.teacher_name || userData.name || userData.login || 'Пользователь';
+    const roleLabel = isTeacher ? 'Преподаватель' : 'Студент';
+
+    let page;
+    if (isTeacher) {
+      page = <TeacherAccount userData={userData} token={token} section={TEACHER_SECTION[activeItem.key]} />;
+    } else if (activeItem.key === 'attendance') {
+      page = <AttendancePage token={token} />;
+    } else if (activeItem.key === 'grades') {
+      page = <GradesPage token={token} />;
+    } else {
+      page = <ProfilePage token={token} userData={userData} onAvatarUpdated={handleAvatarUpdated} />;
+    }
+
+    body = (
+      <AppShell
+        title="СибГУТИ"
+        subtitle={`${displayName} · ${roleLabel}`}
+        navItems={navItems}
+        activeKey={activeItem.key}
+        onNavigate={(key) => {
+          const next = navItems.find((item) => item.key === key);
+          if (next) {
+            navigate(next.route);
+          }
+        }}
+        user={displayName}
+        onLogout={handleLogout}
+      >
+        {page}
+      </AppShell>
+    );
   }
 
-  if (!userData) {
-    return <div className="contentContainer">Загрузка...</div>;
-  }
-
-  if (userData.role === 'teacher') {
-    return <TeacherAccount userData={userData} onLogout={handleLogout} token={token} />;
-  }
-
-  return <StudentDashboard token={token} userData={userData} onLogout={handleLogout} />;
+  return (
+    <>
+      {body}
+      <ThemeToggle />
+    </>
+  );
 }
 
 export default App;

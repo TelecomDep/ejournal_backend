@@ -1,7 +1,7 @@
 .attendance-grid {
   position: relative;
   width: 500px;
-  background: linear-gradient(180deg, #6B8ED4, #5E3E9F);
+  background: linear-gradient(180deg, #2c44b8, #15226e);
   border-radius: 12px;
   padding: 2px;
   font-family: 'Inter', sans-serif;
@@ -99,7 +99,7 @@
 .attendance-tooltip strong {
   display: block;
   font-size: 12px;
-  color: #6B8ED4;
+  color: #2c44b8;
   margin-bottom: 6px;
 }
 
@@ -118,7 +118,7 @@
 
 .tooltip-fill {
   height: 100%;
-  background: linear-gradient(90deg, #6B8ED4, #5E3E9F);
+  background: linear-gradient(90deg, #2c44b8, #15226e);
   border-radius: 2px;
 }
 

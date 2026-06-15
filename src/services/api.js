@@ -24,6 +24,20 @@ function authHeaders(token) {
   };
 }
 
+function resolveAssetUrl(url) {
+  if (!url) {
+    return '';
+  }
+  const uploadsIdx = url.indexOf('/uploads/');
+  if (uploadsIdx >= 0) {
+    return `${BACKEND_URL}${url.slice(uploadsIdx)}`;
+  }
+  if (/^https?:\/\//i.test(url)) {
+    return url;
+  }
+  return `${BACKEND_URL}${url.startsWith('/') ? '' : '/'}${url}`;
+}
+
 const api = {
   // Login endpoint
   async login(login, password) {
@@ -68,9 +82,27 @@ const api = {
       const response = await axios.get(`${BACKEND_URL}/profile`, {
         headers: authHeaders(token)
       });
-      return unwrapApiResponse(response.data);
+      const profile = unwrapApiResponse(response.data);
+      if (profile && profile.avatar) {
+        profile.avatar = resolveAssetUrl(profile.avatar);
+      }
+      return profile;
     } catch (error) {
       console.error('Ошибка загрузки профиля:', error);
+      throw error;
+    }
+  },
+
+  async uploadAvatar(token, file) {
+    try {
+      const form = new FormData();
+      form.append('avatar', file);
+      const response = await axios.post(`${BACKEND_URL}/api/user/upload-avatar`, form, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      return resolveAssetUrl(unwrapApiResponse(response.data));
+    } catch (error) {
+      console.error('Ошибка загрузки фото:', error);
       throw error;
     }
   },

@@ -60,13 +60,13 @@ const AttendanceHeatmap = ({ attendanceData = [], year = new Date().getFullYear(
   
   // Получение цвета ячейки по уровню
   const getCellColor = (level, isSelected = false) => {
-    if (isSelected) return '#7C3AED';
+    if (isSelected) return '#1f2f8f';
     const colors = {
       0: 'rgba(156, 160, 147, 0.15)',
-      1: 'rgba(107, 142, 212, 0.3)',
-      2: 'rgba(107, 142, 212, 0.55)',
-      3: 'rgba(107, 142, 212, 0.8)',
-      4: '#6B8ED4'
+      1: 'rgba(44, 68, 184, 0.3)',
+      2: 'rgba(44, 68, 184, 0.55)',
+      3: 'rgba(44, 68, 184, 0.8)',
+      4: '#2c44b8'
     };
     return colors[level];
   };
