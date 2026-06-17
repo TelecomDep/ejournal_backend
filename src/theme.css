@@ -1,0 +1,513 @@
+/*
+ * Light/dark theme layer.
+ *
+ * The app ships two native palettes: the student dashboard is designed dark,
+ * the teacher dashboard light. This file keeps all theme logic in one place via
+ * `data-theme` on <html>, so the component stylesheets stay untouched:
+ *   - [data-theme="light"] recolors the (natively dark) student surfaces to light.
+ *   - [data-theme="dark"]  recolors the (natively light) teacher / login surfaces to dark.
+ * Default theme is light (set in index.js before render).
+ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+}
+
+.app-loading {
+  min-height: 60vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--sib-blue);
+}
+
+.sib-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.sib-logo-mark {
+  display: block;
+  flex: 0 0 auto;
+  border-radius: 22%;
+  object-fit: cover;
+}
+
+.sib-logo-word {
+  font-weight: 800;
+  font-size: 22px;
+  letter-spacing: 0.5px;
+  color: var(--sib-blue);
+}
+
+[data-theme="dark"] .sib-logo-word {
+  color: var(--sib-silver-1);
+}
+
+:root {
+  --sib-blue: #1f2f8f;
+  --sib-blue-deep: #15226e;
+  --sib-blue-bright: #2c44b8;
+  --sib-silver-1: #e3e9f5;
+  --sib-silver-2: #aab8d8;
+  --sib-grad: linear-gradient(160deg, #2c44b8, #15226e);
+}
+
+[data-theme="light"] {
+  color-scheme: light;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+[data-theme="light"] body {
+  background: #f3f5fa;
+}
+
+[data-theme="dark"] body {
+  background: #0b0d12;
+}
+
+/* ---------- Floating theme toggle ---------- */
+.theme-toggle {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 1000;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  transition: transform 0.15s ease, background 0.15s ease;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+}
+
+.theme-toggle:hover {
+  transform: translateY(-2px);
+}
+
+[data-theme="light"] .theme-toggle {
+  background: #ffffff;
+  border: 1px solid #d8ddeb;
+  color: #37406d;
+}
+
+[data-theme="dark"] .theme-toggle {
+  background: #20242f;
+  border: 1px solid #2c313d;
+  color: #e7eaf3;
+}
+
+/* ---------- Student logout button (was unstyled) ---------- */
+.logout-top-right {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 8px;
+}
+
+.logout-button-top {
+  border: 0;
+  border-radius: 8px;
+  padding: 10px 18px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  background: #ff5c5c;
+  color: #ffffff;
+}
+
+/* ============================================================= */
+/* LIGHT THEME — recolor the dark student dashboard to light      */
+/* ============================================================= */
+
+[data-theme="light"] .contentContainer {
+  background: #f3f5fa;
+  color: #202442;
+}
+
+/* Profile cards */
+[data-theme="light"] .pfp-square-inner,
+[data-theme="light"] .pfp-description-inner {
+  background: #ffffff;
+}
+
+[data-theme="light"] .info-value {
+  color: #202442;
+}
+
+[data-theme="light"] .info-label,
+[data-theme="light"] .profile-status {
+  color: #68708e;
+}
+
+/* Attendance heatmap */
+[data-theme="light"] .heatmap-header,
+[data-theme="light"] .heatmap-container {
+  background: #ffffff;
+}
+
+[data-theme="light"] .heatmap-title {
+  color: #202442;
+}
+
+[data-theme="light"] .heatmap-stats {
+  color: #68708e;
+  background: #eef1f9;
+}
+
+[data-theme="light"] .heatmap-legend,
+[data-theme="light"] .heatmap-badge,
+[data-theme="light"] .weekday-label,
+[data-theme="light"] .month-label {
+  color: #68708e;
+}
+
+[data-theme="light"] .heatmap-footer {
+  background: #f4f6fc;
+  border-top-color: #e3e7f3;
+}
+
+[data-theme="light"] .year-btn {
+  background: #eef1f9;
+  border-color: #d8ddeb;
+  color: #37406d;
+}
+
+[data-theme="light"] .year-btn:hover {
+  background: #e2e7f4;
+  border-color: #3a55c8;
+}
+
+/* Student grades panel */
+[data-theme="light"] .student-grades-header {
+  background: #ffffff;
+}
+
+[data-theme="light"] .student-grades h2 {
+  color: #202442;
+}
+
+[data-theme="light"] .student-grades p {
+  color: #68708e;
+}
+
+[data-theme="light"] .student-grades-filter label {
+  color: #515879;
+}
+
+[data-theme="light"] .student-grades-filter input {
+  background: #ffffff;
+  color: #202442;
+  border-color: #d8ddeb;
+}
+
+[data-theme="light"] .student-score-row div {
+  background: #f8f9fc;
+  border-color: #e3e7f3;
+}
+
+[data-theme="light"] .student-score-row span {
+  color: #68708e;
+}
+
+[data-theme="light"] .student-score-row strong {
+  color: #202442;
+}
+
+[data-theme="light"] .student-progress {
+  background: #e2e6f3;
+}
+
+[data-theme="light"] .student-grades-table tbody tr {
+  background: #ffffff;
+}
+
+[data-theme="light"] .student-grades-table tbody tr:nth-child(even) {
+  background: #f8f9fc;
+}
+
+[data-theme="light"] .student-grades-table td {
+  color: #4b5273;
+}
+
+[data-theme="light"] .student-grades-table th,
+[data-theme="light"] .student-grades-table td {
+  border-bottom-color: #e8ebf4;
+}
+
+[data-theme="light"] .student-grades-table td[colspan] {
+  color: #68708e;
+}
+
+/* ============================================================= */
+/* DARK THEME — recolor the light teacher / login surfaces to dark*/
+/* ============================================================= */
+
+[data-theme="dark"] .teacher-account {
+  background: #0f1117;
+  color: #e7eaf3;
+}
+
+[data-theme="dark"] .teacher-info h1,
+[data-theme="dark"] .section-heading h2,
+[data-theme="dark"] .result-panel h3,
+[data-theme="dark"] .tool-panel h3,
+[data-theme="dark"] .list-panel h3,
+[data-theme="dark"] .sheet-toolbar h3,
+[data-theme="dark"] .result-grid strong,
+[data-theme="dark"] .score-summary strong,
+[data-theme="dark"] .student-radar-block h4 {
+  color: #e7eaf3;
+}
+
+[data-theme="dark"] .teacher-subtitle,
+[data-theme="dark"] .section-heading p,
+[data-theme="dark"] .form-group,
+[data-theme="dark"] .sheet-toolbar label,
+[data-theme="dark"] .helper-text,
+[data-theme="dark"] .empty-state,
+[data-theme="dark"] .result-grid span,
+[data-theme="dark"] .score-summary span,
+[data-theme="dark"] .grade-item-row small,
+[data-theme="dark"] .target-chip-meta,
+[data-theme="dark"] .stats-table td {
+  color: #98a1b9;
+}
+
+[data-theme="dark"] .teacher-tabs,
+[data-theme="dark"] .teacher-section {
+  background: #181b24;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="dark"] .tab-btn {
+  color: #98a1b9;
+}
+
+[data-theme="dark"] .tab-btn:hover {
+  background: #20242f;
+}
+
+[data-theme="dark"] .selection-bar {
+  background: #20242f;
+  border-color: #2c313d;
+}
+
+[data-theme="dark"] .form-group input,
+[data-theme="dark"] .form-group select,
+[data-theme="dark"] .form-group textarea,
+[data-theme="dark"] .sheet-toolbar input {
+  background: #20242f;
+  color: #e7eaf3;
+  border-color: #2c313d;
+}
+
+[data-theme="dark"] .result-panel,
+[data-theme="dark"] .tool-panel,
+[data-theme="dark"] .list-panel {
+  background: #1c202b;
+  border-color: #2c313d;
+}
+
+[data-theme="dark"] .grade-item-row {
+  background: #20242f;
+  color: #e7eaf3;
+  border-color: #2c313d;
+}
+
+[data-theme="dark"] .group-chip {
+  background: #20242f;
+  color: #cfd5e6;
+  border-color: #2c313d;
+}
+
+[data-theme="dark"] .stats-table thead {
+  background: #20242f;
+}
+
+[data-theme="dark"] .stats-table th {
+  color: #cdd3e6;
+}
+
+[data-theme="dark"] .stats-table th,
+[data-theme="dark"] .stats-table td {
+  border-bottom-color: #2c313d;
+}
+
+[data-theme="dark"] .score-summary div {
+  background: #20242f;
+}
+
+[data-theme="dark"] .list-panel-header span,
+[data-theme="dark"] .secondary-btn,
+[data-theme="dark"] .row-action-btn {
+  background: #20242f;
+  color: #cdd3e6;
+}
+
+[data-theme="dark"] .row-action-btn:hover {
+  background: #2c313d;
+}
+
+[data-theme="dark"] .student-radar-row td {
+  background: #1c202b;
+}
+
+[data-theme="dark"] .student-radar-block {
+  border-top-color: #2c313d;
+}
+
+[data-theme="dark"] .target-chip,
+[data-theme="dark"] .group-chip.checked {
+  background: rgba(58, 85, 200, 0.18);
+  border-color: #3a55c8;
+  color: #cdd6f5;
+}
+
+[data-theme="dark"] .feedback-success {
+  background: rgba(28, 122, 69, 0.18);
+  color: #74e0a0;
+  border-color: rgba(28, 122, 69, 0.4);
+}
+
+[data-theme="dark"] .feedback-error {
+  background: rgba(178, 36, 36, 0.18);
+  color: #ff9b9b;
+  border-color: rgba(178, 36, 36, 0.4);
+}
+
+[data-theme="dark"] .badge-ok {
+  background: rgba(28, 122, 69, 0.2);
+  color: #6ee79f;
+}
+
+[data-theme="dark"] .badge-warn {
+  background: rgba(154, 107, 9, 0.22);
+  color: #f0c673;
+}
+
+[data-theme="dark"] .badge-bad {
+  background: rgba(178, 36, 36, 0.2);
+  color: #ff9b9b;
+}
+
+/* RadarChart: in dark mode it always sits on a dark surface, so lighten text.
+   (The student radar card is darkened just below to match.) */
+[data-theme="dark"] .student-radar-card {
+  background: #181b24;
+  box-shadow: inset 0 0 0 1px #2c313d;
+}
+
+[data-theme="dark"] .student-radar-head h3 {
+  color: #e7eaf3;
+}
+
+[data-theme="dark"] .student-radar-head p {
+  color: #98a1b9;
+}
+
+[data-theme="dark"] .radar-ring,
+[data-theme="dark"] .radar-circle-track {
+  stroke: #2c313d;
+}
+
+[data-theme="dark"] .radar-axis {
+  stroke: #39404f;
+}
+
+[data-theme="dark"] .radar-label,
+[data-theme="dark"] .radar-circle-label,
+[data-theme="dark"] .radar-bar-title {
+  fill: #dfe4f2;
+  color: #dfe4f2;
+}
+
+[data-theme="dark"] .radar-circle-pct {
+  fill: #e7eaf3;
+}
+
+[data-theme="dark"] .radar-label-pct {
+  fill: #98a1b9;
+}
+
+[data-theme="dark"] .radar-circle-score,
+[data-theme="dark"] .radar-bar-score,
+[data-theme="dark"] .radar-empty {
+  color: #98a1b9;
+}
+
+[data-theme="dark"] .radar-bar-track {
+  background: #2c313d;
+}
+
+/* Login page */
+[data-theme="dark"] .login-page {
+  background: #0f1117;
+}
+
+[data-theme="dark"] .login-card {
+  background: #181b24;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="dark"] .login-card h1 {
+  color: #e7eaf3;
+}
+
+[data-theme="dark"] .login-form label,
+[data-theme="dark"] .toggle-buttons button {
+  color: #cdd3e6;
+}
+
+[data-theme="dark"] .toggle-buttons {
+  border-color: #2c313d;
+}
+
+[data-theme="dark"] .toggle-buttons button {
+  background: #20242f;
+}
+
+[data-theme="dark"] .toggle-buttons button.active {
+  background: var(--sib-blue-bright);
+  color: #ffffff;
+}
+
+[data-theme="dark"] .login-form input,
+[data-theme="dark"] .login-form select {
+  background: #20242f;
+  color: #e7eaf3;
+  border-color: #2c313d;
+}
+
+[data-theme="dark"] .login-success {
+  color: #81c784;
+}
+
+[data-theme="dark"] .back-to-login-btn {
+  border-color: rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="dark"] .back-to-login-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}

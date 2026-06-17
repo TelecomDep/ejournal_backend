@@ -1,0 +1,166 @@
+.app-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+}
+
+.app-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px;
+  padding: 16px clamp(16px, 4vw, 40px);
+  background: var(--sib-grad);
+  color: #ffffff;
+  box-shadow: 0 8px 28px rgba(21, 34, 110, 0.28);
+}
+
+.app-bar-brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+.sib-logo-mark {
+  display: block;
+  flex: 0 0 auto;
+}
+
+.app-bar-titles {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.app-bar-title {
+  font-size: clamp(18px, 2.4vw, 24px);
+  font-weight: 800;
+  letter-spacing: 0.2px;
+  line-height: 1.15;
+}
+
+.app-bar-subtitle {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.78);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-bar-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.app-bar-user {
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.92);
+  background: rgba(255, 255, 255, 0.14);
+  padding: 7px 13px;
+  border-radius: 999px;
+  max-width: 46vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-bar-logout {
+  border: 0;
+  border-radius: 8px;
+  padding: 9px 18px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  background: #ffffff;
+  color: var(--sib-blue-deep);
+}
+
+.app-bar-logout:hover {
+  background: var(--sib-silver-1);
+}
+
+.app-nav {
+  display: flex;
+  gap: 8px;
+  padding: 12px clamp(16px, 4vw, 40px);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.app-nav::-webkit-scrollbar {
+  display: none;
+}
+
+.app-nav-link {
+  flex: 0 0 auto;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 9px 18px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  background: rgba(31, 47, 143, 0.08);
+  color: var(--sib-blue);
+}
+
+.app-nav-link:hover {
+  background: rgba(31, 47, 143, 0.14);
+}
+
+.app-nav-link.active {
+  background: var(--sib-blue);
+  color: #ffffff;
+}
+
+.app-main {
+  flex: 1;
+  width: 100%;
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: clamp(16px, 3vw, 28px) clamp(16px, 4vw, 40px) 64px;
+}
+
+[data-theme="dark"] .app-nav-link {
+  background: rgba(255, 255, 255, 0.08);
+  color: #cdd6f5;
+}
+
+[data-theme="dark"] .app-nav-link:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+[data-theme="dark"] .app-nav-link.active {
+  background: var(--sib-blue-bright);
+  color: #ffffff;
+}
+
+[data-theme="dark"] .app-bar-logout {
+  background: #20242f;
+  color: #e7eaf3;
+}
+
+[data-theme="dark"] .app-bar-logout:hover {
+  background: #2c313d;
+}
+
+@media (max-width: 600px) {
+  .app-bar {
+    padding: 12px 16px;
+  }
+
+  .app-bar-title {
+    font-size: 18px;
+  }
+
+  .app-bar-user {
+    display: none;
+  }
+}

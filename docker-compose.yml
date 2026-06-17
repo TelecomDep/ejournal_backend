@@ -1,0 +1,105 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: ejournal-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-ejournal}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-ejournal}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  migrate:
+    image: golang:1.26.1-alpine
+    container_name: ejournal-migrate
+    working_dir: /app
+    volumes:
+      - ./:/app
+    environment:
+      DB_DSN: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-ejournal}?sslmode=disable
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: >
+      sh -lc "/usr/local/go/bin/go install github.com/pressly/goose/v3/cmd/goose@latest &&
+      /go/bin/goose -dir migrations postgres \"$$DB_DSN\" up"
+    restart: "no"
+
+  ejournal-backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ejournal-backend
+    environment:
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-change-me}
+      SITE_BASE_URL: ${SITE_BASE_URL:-http://localhost:9999}
+      APP_PORT: ${APP_PORT:-8888}
+      CORS_ALLOW_ORIGINS: ${CORS_ALLOW_ORIGINS:-http://localhost:9999,http://127.0.0.1:9999,http://localhost:3000,http://127.0.0.1:3000}
+      DB_DSN: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-ejournal}?sslmode=disable
+      ROLE_HASH_TEACHER: ${ROLE_HASH_TEACHER:-TEACHER-HASH-2026}
+      ROLE_HASH_STUDENT: ${ROLE_HASH_STUDENT:-STUDENT-HASH-2026}
+      DEFAULT_STUDENT_GROUP_ID: ${DEFAULT_STUDENT_GROUP_ID:-1}
+      ALLOW_EARLY_ATTENDANCE: ${ALLOW_EARLY_ATTENDANCE:-true}
+      UPLOAD_DIR: ${UPLOAD_DIR:-uploads}
+      SMTP_HOST: ${SMTP_HOST:-mailserver}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-noreply@signal.qlabs.pro}
+      SMTP_PASSWORD: ${SMTP_PASSWORD}
+      SMTP_FROM: ${SMTP_FROM:-noreply@signal.qlabs.pro}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    ports:
+      - "${APP_PORT:-8888}:${APP_PORT:-8888}"
+    volumes:
+      - avataruploads:/app/uploads
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: sibsutis_front
+    depends_on:
+      - ejournal-backend
+    ports:
+      - "${FRONTEND_PORT:-9999}:80"
+    restart: unless-stopped
+
+  mailserver:
+    image: mailserver/docker-mailserver:14.0.0
+    container_name: mailserver
+    hostname: signal
+    domainname: qlabs.pro
+    ports:
+      - "25:25"
+      - "587:587"
+      - "465:465"
+    environment:
+      - ONE_DIR=1
+      - ENABLE_SPAMASSASSIN=0
+      - ENABLE_CLAMAV=0
+      - ENABLE_FAIL2BAN=1
+      - SSL_TYPE=letsencrypt
+    volumes:
+      - mail-data:/var/mail
+      - mail-state:/var/mail-state
+      - mail-config:/tmp/docker-mailserver
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  avataruploads:
+  mail-data:
+  mail-state:
+  mail-config:

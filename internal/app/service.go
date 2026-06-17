@@ -1,0 +1,2098 @@
+package app
+
+import (
+	"context"
+	"crypto/rand"
+	"database/sql"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"log"
+	"sort"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/TelecomDep/ejournal_backend/internal/db"
+	"github.com/golang-jwt/jwt/v5"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
+	"golang.org/x/crypto/bcrypt"
+)
+
+type Request struct {
+	ID     string          `json:"id"`
+	Action string          `json:"action"`
+	Token  string          `json:"token,omitempty"`
+	Data   json.RawMessage `json:"data"`
+}
+
+type Response struct {
+	ID     string `json:"id"`
+	OK     bool   `json:"ok"`
+	Result any    `json:"result,omitempty"`
+	Error  string `json:"error"`
+}
+
+type LoginData struct {
+	Login    string `json:"login"`
+	Password string `json:"password"`
+}
+
+type RegisterData struct {
+	Login      string `json:"login"`
+	Password   string `json:"password"`
+	InviteCode string `json:"invite_code,omitempty"`
+	RoleHash   string `json:"role_hash,omitempty"`
+	Role       string `json:"role,omitempty"`
+}
+
+type RegisterByInviteData struct {
+	InviteCode string `json:"invite_code"`
+	Login      string `json:"login"`
+	Password   string `json:"password"`
+}
+
+type ForgotPasswordData struct {
+	Identity string `json:"identity"`
+}
+
+type ResetPasswordData struct {
+	Token       string `json:"token"`
+	NewPassword string `json:"new_password"`
+}
+
+type UpdateEmailData struct {
+	Email string `json:"email"`
+}
+
+type User struct {
+	ID     int32
+	UserID string
+	Login  string
+	Pass   string
+	Role   string
+	Email  string
+}
+
+type AttendanceCreateData struct {
+	LessonID       int32   `json:"lesson_id,omitempty"`
+	SubjectID      int32   `json:"subject_id,omitempty"`
+	GroupIDs       []int32 `json:"group_ids,omitempty"`
+	LessonName     string  `json:"lesson_name,omitempty"`
+	ExpiresMinutes int     `json:"expires_minutes,omitempty"`
+}
+
+type AttendanceConfirmData struct {
+	InviteToken string `json:"invite_token"`
+}
+
+type AttendanceGroupStatsData struct {
+	GroupID   int32  `json:"group_id"`
+	SubjectID *int32 `json:"subject_id,omitempty"`
+}
+
+type GroupPerformanceData struct {
+	GroupID   int32 `json:"group_id"`
+	SubjectID int32 `json:"subject_id"`
+}
+
+type AttendanceSessionData struct {
+	LessonID int32 `json:"lesson_id"`
+}
+
+type AttendanceHistoryData struct {
+	Year int `json:"year"`
+}
+
+type TeacherAttendanceStudentHistoryData struct {
+	StudentID int32 `json:"student_id"`
+	SubjectID int32 `json:"subject_id"`
+}
+
+type TeacherSubjectsResultItem struct {
+	SubjectID   int32                 `json:"subject_id"`
+	SubjectName string                `json:"subject_name"`
+	GroupIDs    []int32               `json:"group_ids"`
+	Groups      []TeacherSubjectGroup `json:"groups"`
+}
+
+type TeacherSubjectGroup struct {
+	ID   int32  `json:"id"`
+	Name string `json:"name"`
+}
+
+type AttendanceInviteClaims struct {
+	Type      string `json:"type"`
+	LessonID  string `json:"lesson_id"`
+	TeacherID string `json:"teacher_id"`
+	jwt.RegisteredClaims
+}
+
+type TeacherNearestLesson struct {
+	SubjectID int32
+	LessonNum int32
+	GroupIDs  []int32
+	StartAt   time.Time
+	EndAt     time.Time
+}
+
+type requestJob struct {
+	rawRequest string
+	resultCh   chan Response
+}
+
+type Service struct {
+	jwtSecret            []byte
+	siteBaseURL          string
+	roleHashTeacher      string
+	roleHashStudent      string
+	defaultGroupID       int32
+	allowEarlyAttendance bool
+	store                *db.Store
+	mailer               *Mailer
+	requestQueue         chan requestJob
+}
+
+var appTimeLocation = loadAppTimeLocation()
+
+func normalizeInviteTTL(expiresMinutes int) int {
+	if expiresMinutes <= 0 {
+		return 15
+	}
+	if expiresMinutes > 180 {
+		return 180
+	}
+	return expiresMinutes
+}
+
+func normalizeGroupIDs(groupIDs []int32) []int32 {
+	if len(groupIDs) == 0 {
+		return nil
+	}
+
+	seen := make(map[int32]struct{}, len(groupIDs))
+	result := make([]int32, 0, len(groupIDs))
+	for _, groupID := range groupIDs {
+		if groupID <= 0 {
+			continue
+		}
+		if _, ok := seen[groupID]; ok {
+			continue
+		}
+		seen[groupID] = struct{}{}
+		result = append(result, groupID)
+	}
+	return result
+}
+
+func normalizeInviteCode(code string) string {
+	return strings.ToUpper(strings.TrimSpace(code))
+}
+
+func normalizeRoleHash(code string) string {
+	return strings.ToUpper(strings.TrimSpace(code))
+}
+
+func loadAppTimeLocation() *time.Location {
+	loc, err := time.LoadLocation("Asia/Novosibirsk")
+	if err != nil {
+		return time.FixedZone("Asia/Novosibirsk", 7*60*60)
+	}
+	return loc
+}
+
+func formatAPITime(ts time.Time) string {
+	return ts.In(appTimeLocation).Format(time.RFC3339)
+}
+
+func weekdayToDayIdx(weekday time.Weekday) int32 {
+	if weekday == time.Sunday {
+		return 7
+	}
+	return int32(weekday)
+}
+
+func weekTypeByISOParity(ts time.Time) int32 {
+	_, week := ts.ISOWeek()
+	if week%2 == 0 {
+		return 2
+	}
+	return 1
+}
+
+func containsAllGroupIDs(fromSchedule, requested []int32) bool {
+	if len(requested) == 0 {
+		return true
+	}
+
+	index := make(map[int32]struct{}, len(fromSchedule))
+	for _, groupID := range fromSchedule {
+		index[groupID] = struct{}{}
+	}
+
+	for _, groupID := range requested {
+		if _, ok := index[groupID]; !ok {
+			return false
+		}
+	}
+	return true
+}
+
+func isDemoTeacher(user User) bool {
+	return user.Role == "teacher" && strings.EqualFold(user.Login, "teacher_test")
+}
+
+func NewService(jwtSecret, siteBaseURL, roleHashTeacher, roleHashStudent string, defaultGroupID int32, allowEarlyAttendance bool, store *db.Store, mailer *Mailer) *Service {
+	return &Service{
+		jwtSecret:            []byte(strings.TrimSpace(jwtSecret)),
+		siteBaseURL:          strings.TrimSpace(siteBaseURL),
+		roleHashTeacher:      normalizeRoleHash(roleHashTeacher),
+		roleHashStudent:      normalizeRoleHash(roleHashStudent),
+		defaultGroupID:       defaultGroupID,
+		allowEarlyAttendance: allowEarlyAttendance,
+		store:                store,
+		mailer:               mailer,
+	}
+}
+
+func (s *Service) resolveRoleByHash(roleHash string) (string, bool) {
+	roleHash = normalizeRoleHash(roleHash)
+	switch roleHash {
+	case s.roleHashTeacher:
+		return "teacher", true
+	case s.roleHashStudent:
+		return "student", true
+	default:
+		return "", false
+	}
+}
+
+func (s *Service) StartWorkerPool(workersCount int) {
+	s.requestQueue = make(chan requestJob, 1024)
+	for i := 0; i < workersCount; i++ {
+		go func() {
+			for job := range s.requestQueue {
+				job.resultCh <- s.handleRequest(job.rawRequest)
+			}
+		}()
+	}
+}
+
+func (s *Service) DispatchRequest(raw string, timeout time.Duration) (Response, error) {
+	job := requestJob{
+		rawRequest: raw,
+		resultCh:   make(chan Response, 1),
+	}
+
+	select {
+	case s.requestQueue <- job:
+	case <-time.After(timeout):
+		return Response{}, errors.New("server is busy")
+	}
+
+	select {
+	case resp := <-job.resultCh:
+		return resp, nil
+	case <-time.After(timeout):
+		return Response{}, errors.New("request timeout")
+	}
+}
+
+func normalizeRole(role string) string {
+	role = strings.ToLower(strings.TrimSpace(role))
+	switch role {
+	case "teacher", "admin":
+		return role
+	default:
+		return "student"
+	}
+}
+
+func normalizeAuthHeader(token string) string {
+	token = strings.TrimSpace(token)
+	token = strings.TrimPrefix(token, "Bearer ")
+	return strings.TrimSpace(token)
+}
+
+func (s *Service) dbContext() (context.Context, context.CancelFunc) {
+	return context.WithTimeout(context.Background(), 5*time.Second)
+}
+
+func (s *Service) userBySessionToken(token string) (User, error) {
+	token = normalizeAuthHeader(token)
+	if token == "" {
+		return User{}, errors.New("missing token")
+	}
+
+	userID, err := s.validateJWT(token)
+	if err != nil {
+		return User{}, errors.New("invalid token")
+	}
+
+	id64, err := strconv.ParseInt(userID, 10, 32)
+	if err != nil {
+		return User{}, errors.New("invalid token")
+	}
+
+	ctx, cancel := s.dbContext()
+	defer cancel()
+
+	dbUser, ok, err := s.store.Users.GetByID(ctx, int32(id64))
+	if err != nil {
+		return User{}, errors.New("session not found")
+	}
+	if !ok {
+		return User{}, errors.New("session not found")
+	}
+
+	var emailStr string
+	if dbUser.Email != nil {
+		emailStr = *dbUser.Email
+	}
+
+	return User{
+		ID:     dbUser.ID,
+		UserID: strconv.FormatInt(int64(dbUser.ID), 10),
+		Login:  dbUser.Login,
+		Pass:   dbUser.PasswordHash,
+		Role:   dbUser.Role,
+		Email:  emailStr,
+	}, nil
+}
+
+func (s *Service) teacherProfileByUser(user User) (db.Teacher, error) {
+	ctx, cancel := s.dbContext()
+	defer cancel()
+
+	teacher, found, err := s.store.Teachers.GetByUserID(ctx, user.ID)
+	if err != nil {
+		return db.Teacher{}, errors.New("failed to load teacher profile")
+	}
+	if found {
+		return teacher, nil
+	}
+
+	// Backward compatibility for legacy rows where teacher_id == users.id.
+	teacher, found, err = s.store.Teachers.GetByID(ctx, user.ID)
+	if err != nil {
+		return db.Teacher{}, errors.New("failed to load teacher profile")
+	}
+	if found {
+		return teacher, nil
+	}
+
+	return db.Teacher{}, errors.New("teacher profile not found")
+}
+
+func (s *Service) nearestLessonForTeacher(ctx context.Context, teacherID int32, nowLocal time.Time) (TeacherNearestLesson, bool, error) {
+	for dayOffset := 0; dayOffset < 14; dayOffset++ {
+		lessonDate := nowLocal.AddDate(0, 0, dayOffset)
+		dayIdx := weekdayToDayIdx(lessonDate.Weekday())
+		weekType := weekTypeByISOParity(lessonDate)
+
+		var fromTime any
+		if dayOffset == 0 {
+			fromTime = nowLocal.Format("15:04:05")
+		}
+
+		var nearest TeacherNearestLesson
+		var startClock time.Time
+		var endClock time.Time
+		err := s.store.Pool().QueryRow(
+			ctx,
+			`SELECT s.subject_id,
+			        s.lesson_num,
+			        COALESCE(ARRAY_REMOVE(ARRAY_AGG(DISTINCT s.group_id), NULL), '{}')::INTEGER[] AS group_ids,
+			        lt.start_time,
+			        lt.end_time
+			 FROM schedules s
+			 JOIN lesson_times lt ON lt.lesson_num = s.lesson_num
+			 WHERE s.teacher_id = $1
+			   AND s.day_idx = $2
+			   AND COALESCE(s.week_type, $3) = $3
+			   AND ($4::time IS NULL OR lt.end_time >= $4::time)
+			 GROUP BY s.subject_id, s.lesson_num, lt.start_time, lt.end_time
+			 ORDER BY
+			     CASE
+			         WHEN $4::time IS NOT NULL
+			              AND lt.start_time <= $4::time
+			              AND lt.end_time >= $4::time THEN 0
+			         ELSE 1
+			     END,
+			     lt.start_time
+			 LIMIT 1`,
+			teacherID,
+			dayIdx,
+			weekType,
+			fromTime,
+		).Scan(
+			&nearest.SubjectID,
+			&nearest.LessonNum,
+			&nearest.GroupIDs,
+			&startClock,
+			&endClock,
+		)
+		if errors.Is(err, pgx.ErrNoRows) {
+			continue
+		}
+		if err != nil {
+			return TeacherNearestLesson{}, false, fmt.Errorf("load nearest lesson: %w", err)
+		}
+
+		nearest.StartAt = time.Date(
+			lessonDate.Year(),
+			lessonDate.Month(),
+			lessonDate.Day(),
+			startClock.Hour(),
+			startClock.Minute(),
+			startClock.Second(),
+			0,
+			appTimeLocation,
+		)
+		nearest.EndAt = time.Date(
+			lessonDate.Year(),
+			lessonDate.Month(),
+			lessonDate.Day(),
+			endClock.Hour(),
+			endClock.Minute(),
+			endClock.Second(),
+			0,
+			appTimeLocation,
+		)
+
+		return nearest, true, nil
+	}
+
+	return TeacherNearestLesson{}, false, nil
+}
+
+func (s *Service) profileByToken(token string) Response {
+	user, err := s.userBySessionToken(token)
+	if err != nil {
+		return Response{OK: false, Error: err.Error()}
+	}
+
+	result := map[string]any{
+		"user_id": user.UserID,
+		"user_ID": user.UserID,
+		"login":   user.Login,
+		"role":    user.Role,
+	}
+
+	ctx, cancel := s.dbContext()
+	defer cancel()
+
+	var avatarURL sql.NullString
+	if err = s.store.Pool().QueryRow(ctx, `SELECT avatar_url FROM users WHERE id = $1`, user.ID).Scan(&avatarURL); err == nil && avatarURL.Valid {
+		result["avatar"] = avatarURL.String
+	}
+
+	switch user.Role {
+	case "student":
+		var studentID int32
+		var studentName sql.NullString
+		var groupID sql.NullInt32
+		var groupName sql.NullString
+		var nfcID sql.NullString
+		var totalCheatAttempts int32
+		err = s.store.Pool().QueryRow(
+			ctx,
+			`SELECT s.student_id, s.student_name, s.group_id, g.group_name, s.nfc_id, s.total_cheat_attempts
+			 FROM students s
+			 LEFT JOIN groups g ON g.group_id = s.group_id
+			 WHERE s.user_id = $1 OR s.student_id = $1
+			 ORDER BY CASE WHEN s.user_id = $1 THEN 0 ELSE 1 END
+			 LIMIT 1`,
+			user.ID,
+		).Scan(&studentID, &studentName, &groupID, &groupName, &nfcID, &totalCheatAttempts)
+		if err == nil {
+			result["student_id"] = studentID
+			result["total_cheat_attempts"] = totalCheatAttempts
+			if studentName.Valid {
+				result["name"] = studentName.String
+				result["student_name"] = studentName.String
+			}
+			if groupID.Valid {
+				result["group_id"] = groupID.Int32
+			}
+			if groupName.Valid {
+				result["group_name"] = groupName.String
+				result["group"] = groupName.String
+			}
+			if nfcID.Valid {
+				result["nfc_tag"] = nfcID.String
+			}
+		}
+	case "teacher":
+		var teacherID int32
+		var teacherName sql.NullString
+		var lecternID sql.NullInt32
+		var jobTitle sql.NullString
+		err = s.store.Pool().QueryRow(
+			ctx,
+			`SELECT teacher_id, name, lectern_id, job_title
+			 FROM teachers
+			 WHERE user_id = $1 OR teacher_id = $1
+			 ORDER BY CASE WHEN user_id = $1 THEN 0 ELSE 1 END
+			 LIMIT 1`,
+			user.ID,
+		).Scan(&teacherID, &teacherName, &lecternID, &jobTitle)
+		if err == nil {
+			result["teacher_id"] = teacherID
+			if teacherName.Valid {
+				result["name"] = teacherName.String
+				result["teacher_name"] = teacherName.String
+			}
+			if lecternID.Valid {
+				result["lectern_id"] = lecternID.Int32
+			}
+			if jobTitle.Valid {
+				result["job_title"] = jobTitle.String
+			}
+		}
+	}
+
+	return Response{OK: true, Result: result}
+}
+
+func (s *Service) generateAttendanceInviteToken(lessonID, teacherID string, expiresMinutes int) (string, time.Time, error) {
+	expiresMinutes = normalizeInviteTTL(expiresMinutes)
+
+	return s.generateAttendanceInviteTokenUntil(lessonID, teacherID, time.Now().Add(time.Duration(expiresMinutes)*time.Minute))
+}
+
+func (s *Service) generateAttendanceInviteTokenUntil(lessonID, teacherID string, exp time.Time) (string, time.Time, error) {
+	claims := AttendanceInviteClaims{
+		Type:      "attendance_invite",
+		LessonID:  lessonID,
+		TeacherID: teacherID,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(exp),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+		},
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	signed, err := token.SignedString(s.jwtSecret)
+	if err != nil {
+		return "", time.Time{}, err
+	}
+
+	return signed, exp, nil
+}
+
+func (s *Service) parseAttendanceInviteToken(inviteToken string) (*AttendanceInviteClaims, error) {
+	inviteToken = strings.TrimSpace(inviteToken)
+	if inviteToken == "" {
+		return nil, errors.New("missing invite token")
+	}
+
+	parsed, err := jwt.ParseWithClaims(inviteToken, &AttendanceInviteClaims{}, func(token *jwt.Token) (any, error) {
+		return s.jwtSecret, nil
+	})
+	if err != nil {
+		return nil, errors.New("invalid invite token")
+	}
+	if !parsed.Valid {
+		return nil, errors.New("invite token is not valid")
+	}
+
+	claims, ok := parsed.Claims.(*AttendanceInviteClaims)
+	if !ok {
+		return nil, errors.New("invalid invite claims")
+	}
+	if claims.Type != "attendance_invite" {
+		return nil, errors.New("wrong invite token type")
+	}
+	if claims.LessonID == "" || claims.TeacherID == "" {
+		return nil, errors.New("invite token payload is incomplete")
+	}
+
+	return claims, nil
+}
+
+func (s *Service) register(data RegisterData) Response {
+	if strings.TrimSpace(data.InviteCode) != "" {
+		return s.registerByInvite(RegisterByInviteData{
+			InviteCode: data.InviteCode,
+			Login:      data.Login,
+			Password:   data.Password,
+		})
+	}
+
+	login := strings.TrimSpace(data.Login)
+	password := strings.TrimSpace(data.Password)
+	if login == "" || password == "" {
+		return Response{OK: false, Error: "login and password are required"}
+	}
+
+	role, ok := s.resolveRoleByHash(data.RoleHash)
+	if !ok {
+		return Response{OK: false, Error: "invalid role_hash"}
+	}
+
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return Response{OK: false, Error: "failed to hash password"}
+	}
+
+	ctx, cancel := s.dbContext()
+	defer cancel()
+
+	created, err := s.store.Users.Create(ctx, login, string(hashedPassword), role)
+	if err != nil {
+		if errors.Is(err, db.ErrUserLoginTaken) {
+			return Response{OK: false, Error: "user exist"}
+		}
+		return Response{OK: false, Error: "failed to create user"}
+	}
+
+	switch role {
+	case "teacher":
+		userID := created.ID
+		_, err = s.store.Teachers.Create(ctx, db.Teacher{UserID: &userID, Name: login})
+	case "student":
+		var groupID *int32
+		if s.defaultGroupID > 0 {
+			_, foundGroup, groupErr := s.store.Groups.GetByID(ctx, s.defaultGroupID)
+			if groupErr == nil && foundGroup {
+				groupID = &s.defaultGroupID
+			}
+		}
+		_, err = s.store.Students.Create(ctx, db.Student{ID: created.ID, StudentName: login, GroupID: groupID})
+	}
+	if err != nil {
+		_ = s.store.Users.DeleteByID(ctx, created.ID)
+		return Response{OK: false, Error: "failed to create role profile"}
+	}
+
+	return Response{
+		OK: true,
+		Result: map[string]any{
+			"user_id": strconv.FormatInt(int64(created.ID), 10),
+			"login":   created.Login,
+			"role":    created.Role,
+		},
+	}
+}
+
+func (s *Service) registerByInvite(data RegisterByInviteData) Response {
+	inviteCode := normalizeInviteCode(data.InviteCode)
+	login := strings.TrimSpace(data.Login)
+	password := strings.TrimSpace(data.Password)
+
+	if inviteCode == "" {
+		return Response{OK: false, Error: "invite_code is required"}
+	}
+	if login == "" || password == "" {
+		return Response{OK: false, Error: "login and password are required"}
+	}
+
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return Response{OK: false, Error: "failed to hash password"}
+	}
+
+	ctx, cancel := s.dbContext()
+	defer cancel()
+
+	tx, err := s.store.Pool().BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return Response{OK: false, Error: "failed to start registration transaction"}
+	}
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
+
+	var inviteID int32
+	var inviteRole string
+	var studentID sql.NullInt32
+	var teacherID sql.NullInt32
+	err = tx.QueryRow(
+		ctx,
+		`SELECT invite_id, role::text, student_id, teacher_id
+		 FROM registration_invites
+		 WHERE used_at IS NULL
+		   AND invite_code_hash = crypt($1, invite_code_hash)
+		 FOR UPDATE
+		 LIMIT 1`,
+		inviteCode,
+	).Scan(&inviteID, &inviteRole, &studentID, &teacherID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Response{OK: false, Error: "invalid or used invite_code"}
+	}
+	if err != nil {
+		return Response{OK: false, Error: "failed to validate invite_code"}
+	}
+	switch inviteRole {
+	case "student", "teacher", "admin":
+	default:
+		return Response{OK: false, Error: "invalid invite role"}
+	}
+
+	var created db.User
+	err = tx.QueryRow(
+		ctx,
+		`INSERT INTO users (login, password_hash, role)
+		 VALUES ($1, $2, $3)
+		 RETURNING id, login, password_hash, role, created_at`,
+		login,
+		string(hashedPassword),
+		inviteRole,
+	).Scan(&created.ID, &created.Login, &created.PasswordHash, &created.Role, &created.CreatedAt)
+	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			return Response{OK: false, Error: "user exist"}
+		}
+		return Response{OK: false, Error: "failed to create user"}
+	}
+
+	switch inviteRole {
+	case "student":
+		if !studentID.Valid {
+			return Response{OK: false, Error: "invalid invite configuration"}
+		}
+		cmd, err := tx.Exec(
+			ctx,
+			`UPDATE students
+			 SET user_id = $2
+			 WHERE student_id = $1
+			   AND user_id IS NULL`,
+			studentID.Int32,
+			created.ID,
+		)
+		if err != nil {
+			return Response{OK: false, Error: "failed to bind student profile"}
+		}
+		if cmd.RowsAffected() == 0 {
+			return Response{OK: false, Error: "failed to bind student profile"}
+		}
+	case "teacher":
+		if !teacherID.Valid {
+			return Response{OK: false, Error: "invalid invite configuration"}
+		}
+		cmd, err := tx.Exec(
+			ctx,
+			`UPDATE teachers
+			 SET user_id = $2
+			 WHERE teacher_id = $1
+			   AND user_id IS NULL`,
+			teacherID.Int32,
+			created.ID,
+		)
+		if err != nil {
+			return Response{OK: false, Error: "failed to bind teacher profile"}
+		}
+		if cmd.RowsAffected() == 0 {
+			return Response{OK: false, Error: "failed to bind teacher profile"}
+		}
+	case "admin":
+		// Admin invites do not bind to a profile table.
+	default:
+		return Response{OK: false, Error: "invalid invite role"}
+	}
+
+	cmd, err := tx.Exec(
+		ctx,
+		`UPDATE registration_invites
+		 SET used_at = NOW()
+		 WHERE invite_id = $1
+		   AND used_at IS NULL`,
+		inviteID,
+	)
+	if err != nil {
+		return Response{OK: false, Error: "failed to mark invite as used"}
+	}
+	if cmd.RowsAffected() == 0 {
+		return Response{OK: false, Error: "invalid or used invite_code"}
+	}
+
+	if err = tx.Commit(ctx); err != nil {
+		return Response{OK: false, Error: "failed to commit registration"}
+	}
+
+	userID := strconv.FormatInt(int64(created.ID), 10)
+	token, err := s.generateJWT(userID)
+	if err != nil {
+		return Response{OK: false, Error: "EROR_generateJWT: " + err.Error()}
+	}
+
+	resultResp := s.profileByToken(token)
+	if !resultResp.OK {
+		return Response{OK: false, Error: resultResp.Error}
+	}
+
+	result := map[string]any{
+		"token":   token,
+		"user_ID": userID,
+	}
+	if profileResult, ok := resultResp.Result.(map[string]any); ok {
+		for key, value := range profileResult {
+			result[key] = value
+		}
+	}
+	if _, ok := result["user_id"]; !ok {
+		result["user_id"] = userID
+	}
+	if _, ok := result["login"]; !ok {
+		result["login"] = created.Login
+	}
+	if _, ok := result["role"]; !ok {
+		result["role"] = created.Role
+	}
+
+	return Response{OK: true, Result: result}
+}
+
+func (s *Service) login(data LoginData) Response {
+	login := strings.TrimSpace(data.Login)
+	password := strings.TrimSpace(data.Password)
+	if login == "" || password == "" {
+		return Response{OK: false, Error: "login and password are required"}
+	}
+
+	ctx, cancel := s.dbContext()
+	defer cancel()
+
+	storedUser, ok, err := s.store.Users.GetByLogin(ctx, login)
+	if err != nil {
+		return Response{OK: false, Error: "failed to read user"}
+	}
+	if !ok {
+		return Response{OK: false, Error: "user does not exist"}
+	}
+
+	if !s.passwordMatches(ctx, storedUser.PasswordHash, password) {
+		return Response{OK: false, Error: "wrong password"}
+	}
+
+	userID := strconv.FormatInt(int64(storedUser.ID), 10)
+	token, err := s.generateJWT(userID)
+	if err != nil {
+		return Response{OK: false, Error: "EROR_generateJWT: " + err.Error()}
+	}
+
+	return Response{
+		OK: true,
+		Result: map[string]any{
+			"token":   token,
+			"user_ID": userID,
+			"login":   storedUser.Login,
+			"role":    storedUser.Role,
+		},
+	}
+}
+
+func (s *Service) passwordMatches(ctx context.Context, storedHash, password string) bool {
+	if err := bcrypt.CompareHashAndPassword([]byte(storedHash), []byte(password)); err == nil {
+		return true
+	}
+
+	var matches bool
+	err := s.store.Pool().QueryRow(
+		ctx,
+		`SELECT crypt($1, $2) = $2`,
+		password,
+		storedHash,
+	).Scan(&matches)
+	return err == nil && matches
+}
+
+func (s *Service) createAttendanceLinkByTeacher(sessionToken string, data AttendanceCreateData) Response {
+	if data.LessonID > 0 {
+		return s.attendanceLinkForExistingLessonByTeacher(sessionToken, data.LessonID)
+	}
+
+	teacherUser, err := s.userBySessionToken(sessionToken)
+	if err != nil {
+		return Response{OK: false, Error: err.Error()}
+	}
+	if teacherUser.Role != "teacher" {
+		return Response{OK: false, Error: "forbidden: teacher role required"}
+	}
+	demoTeacher := isDemoTeacher(teacherUser)
+	teacherProfile, err := s.teacherProfileByUser(teacherUser)
+	if err != nil {
+		return Response{OK: false, Error: err.Error()}
+	}
+
+	ctx, cancel := s.dbContext()
+	defer cancel()
+
+	nowLocal := time.Now().In(appTimeLocation)
+	nearestLesson, found, err := s.nearestLessonForTeacher(ctx, teacherProfile.ID, nowLocal)
+	if err != nil {
+		return Response{OK: false, Error: "failed to load nearest lesson"}
+	}
+	if !found && !demoTeacher {
+		return Response{OK: false, Error: "no scheduled lessons found for teacher"}
+	}
+	if found && !demoTeacher && !s.allowEarlyAttendance && nowLocal.Before(nearestLesson.StartAt.Add(-15*time.Minute)) {
+		return Response{
+			OK: false,
+			Error: fmt.Sprintf(
+				"attendance can be started no earlier than 15 minutes before class start (%s)",
+				formatAPITime(nearestLesson.StartAt),
+			),
+		}
+	}
+
+	requestedSubjectID := data.SubjectID
+	if requestedSubjectID <= 0 && found {
+		requestedSubjectID = nearestLesson.SubjectID
+	}
+	if requestedSubjectID <= 0 {
+		return Response{OK: false, Error: "subject_id is required"}
+	}
+	if found && !demoTeacher && requestedSubjectID != nearestLesson.SubjectID {
+		return Response{OK: false, Error: "subject_id does not match nearest scheduled lesson"}
+	}
+
+	groupIDs := normalizeGroupIDs(data.GroupIDs)
+	if len(groupIDs) == 0 && found {
+		groupIDs = normalizeGroupIDs(nearestLesson.GroupIDs)
+	}
+	if len(groupIDs) == 0 {
+		return Response{OK: false, Error: "group_ids are required"}
+	}
+	if found && !demoTeacher && !containsAllGroupIDs(nearestLesson.GroupIDs, groupIDs) {
+		return Response{OK: false, Error: "group_ids do not match nearest scheduled lesson"}
+	}
+	sort.Slice(groupIDs, func(i, j int) bool { return groupIDs[i] < groupIDs[j] })
+
+	subject, found, err := s.store.Subjects.GetByID(ctx, requestedSubjectID)
+	if err != nil {
+		return Response{OK: false, Error: "failed to load subject"}
+	}
+	if !found {
+		return Response{OK: false, Error: "subject not found"}
+	}
+	for _, groupID := range groupIDs {
+		_, found, err = s.store.Groups.GetByID(ctx, groupID)
+		if err != nil {
+			return Response{OK: false, Error: "failed to load group"}
+		}
+		if !found {
+			return Response{OK: false, Error: "group not found"}
+		}
+	}
+
+	effectiveTTL := normalizeInviteTTL(data.ExpiresMinutes)
+	expiresAt := time.Now().Add(time.Duration(effectiveTTL) * time.Minute)
+	session, rosterSize, err := s.store.Attendance.CreateSessionWithGroups(ctx, teacherProfile.ID, subject.ID, groupIDs, expiresAt)
+	if err != nil {
+		return Response{OK: false, Error: "failed to create attendance session"}
+	}
+
+	lessonID := strconv.FormatInt(int64(session.ID), 10)
+	teacherID := strconv.FormatInt(int64(teacherProfile.ID), 10)
+	inviteToken, signedExpiresAt, err := s.generateAttendanceInviteToken(lessonID, teacherID, effectiveTTL)
+	if err != nil {
+		return Response{OK: false, Error: "failed to generate invite token"}
+	}
+
+	joinURL := fmt.Sprintf("%s/attendance/join?token=%s", strings.TrimRight(s.siteBaseURL, "/"), inviteToken)
+	lessonName := strings.TrimSpace(data.LessonName)
+	if lessonName == "" {
+		lessonName = subject.Name
+	}
+	scheduleStart := nowLocal
+	scheduleEnd := nowLocal.Add(95 * time.Minute)
+	if found && requestedSubjectID == nearestLesson.SubjectID {
+		scheduleStart = nearestLesson.StartAt
+		scheduleEnd = nearestLesson.EndAt
+	}
+
+	return Response{
+		OK: true,
+		Result: map[string]any{
+			"lesson_id":       lessonID,
+			"subject_id":      subject.ID,
+			"lesson_name":     lessonName,
+			"invite_token":    inviteToken,
+			"url":             joinURL,
+			"join_url":        joinURL,
+			"qr_payload":      joinURL,
+			"group_ids":       groupIDs,
+			"roster_size":     rosterSize,
+			"teacher_id":      teacherID,
+			"schedule_start":  formatAPITime(scheduleStart),
+			"schedule_end":    formatAPITime(scheduleEnd),
+			"timezone":        "Asia/Novosibirsk",
+			"expires_at":      formatAPITime(signedExpiresAt),
+			"expires_minutes": effectiveTTL,
+		},
+	}
+}
+
+func (s *Service) confirmAttendanceByStudent(sessionToken string, data AttendanceConfirmData) Response {
+	student, err := s.userBySessionToken(sessionToken)
+	if err != nil {
+		return Response{OK: false, Error: err.Error()}
+	}
+	if student.Role != "student" {
+		return Response{OK: false, Error: "forbidden: student role required"}
+	}
+	studentProfile, err := s.studentProfileByUser(student)
+	if err != nil {
+		return Response{OK: false, Error: err.Error()}
+	}
+
+	claims, err := s.parseAttendanceInviteToken(data.InviteToken)
+	if err != nil {
+		return Response{OK: false, Error: err.Error()}
+	}
+
+	sessionID64, err := strconv.ParseInt(claims.LessonID, 10, 32)
+	if err != nil {
+		return Response{OK: false, Error: "invalid invite token"}
+	}
+	teacherID64, err := strconv.ParseInt(claims.TeacherID, 10, 32)
+	if err != nil {
+		return Response{OK: false, Error: "invalid invite token"}
+	}
+
+	ctx, cancel := s.dbContext()
+	defer cancel()
+
+	session, found, err := s.store.Attendance.GetSessionByID(ctx, int32(sessionID64))
+	if err != nil {
+		return Response{OK: false, Error: "failed to load attendance session"}
+	}
+	if !found {
+		return Response{OK: false, Error: "attendance session not found"}
+	}
+	if session.TeacherID != int32(teacherID64) {
+		return Response{OK: false, Error: "invite token is not valid"}
+	}
+	if time.Now().UTC().After(session.ExpiresAt.UTC()) {
+		return Response{OK: false, Error: "invite token expired"}
+	}
+
+	markedAt := time.Now().UTC()
+	markResult, err := s.store.Attendance.MarkStudentPresent(ctx, session.ID, studentProfile.ID, markedAt)
+	if err != nil {
+		return Response{OK: false, Error: "failed to confirm attendance"}
+	}
+	if markResult == "not_found" {
+		return Response{OK: false, Error: "forbidden: student is not in session roster"}
+	}
+	if markResult == "already" {
+		return Response{OK: false, Error: "attendance already confirmed"}
+	}
+
+	return Response{
+		OK: true,
+		Result: map[string]any{
+			"lesson_id":  claims.LessonID,
+			"student_id": student.UserID,
+			"teacher_id": claims.TeacherID,
+			"subject_id": session.SubjectID,
+			"marked_at":  formatAPITime(markedAt),
+			"attendance": "confirmed",
+		},
+	}
+}
+
+func (s *Service) attendanceByGroupForTeacher(sessionToken string, data AttendanceGroupStatsData) Response {
+	teacherUser, err := s.userBySessionToken(sessionToken)
+	if err != nil {
+		return Response{OK: false, Error: err.Error()}
+	}
+	if teacherUser.Role != "teacher" {
+		return Response{OK: false, Error: "forbidden: teacher role required"}
+	}
+	teacherProfile, err := s.teacherProfileByUser(teacherUser)
+	if err != nil {
+		return Response{OK: false, Error: err.Error()}
+	}
+	if data.GroupID <= 0 {
+		return Response{OK: false, Error: "group_id is required"}
+	}
+
+	ctx, cancel := s.dbContext()
+	defer cancel()
+
+	_, found, err := s.store.Groups.GetByID(ctx, data.GroupID)
+	if err != nil {
+		return Response{OK: false, Error: "failed to load group"}
+	}
+	if !found {
+		return Response{OK: false, Error: "group not found"}
+	}
+
+	stats, err := s.store.Attendance.GetTeacherGroupAttendanceStats(ctx, teacherProfile.ID, data.GroupID, data.SubjectID)
+	if err != nil {
+		return Response{OK: false, Error: "failed to load attendance stats"}
+	}
+
+	students := make([]map[string]any, 0, len(stats))
+	var sessionsCount int32
+	for _, row := range stats {
+		var lastMarkedAt any
+		if row.LastMarkedAt != nil {
+			lastMarkedAt = formatAPITime(*row.LastMarkedAt)
+		}
+		attendancePercent := 0.0
+		if row.TotalSessions > 0 {
+			attendancePercent = float64(row.AttendedSessions) * 100 / float64(row.TotalSessions)
+		}
+		if row.TotalSessions > sessionsCount {
+			sessionsCount = row.TotalSessions
+		}
+
+		students = append(students, map[string]any{
+			"student_id":         row.StudentID,
+			"student_name":       row.StudentName,
+			"total_sessions":     row.TotalSessions,
+			"attended_sessions":  row.AttendedSessions,
+			"attendance_percent": attendancePercent,
+			"last_marked_at":     lastMarkedAt,
+		})
+	}
+
+	result := map[string]any{
+		"group_id": data.GroupID,
+		"timezone": "Asia/Novosibirsk",
+		"students": students,
+		"summary": map[string]any{
+			"students_count": len(students),
+			"sessions_count": sessionsCount,
+		},
+	}
+	if data.SubjectID != nil {
+		result["subject_id"] = *data.SubjectID
+	}
+
+	return Response{
+		OK:     true,
+		Result: result,
+	}
+}
+
+// groupPerformanceForTeacher returns a combined overview for a group on a
+// subject: per-student attendance and grade totals plus group averages.
+func (s *Service) groupPerformanceForTeacher(sessionToken string, data GroupPerformanceData) Response {
+	teacherUser, err := s.userBySessionToken(sessionToken)
+	if err != nil {
+		return Response{OK: false, Error: err.Error()}
+	}
+	if teacherUser.Role != "teacher" {
+		return Response{OK: false, Error: "forbidden: teacher role required"}
+	}
+	teacherProfile, err := s.teacherProfileByUser(teacherUser)
+	if err != nil {
+		return Response{OK: false, Error: err.Error()}
+	}
+	if data.GroupID <= 0 {
+		return Response{OK: false, Error: "group_id is required"}
+	}
+	if data.SubjectID <= 0 {
+		return Response{OK: false, Error: "subject_id is required"}
+	}
+
+	ctx, cancel := s.dbContext()
+	defer cancel()
+
+	if resp := s.ensureTeacherSubjectAccess(ctx, teacherProfile.ID, data.SubjectID); !resp.OK {
+		return resp
+	}
+
+	group, found, err := s.store.Groups.GetByID(ctx, data.GroupID)
+	if err != nil {
+		return Response{OK: false, Error: "failed to load group"}
+	}
+	if !found {
+		return Response{OK: false, Error: "group not found"}
+	}
+	subject, found, err := s.store.Subjects.GetByID(ctx, data.SubjectID)
+	if err != nil {
+		return Response{OK: false, Error: "failed to load subject"}
+	}
+	if !found {
+		return Response{OK: false, Error: "subject not found"}
+	}
+
+	rows, err := s.store.Attendance.GetGroupSubjectPerformance(ctx, teacherProfile.ID, data.GroupID, data.SubjectID)
+	if err != nil {
+		return Response{OK: false, Error: "failed to load group performance"}
+	}
+
+	students := make([]map[string]any, 0, len(rows))
+	var (
+		sessionsCount      int32
+		attendancePctSum   float64
+		gradePctSum        float64
+		gradedStudentCount int
+	)
+	for _, row := range rows {
+		attendancePercent := 0.0
+		if row.TotalSessions > 0 {
+			attendancePercent = float64(row.AttendedSessions) * 100 / float64(row.TotalSessions)
+		}
+		gradePercent := 0.0
+		if row.TotalMax > 0 {
+			gradePercent = float64(row.CurrentScore) * 100 / float64(row.TotalMax)
+		}
+		if row.TotalSessions > sessionsCount {
+			sessionsCount = row.TotalSessions
+		}
+		attendancePctSum += attendancePercent
+		gradePctSum += gradePercent
+		gradedStudentCount++
+
+		students = append(students, map[string]any{
+			"student_id":         row.StudentID,
+			"student_name":       row.StudentName,
+			"total_sessions":     row.TotalSessions,
+			"attended_sessions":  row.AttendedSessions,
+			"attendance_percent": attendancePercent,
+			"current_score":      row.CurrentScore,
+			"total_max":          row.TotalMax,
+			"passed_max":         row.PassedMax,
+			"grade_percent":      gradePercent,
+		})
+	}
+
+	avgAttendance := 0.0
+	avgGrade := 0.0
+	if gradedStudentCount > 0 {
+		avgAttendance = attendancePctSum / float64(gradedStudentCount)
+		avgGrade = gradePctSum / float64(gradedStudentCount)
+	}
+
+	return Response{
+		OK: true,
+		Result: map[string]any{
+			"group_id":     data.GroupID,
+			"group_name":   group.GroupName,
+			"subject_id":   subject.ID,
+			"subject_name": subject.Name,
+			"timezone":     "Asia/Novosibirsk",
+			"students":     students,
+			"summary": map[string]any{
+				"students_count":         len(students),
+				"sessions_count":         sessionsCount,
+				"avg_attendance_percent": avgAttendance,
+				"avg_grade_percent":      avgGrade,
+			},
+		},
+	}
+}
+
+func (s *Service) attendanceSessionByTeacher(ctx context.Context, sessionToken string, lessonID int32) (db.AttendanceSession, bool, Response) {
+	teacherUser, err := s.userBySessionToken(sessionToken)
+	if err != nil {
+		return db.AttendanceSession{}, false, Response{OK: false, Error: err.Error()}
+	}
+	if teacherUser.Role != "teacher" {
+		return db.AttendanceSession{}, false, Response{OK: false, Error: "forbidden: teacher role required"}
+	}
+	teacherProfile, err := s.teacherProfileByUser(teacherUser)
+	if err != nil {
+		return db.AttendanceSession{}, false, Response{OK: false, Error: err.Error()}
+	}
+	if lessonID <= 0 {
+		return db.AttendanceSession{}, false, Response{OK: false, Error: "lesson_id is required"}
+	}
+
+	session, found, err := s.store.Attendance.GetSessionByID(ctx, lessonID)
+	if err != nil {
+		return db.AttendanceSession{}, false, Response{OK: false, Error: "failed to load attendance session"}
+	}
+	if !found {
+		return db.AttendanceSession{}, false, Response{OK: false, Error: "attendance session not found"}
+	}
+	if session.TeacherID != teacherProfile.ID {
+		return db.AttendanceSession{}, false, Response{OK: false, Error: "forbidden: lesson belongs to another teacher"}
+	}
+
+	return session, true, Response{}
+}
+
+func (s *Service) attendanceProgressResult(ctx context.Context, session db.AttendanceSession, now time.Time) (map[string]any, error) {
+	progress, err := s.store.Attendance.GetSessionProgress(ctx, session.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	secondsRemaining := int64(session.ExpiresAt.UTC().Sub(now.UTC()).Seconds())
+	if secondsRemaining < 0 {
+		secondsRemaining = 0
+	}
+	attendancePercent := 0.0
+	if progress.RosterSize > 0 {
+		attendancePercent = float64(progress.MarkedCount) * 100 / float64(progress.RosterSize)
+	}
+
+	return map[string]any{
+		"id":                 session.ID,
+		"lesson_id":          session.ID,
+		"teacher_id":         session.TeacherID,
+		"subject_id":         session.SubjectID,
+		"lesson_name":        session.LessonName,
+		"created_at":         formatAPITime(session.CreatedAt),
+		"expires_at":         formatAPITime(session.ExpiresAt),
+		"server_time":        formatAPITime(now),
+		"timezone":           "Asia/Novosibirsk",
+		"is_active":          secondsRemaining > 0,
+		"seconds_remaining":  secondsRemaining,
+		"remaining_seconds":  secondsRemaining,
+		"marked_count":       progress.MarkedCount,
+		"roster_size":        progress.RosterSize,
+		"attendance_percent": attendancePercent,
+	}, nil
+}
+
+func (s *Service) attendanceMarkedCountForTeacher(sessionToken string, data AttendanceSessionData) Response {
+	ctx, cancel := s.dbContext()
+	defer cancel()
+
+	session, ok, resp := s.attendanceSessionByTeacher(ctx, sessionToken, data.LessonID)
+	if !ok {
+		return resp
+	}
+
+	result, err := s.attendanceProgressResult(ctx, session, time.Now().UTC())
+	if err != nil {
+		return Response{OK: false, Error: "failed to load attendance progress"}
+	}
+
+	return Response{
+		OK: true,
+		Result: map[string]any{
+			"lesson_id":          result["lesson_id"],
+			"marked_count":       result["marked_count"],
+			"roster_size":        result["roster_size"],
+			"attendance_percent": result["attendance_percent"],
+		},
+	}
+}
+
+func (s *Service) attendanceSessionTimerForTeacher(sessionToken string, data AttendanceSessionData) Response {
+	ctx, cancel := s.dbContext()
+	defer cancel()
+
+	session, ok, resp := s.attendanceSessionByTeacher(ctx, sessionToken, data.LessonID)
+	if !ok {
+		return resp
+	}
+
+	result, err := s.attendanceProgressResult(ctx, session, time.Now().UTC())
+	if err != nil {
+		return Response{OK: false, Error: "failed to load attendance progress"}
+	}
+
+	return Response{
+		OK: true,
+		Result: map[string]any{
+			"lesson_id":         result["lesson_id"],
+			"expires_at":        result["expires_at"],
+			"server_time":       result["server_time"],
+			"timezone":          result["timezone"],
+			"is_active":         result["is_active"],
+			"seconds_remaining": result["seconds_remaining"],
+			"remaining_seconds": result["remaining_seconds"],
+		},
+	}
+}
+
+func (s *Service) activeAttendanceSessionForTeacher(sessionToken string) Response {
+	teacherUser, err := s.userBySessionToken(sessionToken)
+	if err != nil {
+		return Response{OK: false, Error: err.Error()}
+	}
+	if teacherUser.Role != "teacher" {
+		return Response{OK: false, Error: "forbidden: teacher role required"}
+	}
+	teacherProfile, err := s.teacherProfileByUser(teacherUser)
+	if err != nil {
+		return Response{OK: false, Error: err.Error()}
+	}
+
+	ctx, cancel := s.dbContext()
+	defer cancel()
+
+	now := time.Now().UTC()
+	session, found, err := s.store.Attendance.GetActiveSessionByTeacherID(ctx, teacherProfile.ID, now)
+	if err != nil {
+		return Response{OK: false, Error: "failed to load active attendance session"}
+	}
+	if !found {
+		return Response{
+			OK: true,
+			Result: map[string]any{
+				"active":            false,
+				"session":           nil,
+				"seconds_remaining": int64(0),
+				"remaining_seconds": int64(0),
+				"server_time":       formatAPITime(now),
+				"timezone":          "Asia/Novosibirsk",
+			},
+		}
+	}
+
+	sessionResult, err := s.attendanceProgressResult(ctx, session, now)
+	if err != nil {
+		return Response{OK: false, Error: "failed to load attendance progress"}
+	}
+
+	return Response{
+		OK: true,
+		Result: map[string]any{
+			"active":            true,
+			"session":           sessionResult,
+			"seconds_remaining": sessionResult["seconds_remaining"],
+			"remaining_seconds": sessionResult["remaining_seconds"],
+			"server_time":       sessionResult["server_time"],
+			"timezone":          sessionResult["timezone"],
+		},
+	}
+}
+
+func (s *Service) attendanceHistoryForStudent(sessionToken string, data AttendanceHistoryData) Response {
+	studentUser, err := s.userBySessionToken(sessionToken)
+	if err != nil {
+		return Response{OK: false, Error: err.Error()}
+	}
+	if studentUser.Role != "student" {
+		return Response{OK: false, Error: "forbidden: student role required"}
+	}
+
+	studentProfile, err := s.studentProfileByUser(studentUser)
+	if err != nil {
+		return Response{OK: false, Error: err.Error()}
+	}
+
+	year := data.Year
+	if year <= 0 {
+		year = time.Now().Year()
+	}
+	start := time.Date(year, time.January, 1, 0, 0, 0, 0, time.UTC)
+	end := start.AddDate(1, 0, 0)
+
+	ctx, cancel := s.dbContext()
+	defer cancel()
+
+	rows, err := s.store.Pool().Query(
+		ctx,
+		`SELECT (ass.marked_at AT TIME ZONE 'Asia/Novosibirsk')::date AS day,
+		        COUNT(*)::int AS count
+		 FROM attendance_session_students ass
+		 WHERE ass.student_id = $1
+		   AND ass.status = 'present'
+		   AND ass.marked_at IS NOT NULL
+		   AND ass.marked_at >= $2
+		   AND ass.marked_at < $3
+		 GROUP BY day
+		 ORDER BY day`,
+		studentProfile.ID,
+		start,
+		end,
+	)
+	if err != nil {
+		return Response{OK: false, Error: "failed to load attendance history"}
+	}
+	defer rows.Close()
+
+	items := make([]map[string]any, 0)
+	for rows.Next() {
+		var day time.Time
+		var count int32
+		if err := rows.Scan(&day, &count); err != nil {
+			return Response{OK: false, Error: "failed to scan attendance history"}
+		}
+		items = append(items, map[string]any{
+			"date":  day.Format("2006-01-02"),
+			"count": count,
+		})
+	}
+	if err := rows.Err(); err != nil {
+		return Response{OK: false, Error: "failed to iterate attendance history"}
+	}
+
+	return Response{
+		OK: true,
+		Result: map[string]any{
+			"year":  year,
+			"items": items,
+		},
+	}
+}
+
+func attendanceStatusLabel(status string) string {
+	if status == "present" {
+		return "attended"
+	}
+	return status
+}
+
+func (s *Service) attendanceHistoryForTeacherStudent(sessionToken string, data TeacherAttendanceStudentHistoryData) Response {
+	teacherUser, err := s.userBySessionToken(sessionToken)
+	if err != nil {
+		return Response{OK: false, Error: err.Error()}
+	}
+	if teacherUser.Role != "teacher" {
+		return Response{OK: false, Error: "forbidden: teacher role required"}
+	}
+	teacherProfile, err := s.teacherProfileByUser(teacherUser)
+	if err != nil {
+		return Response{OK: false, Error: err.Error()}
+	}
+	if data.StudentID <= 0 {
+		return Response{OK: false, Error: "student_id is required"}
+	}
+
+	ctx, cancel := s.dbContext()
+	defer cancel()
+
+	if resp := s.ensureTeacherSubjectAccess(ctx, teacherProfile.ID, data.SubjectID); !resp.OK {
+		return resp
+	}
+
+	_, found, err := s.store.Students.GetByID(ctx, data.StudentID)
+	if err != nil {
+		return Response{OK: false, Error: "failed to load student"}
+	}
+	if !found {
+		return Response{OK: false, Error: "student not found"}
+	}
+
+	rows, err := s.store.Attendance.GetStudentSubjectAttendanceHistory(ctx, data.StudentID, data.SubjectID)
+	if err != nil {
+		return Response{OK: false, Error: "failed to load attendance history"}
+	}
+
+	items := make([]map[string]any, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, map[string]any{
+			"date":        row.Date.Format("2006-01-02"),
+			"lesson_name": row.LessonName,
+			"status":      attendanceStatusLabel(row.Status),
+		})
+	}
+
+	return Response{
+		OK: true,
+		Result: map[string]any{
+			"items": items,
+		},
+	}
+}
+
+func (s *Service) teacherSubjects(sessionToken string) Response {
+	teacherUser, err := s.userBySessionToken(sessionToken)
+	if err != nil {
+		return Response{OK: false, Error: err.Error()}
+	}
+	if teacherUser.Role != "teacher" {
+		return Response{OK: false, Error: "forbidden: teacher role required"}
+	}
+
+	teacherProfile, err := s.teacherProfileByUser(teacherUser)
+	if err != nil {
+		return Response{OK: false, Error: err.Error()}
+	}
+
+	ctx, cancel := s.dbContext()
+	defer cancel()
+
+	items := make([]TeacherSubjectsResultItem, 0)
+	if isDemoTeacher(teacherUser) {
+		rows, err := s.store.Pool().Query(
+			ctx,
+			`SELECT sub.subject_id,
+			        sub.name,
+			        COALESCE(ARRAY_REMOVE(ARRAY_AGG(DISTINCT sch.group_id), NULL), '{}')::INTEGER[] AS group_ids
+			 FROM subjects sub
+			 LEFT JOIN schedules sch
+			        ON sch.subject_id = sub.subject_id
+			       AND sch.teacher_id = $1
+			 GROUP BY sub.subject_id, sub.name
+			 ORDER BY sub.name, sub.subject_id`,
+			teacherProfile.ID,
+		)
+		if err != nil {
+			return Response{OK: false, Error: "failed to load teacher subjects"}
+		}
+		defer rows.Close()
+
+		for rows.Next() {
+			var item TeacherSubjectsResultItem
+			if err := rows.Scan(&item.SubjectID, &item.SubjectName, &item.GroupIDs); err != nil {
+				return Response{OK: false, Error: "failed to scan teacher subjects"}
+			}
+			items = append(items, item)
+		}
+		if err := rows.Err(); err != nil {
+			return Response{OK: false, Error: "failed to iterate teacher subjects"}
+		}
+	} else {
+		rows, err := s.store.Pool().Query(
+			ctx,
+			`SELECT sch.subject_id,
+			        sub.name,
+			        COALESCE(ARRAY_REMOVE(ARRAY_AGG(DISTINCT sch.group_id), NULL), '{}')::INTEGER[] AS group_ids
+			 FROM schedules sch
+			 JOIN subjects sub ON sub.subject_id = sch.subject_id
+			 WHERE sch.teacher_id = $1
+			 GROUP BY sch.subject_id, sub.name
+			 ORDER BY sub.name, sch.subject_id`,
+			teacherProfile.ID,
+		)
+		if err != nil {
+			return Response{OK: false, Error: "failed to load teacher subjects"}
+		}
+		defer rows.Close()
+
+		for rows.Next() {
+			var item TeacherSubjectsResultItem
+			if err := rows.Scan(&item.SubjectID, &item.SubjectName, &item.GroupIDs); err != nil {
+				return Response{OK: false, Error: "failed to scan teacher subjects"}
+			}
+			items = append(items, item)
+		}
+		if err := rows.Err(); err != nil {
+			return Response{OK: false, Error: "failed to iterate teacher subjects"}
+		}
+	}
+
+	if err := s.populateSubjectGroupNames(ctx, items); err != nil {
+		return Response{OK: false, Error: "failed to load group names"}
+	}
+
+	return Response{
+		OK: true,
+		Result: map[string]any{
+			"subjects": items,
+		},
+	}
+}
+
+// populateSubjectGroupNames fills the Groups field ({id, name}) of each subject
+// item using the group IDs already collected, with a single lookup query.
+func (s *Service) populateSubjectGroupNames(ctx context.Context, items []TeacherSubjectsResultItem) error {
+	idSet := make(map[int32]struct{})
+	for i := range items {
+		for _, id := range items[i].GroupIDs {
+			idSet[id] = struct{}{}
+		}
+	}
+	if len(idSet) == 0 {
+		for i := range items {
+			items[i].Groups = make([]TeacherSubjectGroup, 0)
+		}
+		return nil
+	}
+
+	ids := make([]int32, 0, len(idSet))
+	for id := range idSet {
+		ids = append(ids, id)
+	}
+
+	rows, err := s.store.Pool().Query(
+		ctx,
+		`SELECT group_id, group_name FROM groups WHERE group_id = ANY($1)`,
+		ids,
+	)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	names := make(map[int32]string, len(ids))
+	for rows.Next() {
+		var (
+			id   int32
+			name string
+		)
+		if err := rows.Scan(&id, &name); err != nil {
+			return err
+		}
+		names[id] = name
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+
+	for i := range items {
+		groups := make([]TeacherSubjectGroup, 0, len(items[i].GroupIDs))
+		for _, id := range items[i].GroupIDs {
+			name := names[id]
+			if name == "" {
+				name = fmt.Sprintf("Группа %d", id)
+			}
+			groups = append(groups, TeacherSubjectGroup{ID: id, Name: name})
+		}
+		items[i].Groups = groups
+	}
+	return nil
+}
+
+func (s *Service) handleRequest(raw string) Response {
+	var req Request
+	if err := json.Unmarshal([]byte(raw), &req); err != nil {
+		return Response{OK: false, Error: "EROR: " + err.Error()}
+	}
+
+	switch req.Action {
+	case "ping":
+		return Response{
+			ID:     req.ID,
+			OK:     true,
+			Result: map[string]any{"pong": true},
+		}
+	case "register":
+		var data RegisterData
+		if err := json.Unmarshal(req.Data, &data); err != nil {
+			return Response{ID: req.ID, OK: false, Error: "EROR reg: " + err.Error()}
+		}
+		resp := s.register(data)
+		resp.ID = req.ID
+		return resp
+	case "register_by_invite":
+		var data RegisterByInviteData
+		if err := json.Unmarshal(req.Data, &data); err != nil {
+			return Response{ID: req.ID, OK: false, Error: "invalid register_by_invite payload"}
+		}
+		resp := s.registerByInvite(data)
+		resp.ID = req.ID
+		return resp
+	case "login":
+		var data LoginData
+		err := json.Unmarshal(req.Data, &data)
+		if err != nil {
+			return Response{ID: req.ID, OK: false, Error: "EROR_login: " + err.Error()}
+		}
+		resp := s.login(data)
+		resp.ID = req.ID
+		return resp
+	case "profile":
+		resp := s.profileByToken(req.Token)
+		resp.ID = req.ID
+		return resp
+	case "forgot_password":
+		var data ForgotPasswordData
+		if err := json.Unmarshal(req.Data, &data); err != nil {
+			return Response{ID: req.ID, OK: false, Error: "invalid forgot_password payload"}
+		}
+		resp := s.forgotPassword(data)
+		resp.ID = req.ID
+		return resp
+	case "reset_password":
+		var data ResetPasswordData
+		if err := json.Unmarshal(req.Data, &data); err != nil {
+			return Response{ID: req.ID, OK: false, Error: "invalid reset_password payload"}
+		}
+		resp := s.resetPassword(data)
+		resp.ID = req.ID
+		return resp
+	case "update_email":
+		var data UpdateEmailData
+		if err := json.Unmarshal(req.Data, &data); err != nil {
+			return Response{ID: req.ID, OK: false, Error: "invalid update_email payload"}
+		}
+		resp := s.updateEmail(req.Token, data)
+		resp.ID = req.ID
+		return resp
+	case "create_attendance_link":
+		var data AttendanceCreateData
+		if err := json.Unmarshal(req.Data, &data); err != nil {
+			return Response{ID: req.ID, OK: false, Error: "invalid create_attendance_link payload"}
+		}
+		resp := s.createAttendanceLinkByTeacher(req.Token, data)
+		resp.ID = req.ID
+		return resp
+	case "create_android_lesson":
+		var data AndroidLessonCreateData
+		if err := json.Unmarshal(req.Data, &data); err != nil {
+			return Response{ID: req.ID, OK: false, Error: "invalid create_android_lesson payload"}
+		}
+		resp := s.createLessonForAndroid(req.Token, data)
+		resp.ID = req.ID
+		return resp
+	case "confirm_attendance":
+		var data AttendanceConfirmData
+		if err := json.Unmarshal(req.Data, &data); err != nil {
+			return Response{ID: req.ID, OK: false, Error: "invalid confirm_attendance payload"}
+		}
+		resp := s.confirmAttendanceByStudent(req.Token, data)
+		resp.ID = req.ID
+		return resp
+	case "mark_android_attendance":
+		var data AndroidAttendanceMarkData
+		if err := json.Unmarshal(req.Data, &data); err != nil {
+			return Response{ID: req.ID, OK: false, Error: "invalid mark_android_attendance payload"}
+		}
+		resp := s.markAttendanceForAndroid(req.Token, data)
+		resp.ID = req.ID
+		return resp
+	case "teacher_attendance_by_group":
+		var data AttendanceGroupStatsData
+		if err := json.Unmarshal(req.Data, &data); err != nil {
+			return Response{ID: req.ID, OK: false, Error: "invalid teacher_attendance_by_group payload"}
+		}
+		resp := s.attendanceByGroupForTeacher(req.Token, data)
+		resp.ID = req.ID
+		return resp
+	case "teacher_group_performance":
+		var data GroupPerformanceData
+		if err := json.Unmarshal(req.Data, &data); err != nil {
+			return Response{ID: req.ID, OK: false, Error: "invalid teacher_group_performance payload"}
+		}
+		resp := s.groupPerformanceForTeacher(req.Token, data)
+		resp.ID = req.ID
+		return resp
+	case "teacher_attendance_marked_count":
+		var data AttendanceSessionData
+		if err := json.Unmarshal(req.Data, &data); err != nil {
+			return Response{ID: req.ID, OK: false, Error: "invalid teacher_attendance_marked_count payload"}
+		}
+		resp := s.attendanceMarkedCountForTeacher(req.Token, data)
+		resp.ID = req.ID
+		return resp
+	case "teacher_attendance_session_timer":
+		var data AttendanceSessionData
+		if err := json.Unmarshal(req.Data, &data); err != nil {
+			return Response{ID: req.ID, OK: false, Error: "invalid teacher_attendance_session_timer payload"}
+		}
+		resp := s.attendanceSessionTimerForTeacher(req.Token, data)
+		resp.ID = req.ID
+		return resp
+	case "teacher_active_attendance_session":
+		resp := s.activeAttendanceSessionForTeacher(req.Token)
+		resp.ID = req.ID
+		return resp
+	case "student_attendance_history":
+		var data AttendanceHistoryData
+		if err := json.Unmarshal(req.Data, &data); err != nil {
+			return Response{ID: req.ID, OK: false, Error: "invalid student_attendance_history payload"}
+		}
+		resp := s.attendanceHistoryForStudent(req.Token, data)
+		resp.ID = req.ID
+		return resp
+	case "teacher_attendance_student_history":
+		var data TeacherAttendanceStudentHistoryData
+		if err := json.Unmarshal(req.Data, &data); err != nil {
+			return Response{ID: req.ID, OK: false, Error: "invalid teacher_attendance_student_history payload"}
+		}
+		resp := s.attendanceHistoryForTeacherStudent(req.Token, data)
+		resp.ID = req.ID
+		return resp
+	case "teacher_subjects":
+		resp := s.teacherSubjects(req.Token)
+		resp.ID = req.ID
+		return resp
+	case "teacher_create_grade_item":
+		var data GradeItemCreateData
+		if err := json.Unmarshal(req.Data, &data); err != nil {
+			return Response{ID: req.ID, OK: false, Error: "invalid teacher_create_grade_item payload"}
+		}
+		resp := s.createGradeItemByTeacher(req.Token, data)
+		resp.ID = req.ID
+		return resp
+	case "teacher_grade_items_by_subject":
+		var data GradeSubjectData
+		if err := json.Unmarshal(req.Data, &data); err != nil {
+			return Response{ID: req.ID, OK: false, Error: "invalid teacher_grade_items_by_subject payload"}
+		}
+		resp := s.gradeItemsBySubjectForTeacher(req.Token, data)
+		resp.ID = req.ID
+		return resp
+	case "teacher_upsert_grade":
+		var data GradeUpsertData
+		if err := json.Unmarshal(req.Data, &data); err != nil {
+			return Response{ID: req.ID, OK: false, Error: "invalid teacher_upsert_grade payload"}
+		}
+		resp := s.upsertGradeByTeacher(req.Token, data)
+		resp.ID = req.ID
+		return resp
+	case "teacher_student_grades_by_subject":
+		var data TeacherStudentGradesData
+		if err := json.Unmarshal(req.Data, &data); err != nil {
+			return Response{ID: req.ID, OK: false, Error: "invalid teacher_student_grades_by_subject payload"}
+		}
+		resp := s.gradesBySubjectForTeacher(req.Token, data)
+		resp.ID = req.ID
+		return resp
+	case "student_grades_by_subject":
+		var data GradeSubjectData
+		if err := json.Unmarshal(req.Data, &data); err != nil {
+			return Response{ID: req.ID, OK: false, Error: "invalid student_grades_by_subject payload"}
+		}
+		resp := s.gradesBySubjectForStudent(req.Token, data)
+		resp.ID = req.ID
+		return resp
+	case "student_performance_radar":
+		resp := s.studentPerformanceRadar(req.Token)
+		resp.ID = req.ID
+		return resp
+	case "teacher_student_performance_radar":
+		var data TeacherStudentRadarData
+		if err := json.Unmarshal(req.Data, &data); err != nil {
+			return Response{ID: req.ID, OK: false, Error: "invalid teacher_student_performance_radar payload"}
+		}
+		resp := s.teacherStudentPerformanceRadar(req.Token, data)
+		resp.ID = req.ID
+		return resp
+	default:
+		return Response{ID: req.ID, OK: false, Error: "unknown_action: " + req.Action}
+	}
+}
+
+func (s *Service) generateJWT(userID string) (string, error) {
+	cl := jwt.MapClaims{
+		"user_id": userID,
+		"exp":     time.Now().Add(time.Hour * 12).Unix(),
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, cl)
+	return token.SignedString(s.jwtSecret)
+}
+
+func (s *Service) validateJWT(tokenString string) (string, error) {
+	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (any, error) {
+		return s.jwtSecret, nil
+	})
+	if err != nil {
+		return "", err
+	}
+
+	if !token.Valid {
+		return "", errors.New("token is not valid")
+	}
+
+	cl, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		return "", errors.New("claims type is invalid")
+	}
+
+	if userID, ok := cl["user_id"].(string); ok {
+		return userID, nil
+	}
+	if userID, ok := cl["user_id"].(float64); ok {
+		return strconv.FormatInt(int64(userID), 10), nil
+	}
+
+	return "", fmt.Errorf("no user id found in claims")
+}
+
+func (s *Service) forgotPassword(data ForgotPasswordData) Response {
+	identity := strings.TrimSpace(data.Identity)
+	if identity == "" {
+		return Response{OK: false, Error: "Identity (login or email) is required"}
+	}
+
+	ctx, cancel := s.dbContext()
+	defer cancel()
+
+	var dbUser db.User
+	var ok bool
+	var err error
+
+	if strings.Contains(identity, "@") {
+		dbUser, ok, err = s.store.Users.GetByEmail(ctx, identity)
+	} else {
+		dbUser, ok, err = s.store.Users.GetByLogin(ctx, identity)
+	}
+
+	if err != nil {
+		return Response{OK: false, Error: fmt.Sprintf("Error finding user: %v", err)}
+	}
+	if !ok {
+		return Response{OK: true, Result: "If the account exists and has a registered email, a reset link has been sent."}
+	}
+
+	if dbUser.Email == nil || *dbUser.Email == "" {
+		return Response{OK: false, Error: "User has no registered email address"}
+	}
+
+	tokenBytes := make([]byte, 32)
+	if _, err := rand.Read(tokenBytes); err != nil {
+		return Response{OK: false, Error: fmt.Sprintf("Error generating token: %v", err)}
+	}
+	token := hex.EncodeToString(tokenBytes)
+	expiresAt := time.Now().Add(15 * time.Minute)
+
+	if err := s.store.Users.CreateResetToken(ctx, dbUser.ID, token, expiresAt); err != nil {
+		return Response{OK: false, Error: fmt.Sprintf("Error creating reset token: %v", err)}
+	}
+
+	email := *dbUser.Email
+	go func() {
+		if err := s.mailer.SendPasswordReset(email, token); err != nil {
+			log.Printf("Failed to send password reset email to %s: %v", email, err)
+		}
+	}()
+
+	return Response{OK: true, Result: "If the account exists and has a registered email, a reset link has been sent."}
+}
+
+func (s *Service) resetPassword(data ResetPasswordData) Response {
+	token := strings.TrimSpace(data.Token)
+	newPassword := strings.TrimSpace(data.NewPassword)
+	if token == "" || newPassword == "" {
+		return Response{OK: false, Error: "Token and new password are required"}
+	}
+	if len(newPassword) < 6 {
+		return Response{OK: false, Error: "Password must be at least 6 characters long"}
+	}
+
+	ctx, cancel := s.dbContext()
+	defer cancel()
+
+	userID, expiresAt, err := s.store.Users.GetResetToken(ctx, token)
+	if err != nil {
+		return Response{OK: false, Error: "Invalid or expired token"}
+	}
+
+	if time.Now().After(expiresAt) {
+		_ = s.store.Users.DeleteResetToken(ctx, token)
+		return Response{OK: false, Error: "Invalid or expired token"}
+	}
+
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return Response{OK: false, Error: fmt.Sprintf("Error hashing password: %v", err)}
+	}
+
+	if err := s.store.Users.UpdatePassword(ctx, userID, string(hashedPassword)); err != nil {
+		return Response{OK: false, Error: fmt.Sprintf("Error updating password: %v", err)}
+	}
+
+	_ = s.store.Users.DeleteResetToken(ctx, token)
+
+	return Response{OK: true, Result: "Password has been successfully updated"}
+}
+
+func (s *Service) updateEmail(sessionToken string, data UpdateEmailData) Response {
+	user, err := s.userBySessionToken(sessionToken)
+	if err != nil {
+		return Response{OK: false, Error: "Unauthorized: " + err.Error()}
+	}
+
+	email := strings.TrimSpace(data.Email)
+	if email == "" {
+		return Response{OK: false, Error: "Email is required"}
+	}
+	if !strings.Contains(email, "@") {
+		return Response{OK: false, Error: "Invalid email format"}
+	}
+
+	ctx, cancel := s.dbContext()
+	defer cancel()
+
+	existingUser, ok, err := s.store.Users.GetByEmail(ctx, email)
+	if err == nil && ok && existingUser.ID != user.ID {
+		return Response{OK: false, Error: "Email is already in use by another user"}
+	}
+
+	if err := s.store.Users.UpdateEmail(ctx, user.ID, email); err != nil {
+		return Response{OK: false, Error: fmt.Sprintf("Error updating email: %v", err)}
+	}
+
+	return Response{OK: true, Result: "Email has been successfully updated"}
+}

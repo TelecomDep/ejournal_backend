@@ -1,0 +1,97 @@
+.radar-chart {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+.radar-svg {
+  width: 100%;
+  max-width: 360px;
+  height: auto;
+}
+
+.radar-ring {
+  fill: none;
+  stroke: #e2e6f3;
+  stroke-width: 1;
+}
+
+.radar-axis {
+  stroke: #d2d8ec;
+  stroke-width: 1;
+}
+
+.radar-area {
+  fill: rgba(31, 47, 143, 0.22);
+  stroke: #1f2f8f;
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+
+.radar-dot {
+  fill: #1f2f8f;
+  stroke: #ffffff;
+  stroke-width: 1.5;
+}
+
+.radar-label {
+  fill: #24305f;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.radar-label-pct {
+  fill: #68708e;
+  font-size: 10px;
+}
+
+.radar-empty {
+  color: #68708e;
+  text-align: center;
+  padding: 24px 12px;
+  margin: 0;
+}
+
+.radar-circles {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 24px;
+  width: 100%;
+}
+
+.radar-circle {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+}
+
+.radar-circle-track {
+  stroke: #e2e6f3;
+}
+
+.radar-circle-fill {
+  stroke: #1f2f8f;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.3s ease;
+}
+
+.radar-circle-pct {
+  fill: #24305f;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.radar-circle-label {
+  color: #24305f;
+  font-size: 13px;
+  font-weight: 600;
+  max-width: 140px;
+}
+
+.radar-circle-score {
+  color: #68708e;
+  font-size: 12px;
+}

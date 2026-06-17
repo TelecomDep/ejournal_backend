@@ -1,0 +1,151 @@
+.attendance-grid {
+  position: relative;
+  width: 500px;
+  background: linear-gradient(180deg, #2c44b8, #15226e);
+  border-radius: 12px;
+  padding: 2px;
+  font-family: 'Inter', sans-serif;
+}
+
+.attendance-grid-header {
+  background: #121212;
+  border-radius: 10px 10px 0 0;
+  padding: 16px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.grid-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.grid-stats {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.attendance-grid-container {
+  background: #121212;
+  padding: 20px;
+  border-radius: 0 0 10px 10px;
+  position: relative;
+  min-height: 240px;
+}
+
+.grid-labels {
+  position: relative;
+  margin-bottom: 20px;
+}
+
+.month-labels {
+  display: flex;
+  gap: 30px;
+  margin-bottom: 12px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.weekday-labels {
+  display: flex;
+  flex-direction: column;
+  gap: 35px;
+  position: absolute;
+  left: -35px;
+  top: 20px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.cells-wrapper {
+  position: relative;
+  height: 210px;
+}
+
+.cell-group {
+  position: absolute;
+}
+
+.attendance-cell {
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.attendance-cell:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.3);
+  z-index: 10;
+}
+
+.cell-star {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.9);
+  text-shadow: 0 0 2px rgba(0, 0, 0, 0.3);
+}
+
+.attendance-tooltip {
+  background: #1a1a1a;
+  border-radius: 8px;
+  padding: 8px 12px;
+  min-width: 140px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.attendance-tooltip strong {
+  display: block;
+  font-size: 12px;
+  color: #2c44b8;
+  margin-bottom: 6px;
+}
+
+.attendance-tooltip span {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.tooltip-bar {
+  margin-top: 6px;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.tooltip-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #2c44b8, #15226e);
+  border-radius: 2px;
+}
+
+.legend {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.legend-colors {
+  display: flex;
+  gap: 3px;
+}
+
+.legend-color {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+}
+
+.legend-red {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 12px;
+}

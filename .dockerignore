@@ -1,0 +1,10 @@
+.git
+.idea
+.codex
+.codex-cache
+*.exe
+*.log
+.env
+node_modules
+frontend/node_modules
+build
