@@ -96,3 +96,30 @@
   color: #bb1d23;
   font-weight: 600;
 }
+
+.login-success {
+  margin: 12px 0 0;
+  color: #1b5e20;
+  font-weight: 600;
+  font-size: 14px;
+  text-align: center;
+}
+
+.back-to-login-btn {
+  width: 100%;
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid #d4d7e2;
+  border-radius: 12px;
+  background: transparent;
+  color: #4b4f6b;
+  font-size: 14px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.back-to-login-btn:hover {
+  background: #f3f5fa;
+  color: #15226e;
+}

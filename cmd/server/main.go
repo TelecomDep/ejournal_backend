@@ -45,6 +45,15 @@ func main() {
 		workersCount = 1
 	}
 
+	mailer := app.NewMailer(
+		cfg.SMTPHost,
+		cfg.SMTPPort,
+		cfg.SMTPUser,
+		cfg.SMTPPassword,
+		cfg.SMTPFrom,
+		cfg.SiteBaseURL,
+	)
+
 	svc := app.NewService(
 		cfg.JWTSecret,
 		cfg.SiteBaseURL,
@@ -53,6 +62,7 @@ func main() {
 		cfg.DefaultGroupID,
 		cfg.AllowEarlyAttendance,
 		dbStore,
+		mailer,
 	)
 	svc.StartWorkerPool(workersCount)
 	log.Printf("Internal worker pool started with %d workers", workersCount)

@@ -16,6 +16,7 @@ const STUDENT_NAV = [
 ];
 
 const TEACHER_NAV = [
+  { key: 'profile', label: 'Профиль', route: '/profile' },
   { key: 'attendance', label: 'Посещаемость', route: '/teacher/attendance' },
   { key: 'stats', label: 'Статистика группы', route: '/teacher/stats' },
   { key: 'grades', label: 'Оценки', route: '/teacher/grades' }
@@ -104,6 +105,10 @@ function App() {
     setUserData((prev) => (prev ? { ...prev, avatar: url } : prev));
   };
 
+  const handleUserDataUpdated = (fields) => {
+    setUserData((prev) => (prev ? { ...prev, ...fields } : prev));
+  };
+
   let body;
 
   if (!token) {
@@ -125,14 +130,21 @@ function App() {
     const roleLabel = isTeacher ? 'Преподаватель' : 'Студент';
 
     let page;
-    if (isTeacher) {
+    if (activeItem.key === 'profile') {
+      page = (
+        <ProfilePage
+          token={token}
+          userData={userData}
+          onAvatarUpdated={handleAvatarUpdated}
+          onUserDataUpdated={handleUserDataUpdated}
+        />
+      );
+    } else if (isTeacher) {
       page = <TeacherAccount userData={userData} token={token} section={TEACHER_SECTION[activeItem.key]} />;
     } else if (activeItem.key === 'attendance') {
       page = <AttendancePage token={token} />;
     } else if (activeItem.key === 'grades') {
       page = <GradesPage token={token} />;
-    } else {
-      page = <ProfilePage token={token} userData={userData} onAvatarUpdated={handleAvatarUpdated} />;
     }
 
     body = (

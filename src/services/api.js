@@ -344,6 +344,50 @@ const api = {
     }
   },
 
+  // Password Recovery / Reset
+  async forgotPassword(identity) {
+    try {
+      const response = await axios.post(`${BACKEND_URL}/api/auth/forgot-password`, {
+        identity
+      }, {
+        headers: { 'Content-Type': 'application/json' }
+      });
+      return unwrapApiResponse(response.data);
+    } catch (error) {
+      console.error('Ошибка запроса восстановления пароля:', error);
+      throw error;
+    }
+  },
+
+  async resetPassword(token, newPassword) {
+    try {
+      const response = await axios.post(`${BACKEND_URL}/api/auth/reset-password`, {
+        token,
+        new_password: newPassword
+      }, {
+        headers: { 'Content-Type': 'application/json' }
+      });
+      return unwrapApiResponse(response.data);
+    } catch (error) {
+      console.error('Ошибка сброса пароля:', error);
+      throw error;
+    }
+  },
+
+  async updateEmail(token, email) {
+    try {
+      const response = await axios.post(`${BACKEND_URL}/api/user/email`, {
+        email
+      }, {
+        headers: authHeaders(token)
+      });
+      return unwrapApiResponse(response.data);
+    } catch (error) {
+      console.error('Ошибка обновления email:', error);
+      throw error;
+    }
+  },
+
   getErrorMessage(error, fallback) {
     return extractError(error) || fallback;
   }

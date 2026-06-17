@@ -4,7 +4,7 @@ import ProfileSquare from '../components/ProfileSquare';
 import ProfileDescription from '../components/ProfileDescription';
 import './ProfilePage.css';
 
-const ProfilePage = ({ token, userData, onAvatarUpdated }) => {
+const ProfilePage = ({ token, userData, onAvatarUpdated, onUserDataUpdated }) => {
   const inputRef = useRef(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
@@ -47,7 +47,7 @@ const ProfilePage = ({ token, userData, onAvatarUpdated }) => {
         {error ? <p className="profile-upload-error">{error}</p> : null}
       </div>
       <div className="profile-details">
-        <ProfileDescription userData={userData} />
+        <ProfileDescription userData={userData} token={token} onUserDataUpdated={onUserDataUpdated} />
       </div>
     </section>
   );

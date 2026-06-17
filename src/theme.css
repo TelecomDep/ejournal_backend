@@ -497,3 +497,17 @@ body {
   color: #e7eaf3;
   border-color: #2c313d;
 }
+
+[data-theme="dark"] .login-success {
+  color: #81c784;
+}
+
+[data-theme="dark"] .back-to-login-btn {
+  border-color: rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="dark"] .back-to-login-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}

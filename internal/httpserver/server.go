@@ -47,6 +47,9 @@ func (s *Server) Start() {
 	fiberApp.Post("/login", s.loginHandler)
 	fiberApp.Get("/profile", s.profileHandler)
 	fiberApp.Post("/lessons/create", s.androidLessonCreateHandler)
+	fiberApp.Post("/api/auth/forgot-password", s.forgotPasswordHandler)
+	fiberApp.Post("/api/auth/reset-password", s.resetPasswordHandler)
+	fiberApp.Post("/api/user/email", s.updateEmailHandler)
 
 	fiberApp.Post("/api/teacher/attendance-link", s.teacherAttendanceLinkHandler)
 	fiberApp.Post("/api/teacher/attendance/session", s.teacherAttendanceLinkHandler)
@@ -933,6 +936,136 @@ func (s *Server) gradeActionHandler(c *fiber.Ctx, requestID, action string, body
 	}
 	if !resp.OK {
 		return c.Status(app.GradeHTTPStatus(resp)).JSON(resp)
+	}
+
+	return c.JSON(resp)
+}
+
+// forgotPasswordHandler godoc
+// @Summary Forgot password
+// @Description Generates a password reset token and sends it to the user's email.
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param request body app.ForgotPasswordData true "Forgot password payload"
+// @Success 200 {object} app.Response
+// @Failure 400 {object} app.Response
+// @Failure 500 {object} app.Response
+// @Router /api/auth/forgot-password [post]
+func (s *Server) forgotPasswordHandler(c *fiber.Ctx) error {
+	var body app.ForgotPasswordData
+	if err := c.BodyParser(&body); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(app.Response{OK: false, Error: "Error parsing body"})
+	}
+
+	data, err := json.Marshal(body)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(app.Response{OK: false, Error: "Error marshalling request"})
+	}
+
+	req := app.Request{ID: "http-forgot-password", Action: "forgot_password", Data: data}
+	raw, err := json.Marshal(req)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(app.Response{OK: false, Error: "Error marshalling envelope"})
+	}
+
+	resp, err := s.svc.DispatchRequest(string(raw), s.requestTimeout)
+	if err != nil {
+		return c.Status(fiber.StatusServiceUnavailable).JSON(app.Response{OK: false, Error: err.Error()})
+	}
+
+	if !resp.OK {
+		return c.Status(fiber.StatusBadRequest).JSON(resp)
+	}
+
+	return c.JSON(resp)
+}
+
+// resetPasswordHandler godoc
+// @Summary Reset password
+// @Description Resets user password using the provided reset token.
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param request body app.ResetPasswordData true "Reset password payload"
+// @Success 200 {object} app.Response
+// @Failure 400 {object} app.Response
+// @Failure 500 {object} app.Response
+// @Router /api/auth/reset-password [post]
+func (s *Server) resetPasswordHandler(c *fiber.Ctx) error {
+	var body app.ResetPasswordData
+	if err := c.BodyParser(&body); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(app.Response{OK: false, Error: "Error parsing body"})
+	}
+
+	data, err := json.Marshal(body)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(app.Response{OK: false, Error: "Error marshalling request"})
+	}
+
+	req := app.Request{ID: "http-reset-password", Action: "reset_password", Data: data}
+	raw, err := json.Marshal(req)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(app.Response{OK: false, Error: "Error marshalling envelope"})
+	}
+
+	resp, err := s.svc.DispatchRequest(string(raw), s.requestTimeout)
+	if err != nil {
+		return c.Status(fiber.StatusServiceUnavailable).JSON(app.Response{OK: false, Error: err.Error()})
+	}
+
+	if !resp.OK {
+		return c.Status(fiber.StatusBadRequest).JSON(resp)
+	}
+
+	return c.JSON(resp)
+}
+
+// updateEmailHandler godoc
+// @Summary Update user email
+// @Description Links/updates email for current user.
+// @Tags profile
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body app.UpdateEmailData true "Update email payload"
+// @Success 200 {object} app.Response
+// @Failure 400 {object} app.Response
+// @Failure 401 {object} app.Response
+// @Failure 500 {object} app.Response
+// @Router /api/user/email [post]
+func (s *Server) updateEmailHandler(c *fiber.Ctx) error {
+	token := c.Get("Authorization")
+	if token == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(app.Response{OK: false, Error: "missing Authorization header"})
+	}
+
+	var body app.UpdateEmailData
+	if err := c.BodyParser(&body); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(app.Response{OK: false, Error: "Error parsing body"})
+	}
+
+	data, err := json.Marshal(body)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(app.Response{OK: false, Error: "Error marshalling request"})
+	}
+
+	req := app.Request{ID: "http-update-email", Action: "update_email", Token: token, Data: data}
+	raw, err := json.Marshal(req)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(app.Response{OK: false, Error: "Error marshalling envelope"})
+	}
+
+	resp, err := s.svc.DispatchRequest(string(raw), s.requestTimeout)
+	if err != nil {
+		return c.Status(fiber.StatusServiceUnavailable).JSON(app.Response{OK: false, Error: err.Error()})
+	}
+
+	if !resp.OK {
+		if resp.Error == "invalid token" || resp.Error == "session not found" || resp.Error == "missing token" {
+			return c.Status(fiber.StatusUnauthorized).JSON(resp)
+		}
+		return c.Status(fiber.StatusBadRequest).JSON(resp)
 	}
 
 	return c.JSON(resp)

@@ -50,6 +50,11 @@ definitions:
       subject_id:
         type: integer
     type: object
+  app.ForgotPasswordData:
+    properties:
+      identity:
+        type: string
+    type: object
   app.GradeItemCreateData:
     properties:
       deadline:
@@ -117,6 +122,13 @@ definitions:
       role_hash:
         type: string
     type: object
+  app.ResetPasswordData:
+    properties:
+      new_password:
+        type: string
+      token:
+        type: string
+    type: object
   app.Response:
     properties:
       error:
@@ -145,6 +157,11 @@ definitions:
     properties:
       student_id:
         type: integer
+    type: object
+  app.UpdateEmailData:
+    properties:
+      email:
+        type: string
     type: object
   httpserver.loginResponse:
     properties:
@@ -801,6 +818,66 @@ info:
   title: EJournal Backend API
   version: "1.0"
 paths:
+  /api/auth/forgot-password:
+    post:
+      consumes:
+      - application/json
+      description: Generates a password reset token and sends it to the user's email.
+      parameters:
+      - description: Forgot password payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/app.ForgotPasswordData'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/app.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/app.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/app.Response'
+      summary: Forgot password
+      tags:
+      - auth
+  /api/auth/reset-password:
+    post:
+      consumes:
+      - application/json
+      description: Resets user password using the provided reset token.
+      parameters:
+      - description: Reset password payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/app.ResetPasswordData'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/app.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/app.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/app.Response'
+      summary: Reset password
+      tags:
+      - auth
   /api/student/attendance/confirm:
     post:
       consumes:
@@ -1521,6 +1598,42 @@ paths:
       summary: Get teacher subjects
       tags:
       - attendance
+  /api/user/email:
+    post:
+      consumes:
+      - application/json
+      description: Links/updates email for current user.
+      parameters:
+      - description: Update email payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/app.UpdateEmailData'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/app.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/app.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/app.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/app.Response'
+      security:
+      - BearerAuth: []
+      summary: Update user email
+      tags:
+      - profile
   /api/user/upload-avatar:
     post:
       consumes:

@@ -4,6 +4,56 @@
  */
 
 export interface paths {
+  "/api/auth/forgot-password": {
+    /** Generates a password reset token and sends it to the user's email. */
+    post: {
+      parameters: {
+        body: {
+          /** Forgot password payload */
+          request: definitions["app.ForgotPasswordData"];
+        };
+      };
+      responses: {
+        /** OK */
+        200: {
+          schema: definitions["app.Response"];
+        };
+        /** Bad Request */
+        400: {
+          schema: definitions["app.Response"];
+        };
+        /** Internal Server Error */
+        500: {
+          schema: definitions["app.Response"];
+        };
+      };
+    };
+  };
+  "/api/auth/reset-password": {
+    /** Resets user password using the provided reset token. */
+    post: {
+      parameters: {
+        body: {
+          /** Reset password payload */
+          request: definitions["app.ResetPasswordData"];
+        };
+      };
+      responses: {
+        /** OK */
+        200: {
+          schema: definitions["app.Response"];
+        };
+        /** Bad Request */
+        400: {
+          schema: definitions["app.Response"];
+        };
+        /** Internal Server Error */
+        500: {
+          schema: definitions["app.Response"];
+        };
+      };
+    };
+  };
   "/api/student/attendance/confirm": {
     /** Student confirms attendance for active session. */
     post: {
@@ -597,6 +647,35 @@ export interface paths {
       };
     };
   };
+  "/api/user/email": {
+    /** Links/updates email for current user. */
+    post: {
+      parameters: {
+        body: {
+          /** Update email payload */
+          request: definitions["app.UpdateEmailData"];
+        };
+      };
+      responses: {
+        /** OK */
+        200: {
+          schema: definitions["app.Response"];
+        };
+        /** Bad Request */
+        400: {
+          schema: definitions["app.Response"];
+        };
+        /** Unauthorized */
+        401: {
+          schema: definitions["app.Response"];
+        };
+        /** Internal Server Error */
+        500: {
+          schema: definitions["app.Response"];
+        };
+      };
+    };
+  };
   "/api/user/upload-avatar": {
     /** Saves a JPEG, PNG, or WebP profile picture up to 5 MiB and returns its public URL. */
     post: {
@@ -777,6 +856,9 @@ export interface definitions {
     group_id?: number;
     subject_id?: number;
   };
+  "app.ForgotPasswordData": {
+    identity?: string;
+  };
   "app.GradeItemCreateData": {
     deadline?: string;
     item_type?: string;
@@ -814,6 +896,10 @@ export interface definitions {
     role?: string;
     role_hash?: string;
   };
+  "app.ResetPasswordData": {
+    new_password?: string;
+    token?: string;
+  };
   "app.Response": {
     error?: string;
     id?: string;
@@ -830,6 +916,9 @@ export interface definitions {
   };
   "app.TeacherStudentRadarData": {
     student_id?: number;
+  };
+  "app.UpdateEmailData": {
+    email?: string;
   };
   "httpserver.loginResponse": {
     /** @example */

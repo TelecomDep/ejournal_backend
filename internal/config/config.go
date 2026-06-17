@@ -19,6 +19,11 @@ type AppConfig struct {
 	DefaultGroupID       int32
 	AllowEarlyAttendance bool
 	UploadDir            string
+	SMTPHost             string
+	SMTPPort             string
+	SMTPUser             string
+	SMTPPassword         string
+	SMTPFrom             string
 }
 
 func Load() AppConfig {
@@ -35,6 +40,11 @@ func Load() AppConfig {
 		DefaultGroupID:       getEnvInt32("DEFAULT_STUDENT_GROUP_ID", 1),
 		AllowEarlyAttendance: getEnvBool("ALLOW_EARLY_ATTENDANCE", false),
 		UploadDir:            getEnv("UPLOAD_DIR", "uploads"),
+		SMTPHost:             getEnv("SMTP_HOST", ""),
+		SMTPPort:             getEnv("SMTP_PORT", "587"),
+		SMTPUser:             getEnv("SMTP_USER", ""),
+		SMTPPassword:         getEnv("SMTP_PASSWORD", ""),
+		SMTPFrom:             getEnv("SMTP_FROM", ""),
 	}
 
 	if cfg.JWTSecret == "" {

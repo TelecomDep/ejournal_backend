@@ -2,10 +2,13 @@ package app
 
 import (
 	"context"
+	"crypto/rand"
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"sort"
 	"strconv"
 	"strings"
@@ -51,12 +54,26 @@ type RegisterByInviteData struct {
 	Password   string `json:"password"`
 }
 
+type ForgotPasswordData struct {
+	Identity string `json:"identity"`
+}
+
+type ResetPasswordData struct {
+	Token       string `json:"token"`
+	NewPassword string `json:"new_password"`
+}
+
+type UpdateEmailData struct {
+	Email string `json:"email"`
+}
+
 type User struct {
 	ID     int32
 	UserID string
 	Login  string
 	Pass   string
 	Role   string
+	Email  string
 }
 
 type AttendanceCreateData struct {
@@ -134,6 +151,7 @@ type Service struct {
 	defaultGroupID       int32
 	allowEarlyAttendance bool
 	store                *db.Store
+	mailer               *Mailer
 	requestQueue         chan requestJob
 }
 
@@ -226,7 +244,7 @@ func isDemoTeacher(user User) bool {
 	return user.Role == "teacher" && strings.EqualFold(user.Login, "teacher_test")
 }
 
-func NewService(jwtSecret, siteBaseURL, roleHashTeacher, roleHashStudent string, defaultGroupID int32, allowEarlyAttendance bool, store *db.Store) *Service {
+func NewService(jwtSecret, siteBaseURL, roleHashTeacher, roleHashStudent string, defaultGroupID int32, allowEarlyAttendance bool, store *db.Store, mailer *Mailer) *Service {
 	return &Service{
 		jwtSecret:            []byte(strings.TrimSpace(jwtSecret)),
 		siteBaseURL:          strings.TrimSpace(siteBaseURL),
@@ -235,6 +253,7 @@ func NewService(jwtSecret, siteBaseURL, roleHashTeacher, roleHashStudent string,
 		defaultGroupID:       defaultGroupID,
 		allowEarlyAttendance: allowEarlyAttendance,
 		store:                store,
+		mailer:               mailer,
 	}
 }
 
@@ -328,12 +347,18 @@ func (s *Service) userBySessionToken(token string) (User, error) {
 		return User{}, errors.New("session not found")
 	}
 
+	var emailStr string
+	if dbUser.Email != nil {
+		emailStr = *dbUser.Email
+	}
+
 	return User{
 		ID:     dbUser.ID,
 		UserID: strconv.FormatInt(int64(dbUser.ID), 10),
 		Login:  dbUser.Login,
 		Pass:   dbUser.PasswordHash,
 		Role:   dbUser.Role,
+		Email:  emailStr,
 	}, nil
 }
 
@@ -1749,6 +1774,30 @@ func (s *Service) handleRequest(raw string) Response {
 		resp := s.profileByToken(req.Token)
 		resp.ID = req.ID
 		return resp
+	case "forgot_password":
+		var data ForgotPasswordData
+		if err := json.Unmarshal(req.Data, &data); err != nil {
+			return Response{ID: req.ID, OK: false, Error: "invalid forgot_password payload"}
+		}
+		resp := s.forgotPassword(data)
+		resp.ID = req.ID
+		return resp
+	case "reset_password":
+		var data ResetPasswordData
+		if err := json.Unmarshal(req.Data, &data); err != nil {
+			return Response{ID: req.ID, OK: false, Error: "invalid reset_password payload"}
+		}
+		resp := s.resetPassword(data)
+		resp.ID = req.ID
+		return resp
+	case "update_email":
+		var data UpdateEmailData
+		if err := json.Unmarshal(req.Data, &data); err != nil {
+			return Response{ID: req.ID, OK: false, Error: "invalid update_email payload"}
+		}
+		resp := s.updateEmail(req.Token, data)
+		resp.ID = req.ID
+		return resp
 	case "create_attendance_link":
 		var data AttendanceCreateData
 		if err := json.Unmarshal(req.Data, &data); err != nil {
@@ -1929,4 +1978,121 @@ func (s *Service) validateJWT(tokenString string) (string, error) {
 	}
 
 	return "", fmt.Errorf("no user id found in claims")
+}
+
+func (s *Service) forgotPassword(data ForgotPasswordData) Response {
+	identity := strings.TrimSpace(data.Identity)
+	if identity == "" {
+		return Response{OK: false, Error: "Identity (login or email) is required"}
+	}
+
+	ctx, cancel := s.dbContext()
+	defer cancel()
+
+	var dbUser db.User
+	var ok bool
+	var err error
+
+	if strings.Contains(identity, "@") {
+		dbUser, ok, err = s.store.Users.GetByEmail(ctx, identity)
+	} else {
+		dbUser, ok, err = s.store.Users.GetByLogin(ctx, identity)
+	}
+
+	if err != nil {
+		return Response{OK: false, Error: fmt.Sprintf("Error finding user: %v", err)}
+	}
+	if !ok {
+		return Response{OK: true, Result: "If the account exists and has a registered email, a reset link has been sent."}
+	}
+
+	if dbUser.Email == nil || *dbUser.Email == "" {
+		return Response{OK: false, Error: "User has no registered email address"}
+	}
+
+	tokenBytes := make([]byte, 32)
+	if _, err := rand.Read(tokenBytes); err != nil {
+		return Response{OK: false, Error: fmt.Sprintf("Error generating token: %v", err)}
+	}
+	token := hex.EncodeToString(tokenBytes)
+	expiresAt := time.Now().Add(15 * time.Minute)
+
+	if err := s.store.Users.CreateResetToken(ctx, dbUser.ID, token, expiresAt); err != nil {
+		return Response{OK: false, Error: fmt.Sprintf("Error creating reset token: %v", err)}
+	}
+
+	email := *dbUser.Email
+	go func() {
+		if err := s.mailer.SendPasswordReset(email, token); err != nil {
+			log.Printf("Failed to send password reset email to %s: %v", email, err)
+		}
+	}()
+
+	return Response{OK: true, Result: "If the account exists and has a registered email, a reset link has been sent."}
+}
+
+func (s *Service) resetPassword(data ResetPasswordData) Response {
+	token := strings.TrimSpace(data.Token)
+	newPassword := strings.TrimSpace(data.NewPassword)
+	if token == "" || newPassword == "" {
+		return Response{OK: false, Error: "Token and new password are required"}
+	}
+	if len(newPassword) < 6 {
+		return Response{OK: false, Error: "Password must be at least 6 characters long"}
+	}
+
+	ctx, cancel := s.dbContext()
+	defer cancel()
+
+	userID, expiresAt, err := s.store.Users.GetResetToken(ctx, token)
+	if err != nil {
+		return Response{OK: false, Error: "Invalid or expired token"}
+	}
+
+	if time.Now().After(expiresAt) {
+		_ = s.store.Users.DeleteResetToken(ctx, token)
+		return Response{OK: false, Error: "Invalid or expired token"}
+	}
+
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return Response{OK: false, Error: fmt.Sprintf("Error hashing password: %v", err)}
+	}
+
+	if err := s.store.Users.UpdatePassword(ctx, userID, string(hashedPassword)); err != nil {
+		return Response{OK: false, Error: fmt.Sprintf("Error updating password: %v", err)}
+	}
+
+	_ = s.store.Users.DeleteResetToken(ctx, token)
+
+	return Response{OK: true, Result: "Password has been successfully updated"}
+}
+
+func (s *Service) updateEmail(sessionToken string, data UpdateEmailData) Response {
+	user, err := s.userBySessionToken(sessionToken)
+	if err != nil {
+		return Response{OK: false, Error: "Unauthorized: " + err.Error()}
+	}
+
+	email := strings.TrimSpace(data.Email)
+	if email == "" {
+		return Response{OK: false, Error: "Email is required"}
+	}
+	if !strings.Contains(email, "@") {
+		return Response{OK: false, Error: "Invalid email format"}
+	}
+
+	ctx, cancel := s.dbContext()
+	defer cancel()
+
+	existingUser, ok, err := s.store.Users.GetByEmail(ctx, email)
+	if err == nil && ok && existingUser.ID != user.ID {
+		return Response{OK: false, Error: "Email is already in use by another user"}
+	}
+
+	if err := s.store.Users.UpdateEmail(ctx, user.ID, email); err != nil {
+		return Response{OK: false, Error: fmt.Sprintf("Error updating email: %v", err)}
+	}
+
+	return Response{OK: true, Result: "Email has been successfully updated"}
 }
