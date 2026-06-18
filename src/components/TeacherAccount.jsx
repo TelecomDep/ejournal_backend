@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import api from '../services/api';
 import RadarChart from './RadarChart';
+import QRCode from './QRCode';
 import './TeacherAccount.css';
 
 const gradeTypes = [
@@ -674,7 +675,11 @@ const TeacherAccount = ({ userData, token, section = 'attendance' }) => {
               <div className="result-grid">
                 <div>
                   <span>Ссылка для студентов</span>
-                  <strong className="mono-value">{sessionResult.join_url || 'не получена'}</strong>
+                  {sessionResult.join_url ? (
+                    <QRCode value={sessionResult.join_url} size={160} />
+                  ) : (
+                    <strong className="mono-value">не получена</strong>
+                  )}
                 </div>
                 <div>
                   <span>ID занятия</span>
