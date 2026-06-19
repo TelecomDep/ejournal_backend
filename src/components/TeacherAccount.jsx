@@ -578,7 +578,18 @@ const TeacherAccount = ({ userData, token, section = 'attendance' }) => {
       return;
     }
     try {
-      await navigator.clipboard.writeText(sessionResult.join_url);
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(sessionResult.join_url);
+      } else {
+        const textarea = document.createElement('textarea');
+        textarea.value = sessionResult.join_url;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+      }
       setMessage('Ссылка скопирована.');
     } catch {
       setError('Не удалось скопировать ссылку автоматически.');
