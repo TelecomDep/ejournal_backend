@@ -87,8 +87,9 @@ services:
       - ONE_DIR=1
       - ENABLE_SPAMASSASSIN=0
       - ENABLE_CLAMAV=0
+      - ENABLE_AMAVIS=0
       - ENABLE_FAIL2BAN=1
-      - SSL_TYPE=letsencrypt
+      - SSL_TYPE=
     volumes:
       - mail-data:/var/mail
       - mail-state:/var/mail-state

@@ -479,6 +479,7 @@ func (s *Service) profileByToken(token string) Response {
 		"user_ID": user.UserID,
 		"login":   user.Login,
 		"role":    user.Role,
+		"email":   user.Email,
 	}
 
 	ctx, cancel := s.dbContext()
