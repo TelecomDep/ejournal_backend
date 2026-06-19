@@ -233,6 +233,19 @@ body {
   color: #202442;
 }
 
+[data-theme="light"] .student-score-main {
+  background: #e9edfb !important;
+  border-color: #c2ccf2 !important;
+}
+
+[data-theme="light"] .student-score-main span {
+  color: #4b5273;
+}
+
+[data-theme="light"] .student-score-main strong {
+  color: #1f2f8f;
+}
+
 [data-theme="light"] .student-progress {
   background: #e2e6f3;
 }

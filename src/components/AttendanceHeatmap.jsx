@@ -145,10 +145,10 @@ const AttendanceHeatmap = ({ attendanceData = [], year = new Date().getFullYear(
         <div className="heatmap-wrapper">
           <div className="months-row">
             {monthPositions.map((month, idx) => (
-              <div 
-                key={idx} 
+              <div
+                key={idx}
                 className="month-label"
-                style={{ left: `${month.weekIndex * 16}px` }}
+                style={{ left: `calc((var(--cell-size) + var(--cell-gap)) * ${month.weekIndex})` }}
               >
                 {month.month}
               </div>

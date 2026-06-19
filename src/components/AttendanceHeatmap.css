@@ -1,4 +1,6 @@
 .attendance-heatmap {
+  --cell-size: 30px;
+  --cell-gap: 3px;
   position: relative;
   width: 100%;
   background: linear-gradient(180deg, #2c44b8, #15226e);
@@ -104,7 +106,7 @@
 
 .heatmap-grid {
   display: flex;
-  gap: 3px;
+  gap: var(--cell-gap);
   overflow-x: auto;
   padding-bottom: 8px;
 }
@@ -112,12 +114,12 @@
 .heatmap-week {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: var(--cell-gap);
 }
 
 .heatmap-cell {
-  width: 30px;
-  height: 30px;
+  width: var(--cell-size);
+  height: var(--cell-size);
   border-radius: 5px;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -238,29 +240,24 @@
 /* Адаптивность */
 @media (max-width: 1200px) {
   .attendance-heatmap {
+    --cell-size: 24px;
     position: relative;
     width: 100%;
     left: auto;
     top: auto;
     margin: 20px 0;
   }
-  
-  .heatmap-cell {
-    width: 24px;
-    height: 24px;
-  }
-  
+
   .heatmap-title {
     font-size: 22px;
   }
 }
 
 @media (max-width: 768px) {
-  .heatmap-cell {
-    width: 20px;
-    height: 20px;
+  .attendance-heatmap {
+    --cell-size: 20px;
   }
-  
+
   .heatmap-header {
     flex-direction: column;
     align-items: flex-start;

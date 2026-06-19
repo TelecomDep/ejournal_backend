@@ -28,11 +28,28 @@ const TEACHER_SECTION = {
   grades: 'grades'
 };
 
+const getJoinInviteToken = () => {
+  const hash = window.location.hash || '';
+  if (!hash.startsWith('#/attendance/join')) {
+    return '';
+  }
+  const queryStart = hash.indexOf('?');
+  if (queryStart === -1) {
+    return '';
+  }
+  const params = new URLSearchParams(hash.slice(queryStart + 1));
+  return params.get('token') || '';
+};
+
 function App() {
   const [token, setToken] = useState(() => localStorage.getItem('ejournal_token') || '');
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [pendingInvite, setPendingInvite] = useState(
+    () => getJoinInviteToken() || localStorage.getItem('ejournal_pending_invite') || ''
+  );
+  const [attendanceNotice, setAttendanceNotice] = useState(null);
   const { route, navigate } = useHashRoute();
 
   const handleLogout = () => {
@@ -72,6 +89,48 @@ function App() {
       cancelled = true;
     };
   }, [token]);
+
+  useEffect(() => {
+    const invite = getJoinInviteToken();
+    if (invite) {
+      localStorage.setItem('ejournal_pending_invite', invite);
+      setPendingInvite(invite);
+    }
+  }, [route]);
+
+  useEffect(() => {
+    if (!token || !userData || !pendingInvite) {
+      return undefined;
+    }
+
+    let cancelled = false;
+    api.confirmAttendance(token, pendingInvite)
+      .then(() => {
+        if (!cancelled) {
+          setAttendanceNotice({ type: 'success', text: 'Посещение успешно отмечено!' });
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setAttendanceNotice({
+            type: 'error',
+            text: api.getErrorMessage(err, 'Не удалось отметить посещение')
+          });
+        }
+      })
+      .finally(() => {
+        if (cancelled) {
+          return;
+        }
+        localStorage.removeItem('ejournal_pending_invite');
+        setPendingInvite('');
+        navigate(userData.role === 'teacher' ? '/teacher/attendance' : '/attendance');
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [token, userData, pendingInvite]);
 
   const handleLogin = async (login, password) => {
     setLoading(true);
@@ -169,6 +228,16 @@ function App() {
 
   return (
     <>
+      {attendanceNotice && (
+        <div
+          className={`attendance-notice attendance-notice--${attendanceNotice.type}`}
+          role="status"
+          onClick={() => setAttendanceNotice(null)}
+        >
+          <span>{attendanceNotice.text}</span>
+          <button type="button" aria-label="Закрыть" onClick={() => setAttendanceNotice(null)}>×</button>
+        </div>
+      )}
       {body}
       <ThemeToggle />
     </>

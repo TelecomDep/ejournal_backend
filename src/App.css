@@ -59,3 +59,56 @@
     flex-direction: column;
   }
 }
+
+.attendance-notice {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  max-width: min(560px, calc(100vw - 32px));
+  padding: 14px 18px;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #ffffff;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.25);
+  cursor: pointer;
+  animation: noticeIn 0.3s ease-out;
+}
+
+@keyframes noticeIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -10px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+.attendance-notice--success {
+  background: linear-gradient(90deg, #278b4e, #1f7a44);
+}
+
+.attendance-notice--error {
+  background: linear-gradient(90deg, #c0392b, #9e2f23);
+}
+
+.attendance-notice button {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 2px;
+}
+
+.attendance-notice button:hover {
+  color: #ffffff;
+}
