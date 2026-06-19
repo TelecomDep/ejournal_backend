@@ -44,3 +44,14 @@ tmp/
 temp/
 ## Local weekly reports
 #weekly_reports_petrov/
+
+
+
+backups/
+data/
+ej-db/
+ejvenv/
+internal/app/svc_bckp
+parser
+parsers/
+ssl/
