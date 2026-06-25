@@ -63,6 +63,7 @@ func (s *Server) Start() {
 	fiberApp.Post("/api/student/attendance/confirm", s.studentAttendanceConfirmHandler)
 	fiberApp.Post("/api/student/mark-attendance", s.androidStudentAttendanceMarkHandler)
 	fiberApp.Get("/api/student/attendance/history", s.studentAttendanceHistoryHandler)
+	fiberApp.Get("/api/staff/overview", s.staffOverviewHandler)
 	fiberApp.Post("/api/user/upload-avatar", s.uploadAvatarHandler)
 	fiberApp.Post("/api/teacher/grades/items", s.teacherCreateGradeItemHandler)
 	fiberApp.Post("/api/teacher/grades/items/list", s.teacherGradeItemsBySubjectHandler)
@@ -70,6 +71,7 @@ func (s *Server) Start() {
 	fiberApp.Post("/api/teacher/grades/student", s.teacherStudentGradesBySubjectHandler)
 	fiberApp.Post("/api/student/grades", s.studentGradesBySubjectHandler)
 	fiberApp.Get("/api/student/performance/radar", s.studentPerformanceRadarHandler)
+	fiberApp.Get("/api/student/grades/all", s.studentAllGradesHandler)
 	fiberApp.Post("/api/teacher/student/performance/radar", s.teacherStudentPerformanceRadarHandler)
 	fiberApp.Static("/uploads", s.cfg.UploadDir)
 	fiberApp.Get("/swagger/*", swagger.HandlerDefault)
@@ -374,6 +376,44 @@ func (s *Server) profileHandler(c *fiber.Ctx) error {
 
 	if !resp.OK {
 		return c.Status(fiber.StatusUnauthorized).JSON(resp)
+	}
+
+	return c.JSON(resp)
+}
+
+// staffOverviewHandler godoc
+// @Summary Supervisory overview (teacher/head/dean/admin)
+// @Description Returns groups, teachers and students scoped to the caller's role: teacher -> own groups, head -> own lectern, dean -> own faculty, admin -> everything.
+// @Tags staff
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} app.Response
+// @Failure 401 {object} app.Response
+// @Failure 403 {object} app.Response
+// @Router /api/staff/overview [get]
+func (s *Server) staffOverviewHandler(c *fiber.Ctx) error {
+	token := c.Get("Authorization")
+	if token == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(app.Response{OK: false, Error: "missing Authorization header"})
+	}
+
+	req := app.Request{ID: "http-staff-overview", Action: "staff_overview", Token: token}
+	raw, err := json.Marshal(req)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(app.Response{OK: false, Error: "Error marshalling envelope"})
+	}
+
+	resp, err := s.svc.DispatchRequest(string(raw), s.requestTimeout)
+	if err != nil {
+		return c.Status(fiber.StatusServiceUnavailable).JSON(app.Response{OK: false, Error: err.Error()})
+	}
+
+	if !resp.OK {
+		status := fiber.StatusUnauthorized
+		if resp.Error == "forbidden" {
+			status = fiber.StatusForbidden
+		}
+		return c.Status(status).JSON(resp)
 	}
 
 	return c.JSON(resp)
@@ -874,6 +914,39 @@ func (s *Server) studentPerformanceRadarHandler(c *fiber.Ctx) error {
 	}
 
 	req := app.Request{ID: "http-student-performance-radar", Action: "student_performance_radar", Token: token}
+	raw, err := json.Marshal(req)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(app.Response{OK: false, Error: "Error marshalling envelope"})
+	}
+
+	resp, err := s.svc.DispatchRequest(string(raw), s.requestTimeout)
+	if err != nil {
+		return c.Status(fiber.StatusServiceUnavailable).JSON(app.Response{OK: false, Error: err.Error()})
+	}
+	if !resp.OK {
+		return c.Status(app.GradeHTTPStatus(resp)).JSON(resp)
+	}
+
+	return c.JSON(resp)
+}
+
+// studentAllGradesHandler godoc
+// @Summary Get all grades for the current student
+// @Description Returns every plan subject with its grade items and per-subject totals, plus an aggregate summary, in one request.
+// @Tags grades
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} app.Response
+// @Failure 401 {object} app.Response
+// @Failure 403 {object} app.Response
+// @Router /api/student/grades/all [get]
+func (s *Server) studentAllGradesHandler(c *fiber.Ctx) error {
+	token := c.Get("Authorization")
+	if token == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(app.Response{OK: false, Error: "missing Authorization header"})
+	}
+
+	req := app.Request{ID: "http-student-all-grades", Action: "student_all_grades", Token: token}
 	raw, err := json.Marshal(req)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(app.Response{OK: false, Error: "Error marshalling envelope"})

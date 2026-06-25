@@ -4,6 +4,7 @@ import LoginPage from './components/LoginPage';
 import AppShell from './components/AppShell';
 import ThemeToggle from './components/ThemeToggle';
 import TeacherAccount from './components/TeacherAccount';
+import StaffDashboard from './components/StaffDashboard';
 import ProfilePage from './pages/ProfilePage';
 import AttendancePage from './pages/AttendancePage';
 import GradesPage from './pages/GradesPage';
@@ -26,6 +27,22 @@ const TEACHER_SECTION = {
   attendance: 'attendance',
   stats: 'statistics',
   grades: 'grades'
+};
+
+// Надзорные роли (зав. кафедрой / декан / админ) видят единую сводку по охвату.
+const STAFF_NAV = [
+  { key: 'profile', label: 'Профиль', route: '/profile' },
+  { key: 'overview', label: 'Сводка', route: '/staff/overview' }
+];
+
+const STAFF_ROLES = ['admin', 'head', 'dean'];
+
+const ROLE_LABELS = {
+  admin: 'Администратор',
+  dean: 'Декан',
+  head: 'Зав. кафедрой',
+  teacher: 'Преподаватель',
+  student: 'Студент'
 };
 
 const getJoinInviteToken = () => {
@@ -183,10 +200,11 @@ function App() {
     body = <div className="app-loading">Загрузка…</div>;
   } else {
     const isTeacher = userData.role === 'teacher';
-    const navItems = isTeacher ? TEACHER_NAV : STUDENT_NAV;
+    const isStaff = STAFF_ROLES.includes(userData.role);
+    const navItems = isStaff ? STAFF_NAV : isTeacher ? TEACHER_NAV : STUDENT_NAV;
     const activeItem = navItems.find((item) => item.route === route) || navItems[0];
     const displayName = userData.teacher_name || userData.name || userData.login || 'Пользователь';
-    const roleLabel = isTeacher ? 'Преподаватель' : 'Студент';
+    const roleLabel = ROLE_LABELS[userData.role] || 'Студент';
 
     let page;
     if (activeItem.key === 'profile') {
@@ -198,6 +216,8 @@ function App() {
           onUserDataUpdated={handleUserDataUpdated}
         />
       );
+    } else if (isStaff) {
+      page = <StaffDashboard token={token} />;
     } else if (isTeacher) {
       page = <TeacherAccount userData={userData} token={token} section={TEACHER_SECTION[activeItem.key]} />;
     } else if (activeItem.key === 'attendance') {

@@ -300,13 +300,22 @@ func (s *Service) DispatchRequest(raw string, timeout time.Duration) (Response, 
 	}
 }
 
+// User roles, in increasing order of visibility scope.
+const (
+	RoleStudent = "student" // sees only self
+	RoleTeacher = "teacher" // sees students of own groups
+	RoleHead    = "head"    // зав. кафедрой: teachers + students of own lectern
+	RoleDean    = "dean"    // декан: everything under own faculty
+	RoleAdmin   = "admin"   // sees and edits everything
+)
+
 func normalizeRole(role string) string {
 	role = strings.ToLower(strings.TrimSpace(role))
 	switch role {
-	case "teacher", "admin":
+	case RoleTeacher, RoleAdmin, RoleHead, RoleDean:
 		return role
 	default:
-		return "student"
+		return RoleStudent
 	}
 }
 
@@ -1931,12 +1940,20 @@ func (s *Service) handleRequest(raw string) Response {
 		resp := s.studentPerformanceRadar(req.Token)
 		resp.ID = req.ID
 		return resp
+	case "student_all_grades":
+		resp := s.studentAllGrades(req.Token)
+		resp.ID = req.ID
+		return resp
 	case "teacher_student_performance_radar":
 		var data TeacherStudentRadarData
 		if err := json.Unmarshal(req.Data, &data); err != nil {
 			return Response{ID: req.ID, OK: false, Error: "invalid teacher_student_performance_radar payload"}
 		}
 		resp := s.teacherStudentPerformanceRadar(req.Token, data)
+		resp.ID = req.ID
+		return resp
+	case "staff_overview":
+		resp := s.staffOverview(req.Token)
 		resp.ID = req.ID
 		return resp
 	default:

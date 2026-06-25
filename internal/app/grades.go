@@ -413,6 +413,81 @@ func (s *Service) studentPerformanceRadar(sessionToken string) Response {
 	return s.performanceRadarResult(studentProfile.ID)
 }
 
+// studentAllGrades returns every plan subject for the student together with its
+// grade items and per-subject totals, plus an aggregate summary — everything the
+// student grades dashboard needs in a single request.
+func (s *Service) studentAllGrades(sessionToken string) Response {
+	studentUser, err := s.userBySessionToken(sessionToken)
+	if err != nil {
+		return Response{OK: false, Error: err.Error()}
+	}
+	if studentUser.Role != "student" {
+		return Response{OK: false, Error: "forbidden: student role required"}
+	}
+
+	studentProfile, err := s.studentProfileByUser(studentUser)
+	if err != nil {
+		return Response{OK: false, Error: err.Error()}
+	}
+
+	ctx, cancel := s.dbContext()
+	defer cancel()
+
+	radar, err := s.store.Grades.GetStudentPerformanceRadar(ctx, studentProfile.ID)
+	if err != nil {
+		return Response{OK: false, Error: "failed to load subjects"}
+	}
+
+	subjects := make([]map[string]any, 0, len(radar))
+	var totalScore, totalMax, totalPassed, gradedWorks, totalWorks int32
+	for _, point := range radar {
+		grades, gradesErr := s.store.Grades.GetStudentGradesBySubject(ctx, studentProfile.ID, point.SubjectID)
+		if gradesErr != nil {
+			return Response{OK: false, Error: "failed to load grades"}
+		}
+		stats, statsErr := s.store.Grades.GetSubjectStatsForPrediction(ctx, studentProfile.ID, point.SubjectID)
+		if statsErr != nil {
+			return Response{OK: false, Error: "failed to load grade summary"}
+		}
+
+		for _, g := range grades {
+			totalWorks++
+			if g.GradedAt != nil {
+				gradedWorks++
+			}
+		}
+
+		totalScore += stats.CurrentScore
+		totalMax += stats.TotalMax
+		totalPassed += stats.PassedMax
+
+		subjects = append(subjects, map[string]any{
+			"subject_id":    point.SubjectID,
+			"subject_name":  point.SubjectName,
+			"percent":       point.Percent,
+			"current_score": stats.CurrentScore,
+			"total_max":     stats.TotalMax,
+			"passed_max":    stats.PassedMax,
+			"grades":        grades,
+		})
+	}
+
+	return Response{
+		OK: true,
+		Result: map[string]any{
+			"student_id": studentProfile.ID,
+			"subjects":   subjects,
+			"summary": map[string]any{
+				"current_score": totalScore,
+				"total_max":     totalMax,
+				"passed_max":    totalPassed,
+				"graded_works":  gradedWorks,
+				"total_works":   totalWorks,
+			},
+		},
+	}
+}
+
 func (s *Service) teacherStudentPerformanceRadar(sessionToken string, data TeacherStudentRadarData) Response {
 	teacherUser, err := s.userBySessionToken(sessionToken)
 	if err != nil {

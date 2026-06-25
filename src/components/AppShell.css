@@ -2,19 +2,33 @@
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
 }
 
 .app-bar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 14px;
   padding: 16px clamp(16px, 4vw, 40px);
-  background: var(--sib-grad);
+  background: linear-gradient(135deg, #2c44b8 0%, #15226e 60%, #101a55 100%);
   color: #ffffff;
-  box-shadow: 0 8px 28px rgba(21, 34, 110, 0.28);
+  box-shadow: 0 14px 38px rgba(13, 22, 74, 0.32);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.10);
+}
+
+/* faint top sheen for a machined, premium feel */
+.app-bar::after {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+  pointer-events: none;
 }
 
 .app-bar-brand {
@@ -61,8 +75,9 @@
   font-size: 14px;
   font-weight: 600;
   color: rgba(255, 255, 255, 0.92);
-  background: rgba(255, 255, 255, 0.14);
-  padding: 7px 13px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  padding: 7px 14px;
   border-radius: 999px;
   max-width: 46vw;
   overflow: hidden;
@@ -71,24 +86,31 @@
 }
 
 .app-bar-logout {
-  border: 0;
-  border-radius: 8px;
-  padding: 9px 18px;
+  border: 1px solid rgba(255, 255, 255, 0.30);
+  border-radius: 999px;
+  padding: 9px 20px;
   font: inherit;
   font-weight: 700;
   cursor: pointer;
-  background: #ffffff;
-  color: var(--sib-blue-deep);
+  background: rgba(255, 255, 255, 0.10);
+  color: #ffffff;
+  transition: background 0.2s cubic-bezier(0.22, 1, 0.36, 1), transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .app-bar-logout:hover {
-  background: var(--sib-silver-1);
+  background: rgba(255, 255, 255, 0.22);
+  transform: translateY(-1px);
 }
 
 .app-nav {
   display: flex;
-  gap: 8px;
-  padding: 12px clamp(16px, 4vw, 40px);
+  gap: 6px;
+  margin: 18px auto 0;
+  width: 100%;
+  max-width: 1320px;
+  padding: 6px;
+  padding-left: clamp(16px, 4vw, 40px);
+  padding-right: clamp(16px, 4vw, 40px);
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
@@ -102,22 +124,28 @@
   flex: 0 0 auto;
   border: 1px solid transparent;
   border-radius: 999px;
-  padding: 9px 18px;
+  padding: 10px 20px;
   font: inherit;
   font-weight: 700;
   cursor: pointer;
   white-space: nowrap;
-  background: rgba(31, 47, 143, 0.08);
+  background: rgba(31, 47, 143, 0.07);
   color: var(--sib-blue);
+  transition: background 0.2s cubic-bezier(0.22, 1, 0.36, 1),
+    color 0.2s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.2s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.2s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .app-nav-link:hover {
-  background: rgba(31, 47, 143, 0.14);
+  background: rgba(31, 47, 143, 0.13);
+  transform: translateY(-1px);
 }
 
 .app-nav-link.active {
-  background: var(--sib-blue);
+  background: linear-gradient(135deg, #2c44b8, #1f2f8f);
   color: #ffffff;
+  box-shadow: 0 10px 24px rgba(31, 47, 143, 0.32);
 }
 
 .app-main {
@@ -143,12 +171,13 @@
 }
 
 [data-theme="dark"] .app-bar-logout {
-  background: #20242f;
-  color: #e7eaf3;
+  background: rgba(255, 255, 255, 0.10);
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.28);
 }
 
 [data-theme="dark"] .app-bar-logout:hover {
-  background: #2c313d;
+  background: rgba(255, 255, 255, 0.20);
 }
 
 @media (max-width: 600px) {

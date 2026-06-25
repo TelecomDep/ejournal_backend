@@ -388,6 +388,32 @@ const api = {
     }
   },
 
+  // Student: all subjects with their grade items and totals in one request
+  async getStudentAllGrades(token) {
+    try {
+      const response = await axios.get(`${BACKEND_URL}/api/student/grades/all`, {
+        headers: authHeaders(token)
+      });
+      return unwrapApiResponse(response.data);
+    } catch (error) {
+      console.error('Ошибка загрузки оценок:', error);
+      throw error;
+    }
+  },
+
+  // Supervisory overview (teacher/head/dean/admin), scoped by role on the backend
+  async getStaffOverview(token) {
+    try {
+      const response = await axios.get(`${BACKEND_URL}/api/staff/overview`, {
+        headers: authHeaders(token)
+      });
+      return unwrapApiResponse(response.data);
+    } catch (error) {
+      console.error('Ошибка загрузки сводки:', error);
+      throw error;
+    }
+  },
+
   getErrorMessage(error, fallback) {
     return extractError(error) || fallback;
   }
