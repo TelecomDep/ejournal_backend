@@ -22,9 +22,11 @@ jobs:
           node-version: '20'
           cache: 'npm'
       - name: Install Frontend Dependencies
+        working-directory: frontend
         run: npm ci
 
       - name: Contract Check (Frontend + Swagger)
+        working-directory: frontend
         run: npm run check-api
       - name: Start Backend Services
         run: docker compose up -d ejournal-backend
@@ -37,7 +39,7 @@ jobs:
       - name: Run Schemathesis (API Contract Testing)
         run: |
           docker run --network="host" \
-            -v ${{ github.workspace }}/docs:/docs \
+            -v ${{ github.workspace }}/backend/docs:/docs \
             schemathesis/schemathesis:3.39.4 run /docs/swagger.json \
             --base-url http://localhost:8888
 

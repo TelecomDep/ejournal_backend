@@ -20,7 +20,7 @@ services:
     container_name: ejournal-migrate
     working_dir: /app
     volumes:
-      - ./:/app
+      - ./backend:/app
     environment:
       DB_DSN: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-ejournal}?sslmode=disable
     depends_on:
@@ -33,7 +33,7 @@ services:
 
   ejournal-backend:
     build:
-      context: .
+      context: ./backend
       dockerfile: Dockerfile
     container_name: ejournal-backend
     environment:
@@ -65,8 +65,8 @@ services:
 
   web:
     build:
-      context: .
-      dockerfile: Dockerfile.frontend
+      context: ./frontend
+      dockerfile: Dockerfile
     container_name: sibsutis_front
     depends_on:
       - ejournal-backend

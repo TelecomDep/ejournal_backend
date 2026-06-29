@@ -15,7 +15,7 @@
   },
   "scripts": {
     "start": "react-scripts start",
-    "check-api": "openapi-typescript ./docs/swagger.json --output ./src/services/schema.d.ts && tsc --project jsconfig.json --noEmit",
+    "check-api": "openapi-typescript ../backend/docs/swagger.json --output ./src/services/schema.d.ts && tsc --project jsconfig.json --noEmit",
     "build": "react-scripts build"
   },
   "devDependencies": {
