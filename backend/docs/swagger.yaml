@@ -878,6 +878,31 @@ paths:
       summary: Reset password
       tags:
       - auth
+  /api/staff/overview:
+    get:
+      description: 'Returns groups, teachers and students scoped to the caller''s
+        role: teacher -> own groups, head -> own lectern, dean -> own faculty, admin
+        -> everything.'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/app.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/app.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/app.Response'
+      security:
+      - BearerAuth: []
+      summary: Supervisory overview (teacher/head/dean/admin)
+      tags:
+      - staff
   /api/student/attendance/confirm:
     post:
       consumes:
@@ -998,6 +1023,30 @@ paths:
       security:
       - BearerAuth: []
       summary: Get current student grades by subject
+      tags:
+      - grades
+  /api/student/grades/all:
+    get:
+      description: Returns every plan subject with its grade items and per-subject
+        totals, plus an aggregate summary, in one request.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/app.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/app.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/app.Response'
+      security:
+      - BearerAuth: []
+      summary: Get all grades for the current student
       tags:
       - grades
   /api/student/mark-attendance:

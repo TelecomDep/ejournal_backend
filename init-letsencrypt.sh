@@ -1,12 +1,7 @@
 #!/bin/bash
 set -e
 
-if [ -f .env ]; then
-  set -a
-  . ./.env
-  set +a
-fi
-
+DOMAIN="$(docker compose config 2>/dev/null | awk '/^ *DOMAIN:/{print $2; exit}')"
 DOMAIN="${DOMAIN:-lms.signal.qlabs.pro}"
 EMAIL="rpetrov2006mail.ru@gmail.com"
 DATA_PATH="./certbot"

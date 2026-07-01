@@ -1,14 +1,17 @@
 # EJournal Backend (Go)
 
-Небольшой backend-сервис для электронного журнала: регистрация, логин, профиль пользователя и отметка посещаемости через одноразовую ссылку.
+Backend-сервис электронного журнала: регистрация и логин, посещаемость по QR/геолокации, оценки (control points), ролевая система с иерархией преподаватель → зав. кафедрой → декан → админ, загрузка аватаров, восстановление пароля по email.
 
 ## Что внутри
 
-- REST API на `Fiber` (`:8888`)
+- REST API на `Fiber` (`:8888`), Swagger UI (`/swagger/index.html`)
 - JWT-аутентификация
-- Роли: `teacher` и `student`
-- Генерация инвайт-ссылки на посещаемость (только для преподавателя)
-- Подтверждение посещаемости по токену (только для студента)
+- Роли: `student`, `teacher`, `head` (зав. кафедрой), `dean` (декан), `admin`
+- Посещаемость: преподаватель открывает сессию (QR/инвайт-токен с ограниченным сроком жизни), студент подтверждает по токену; для Android-клиента — с проверкой геолокации (не дальше 200м от точки преподавателя)
+- Оценки: преподаватель создаёт контрольные точки по предмету и выставляет баллы, студент видит свои оценки по предмету, сводно по всем предметам и в виде radar-диаграммы успеваемости
+- Supervisory overview (`/api/staff/overview`): преподаватель видит свои группы, зав. кафедрой — всех преподавателей/студентов своей кафедры, декан — всего своего факультета, админ — всё
+- Регистрация по инвайт-коду (роль определяется записью в БД) и legacy-регистрация по общему `role_hash`
+- Восстановление пароля по email (SMTP) и загрузка аватара
 - Внутренний worker pool для обработки запросов
 
 ## Стек
@@ -16,6 +19,9 @@
 - Go `1.26.1`
 - `github.com/gofiber/fiber/v2`
 - `github.com/golang-jwt/jwt/v5`
+- `github.com/swaggo/swag` (Swagger)
+- PostgreSQL + `pressly/goose` для миграций
+- Frontend: React (см. `frontend/`)
 
 ## Быстрый старт
 
@@ -49,28 +55,41 @@ go run ./cmd/server
 ## Переменные окружения
 
 - `JWT_SECRET` (обязательно): ключ подписи JWT
-- `SITE_BASE_URL` (необязательно): базовый URL фронтенда для формирования ссылки приглашения  
+- `SITE_BASE_URL` (необязательно): базовый URL, используется в письмах (ссылка восстановления пароля) и для ссылок на аватары  
   По умолчанию: `http://localhost:3000`
 - `APP_PORT` (необязательно): порт HTTP-сервера  
   По умолчанию: `8888` (в локальном `.env` используется `9999`)
 - `CORS_ALLOW_ORIGINS` (необязательно): список origin через запятую для CORS  
   По умолчанию: `http://localhost:3000,http://127.0.0.1:3000`
-- `ROLE_HASH_TEACHER` (обязательно для hash-auth): хэш-код для роли `teacher`
-- `ROLE_HASH_STUDENT` (обязательно для hash-auth): хэш-код для роли `student`
-- `DEFAULT_STUDENT_GROUP_ID` (необязательно): группа, которая назначается студенту при регистрации через `/register`  
-  По умолчанию: `1`
-- `ALLOW_EARLY_ATTENDANCE` (необязательно): если `true`, отключает ограничение \"не раньше чем за 15 минут\" для старта сессии посещаемости  
-  По умолчанию: `false` (в локальном `.env` включено `true` для тестов)
 - `DB_DSN` (обязательно): строка подключения PostgreSQL.  
   Пример: `postgres://postgres:postgres@localhost:5432/ejournal?sslmode=disable`
+- `ROLE_HASH_TEACHER` / `ROLE_HASH_STUDENT` (нужны для legacy hash-регистрации): общие секреты для самостоятельной регистрации по роли  
+  По умолчанию: `TEACHER-HASH-2026` / `STUDENT-HASH-2026`
+- `DEFAULT_STUDENT_GROUP_ID` (необязательно): группа, которая назначается студенту при legacy-регистрации через `/register`  
+  По умолчанию: `1`
+- `ALLOW_EARLY_ATTENDANCE` (необязательно): если `true`, разрешает студенту подтвердить посещаемость до официального начала сессии  
+  По умолчанию: `false` (в локальном `.env` включено `true` для тестов)
+- `UPLOAD_DIR` (необязательно): каталог для загруженных файлов (аватары), отдаётся на `/uploads`  
+  По умолчанию: `uploads`
+- `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASSWORD` / `SMTP_FROM` (необязательно): параметры почтового сервера для писем восстановления пароля.  
+  Если `SMTP_HOST` не задан, письмо не отправляется — токен просто пишется в лог (удобно для локальной разработки)
+- `DOMAIN` / `FRONTEND_PORT` / `FRONTEND_HTTPS_PORT` — см. раздел [HTTPS](#https-production)
 
-Сервис работает только с PostgreSQL: `register/login/profile` и посещаемость пишутся/читаются из БД.
+Сервис работает только с PostgreSQL: все данные (пользователи, посещаемость, оценки, оргструктура) пишутся/читаются из БД.
+
+## Роли и оргструктура
+
+- `student` — видит только себя (свои оценки, посещаемость)
+- `teacher` — свои группы и предметы
+- `head` (зав. кафедрой) — все преподаватели и студенты своей кафедры (`lecterns` + `org_scopes`)
+- `dean` (декан) — весь свой факультет (`faculties`)
+- `admin` — всё без ограничений
 
 ## Goose миграции
 
-Добавлена миграция схемы БД: `migrations/20260412152000_init_parser_schema.sql`.
+Миграции лежат в `backend/migrations`. Ключевые этапы схемы: базовые сущности (пользователи, предметы, группы, посещаемость) → мультигрупповые сессии → расписание/журнал → инвайт-регистрация → оценки (`add_grades`) → email и токен восстановления пароля → роли `head`/`dean`/`admin` и оргструктура (`org_structure_and_scopes`).
 
-Пример запуска:
+Пример запуска вручную:
 
 ```bash
 go install github.com/pressly/goose/v3/cmd/goose@latest
@@ -104,6 +123,8 @@ docker compose up -d --build
 - ожидается `healthcheck` БД
 - запускается `migrate` и применяет `goose up`
 - только после успешной миграции стартует `ejournal-backend`
+- поднимается `web` (nginx + фронтенд, проксирует API/uploads/swagger на backend)
+- поднимается `mailserver` (SMTP для писем восстановления пароля)
 - автоматически создаются тестовые пользователи:
   - `teacher_test` / `123456`
   - `student_test` / `123456`
@@ -124,13 +145,101 @@ docker compose down
 docker compose down -v
 ```
 
+## HTTPS (production)
+
+Контейнер `web` (nginx) умеет сразу отдавать сайт по HTTPS с сертификатом Let's Encrypt.
+
+Переменные окружения (`.env`):
+- `DOMAIN` — домен сайта, по умолчанию `lms.signal.qlabs.pro`
+- `FRONTEND_PORT` — HTTP-порт (редиректит на HTTPS), по умолчанию `9999`
+- `FRONTEND_HTTPS_PORT` — HTTPS-порт, по умолчанию `443`
+
+Первый запуск на новом домене/сервере:
+
+```bash
+./init-letsencrypt.sh
+```
+
+Скрипт сам поднимает временный сертификат, чтобы стартовал nginx, получает настоящий сертификат от Let's Encrypt через webroot-challenge и запускает `certbot` для автопродления (проверка каждые 12 часов, `web` перечитывает конфиг каждые 6 часов).
+
+При смене домена: обновить `DOMAIN` в `.env`, выполнить `docker compose up -d --build web`, затем заново запустить `./init-letsencrypt.sh`.
+
 ## API
 
-### 1) Регистрация
+Swagger UI: `/swagger/index.html` (там же, где фронтенд — nginx проксирует `/swagger/` на бэкенд). Полный список ниже сгруппирован по областям; все `/api/**`-маршруты, кроме явно отмеченных, требуют заголовок `Authorization: Bearer <token>`.
 
-`POST /register`
+### Аутентификация и аккаунт
+
+| Метод и путь | Доступ | Описание |
+|---|---|---|
+| `POST /register` | без токена | legacy-регистрация по `role_hash` |
+| `POST /register/by-invite` | без токена | регистрация по инвайт-коду, роль определяется записью в БД |
+| `POST /login` | без токена | возвращает JWT |
+| `GET /profile` | любой авторизованный | профиль текущего пользователя |
+| `POST /api/auth/forgot-password` | без токена | отправляет письмо со ссылкой восстановления пароля |
+| `POST /api/auth/reset-password` | без токена | подтверждает сброс пароля по токену из письма |
+| `POST /api/user/email` | любой авторизованный | привязать/обновить email |
+| `POST /api/user/upload-avatar` | любой авторизованный | загрузка аватара, `multipart/form-data`, поле `avatar` (jpg/png/webp, до 5 МБ) |
+
+### Посещаемость — преподаватель
+
+| Метод и путь | Описание |
+|---|---|
+| `POST /api/teacher/attendance-link` (алиас `POST /api/teacher/attendance/session`) | создать сессию посещаемости + инвайт-ссылку/QR |
+| `GET /api/teacher/attendance/session/marked-count?lesson_id=` | сколько студентов уже отметились |
+| `GET /api/teacher/attendance/session/timer?lesson_id=` | оставшееся время сессии |
+| `GET /api/teacher/attendance/session/active` | текущая активная сессия преподавателя |
+| `GET /api/teacher/subjects` | предметы и группы преподавателя (из расписания) |
+| `POST /api/teacher/attendance/group` | статистика посещаемости по группе (опционально по предмету) |
+| `POST /api/teacher/attendance/student/history` | история посещаемости одного студента по предмету |
+| `POST /api/teacher/group/performance` | сводный обзор посещаемости + оценок по группе |
+
+### Посещаемость — студент
+
+| Метод и путь | Описание |
+|---|---|
+| `POST /api/student/attendance/confirm` | подтвердить посещаемость по инвайт-токену |
+| `GET /api/student/attendance/history?year=` | своя история посещаемости |
+
+### Android-совместимый API
+
+| Метод и путь | Описание |
+|---|---|
+| `POST /lessons/create` | преподаватель создаёт занятие по названию предмета/групп + геолокация |
+| `POST /api/student/mark-attendance` | студент отмечается по `lesson_id` + геолокация (проверка ≤200м от преподавателя) |
+
+### Оценки
+
+| Метод и путь | Доступ | Описание |
+|---|---|---|
+| `POST /api/teacher/grades/items` | teacher | создать контрольную точку по предмету |
+| `POST /api/teacher/grades/items/list` | teacher | список контрольных точек по предмету |
+| `POST /api/teacher/grades` | teacher | выставить/обновить балл студенту |
+| `POST /api/teacher/grades/student` | teacher | оценочный лист одного студента |
+| `POST /api/teacher/student/performance/radar` | teacher | radar-диаграмма успеваемости конкретного студента |
+| `POST /api/student/grades` | student | свои оценки по предмету |
+| `GET /api/student/performance/radar` | student | своя radar-диаграмма успеваемости |
+| `GET /api/student/grades/all` | student | все предметы, оценки и сводная статистика одним запросом |
+
+### Supervisory overview
+
+| Метод и путь | Описание |
+|---|---|
+| `GET /api/staff/overview` | обзор оргструктуры, объём зависит от роли (teacher/head/dean/admin) |
+
+### Прочее
+
+| Метод и путь | Описание |
+|---|---|
+| `GET /uploads/*` | статика (аватары и другие загруженные файлы) |
+| `GET /swagger/*` | Swagger UI |
+
+### Примеры запросов
+
+Регистрация преподавателя (legacy hash):
 
 ```json
+POST /register
 {
   "login": "teacher1",
   "password": "123456",
@@ -138,21 +247,10 @@ docker compose down -v
 }
 ```
 
-Legacy-регистрация студента через `role_hash`:
+Регистрация по инвайт-коду (роль берётся из `registration_invites`):
 
 ```json
-{
-  "login": "student_new",
-  "password": "123456",
-  "role_hash": "STUDENT-HASH-2026"
-}
-```
-
-Основной путь регистрации через invite-код из БД:
-
-`POST /register/by-invite`
-
-```json
+POST /register/by-invite
 {
   "login": "student_login",
   "password": "StrongPassword123",
@@ -160,14 +258,10 @@ Legacy-регистрация студента через `role_hash`:
 }
 ```
 
-`/register/by-invite` теперь определяет роль по записи в таблице `registration_invites`.
-Для старых студентских кодов данные были перенесены туда автоматически.
-
-### 2) Логин
-
-`POST /login`
+Логин:
 
 ```json
+POST /login
 {
   "login": "teacher1",
   "password": "123456"
@@ -176,19 +270,10 @@ Legacy-регистрация студента через `role_hash`:
 
 В ответе приходит `token`, используйте его в `Authorization: Bearer <token>`.
 
-### 3) Профиль
-
-`GET /profile`
-
-### 4) Создать ссылку посещаемости (teacher)
-
-`POST /api/teacher/attendance-link`
-
-или алиас для мобильного/веб-приложения:
-
-`POST /api/teacher/attendance/session`
+Создать сессию посещаемости:
 
 ```json
+POST /api/teacher/attendance-link
 {
   "subject_id": 1,
   "group_ids": [1, 2],
@@ -196,8 +281,6 @@ Legacy-регистрация студента через `role_hash`:
   "expires_minutes": 20
 }
 ```
-
-`subject_id` и `group_ids` обязательны при работе с Postgres.
 
 Пример успешного ответа:
 
@@ -222,62 +305,21 @@ Legacy-регистрация студента через `role_hash`:
 }
 ```
 
-Поля для приложения:
-- `join_url` — ссылка, которую можно открыть в WebView/браузере
-- `qr_payload` — строка для генерации QR-кода
+`join_url` — ссылка для WebView/браузера, `qr_payload` — строка для генерации QR-кода.
 
-### 5) Подтвердить посещаемость (student)
-
-`POST /api/student/attendance/confirm`
+Подтвердить посещаемость (студент):
 
 ```json
+POST /api/student/attendance/confirm
 {
   "invite_token": "<token>"
 }
 ```
 
-### 6) Android-compatible API
-
-Регистрация через единый invite-код:
-
-`POST /register`
+Отметка студента из Android-приложения (с геолокацией):
 
 ```json
-{
-  "login": "student_login",
-  "password": "StrongPassword123",
-  "invite_code": "8D2C72771DF0"
-}
-```
-
-Создание занятия преподавателем:
-
-`POST /lessons/create`
-
-```json
-{
-  "subject": "Networks",
-  "groups": ["ИКС-433"],
-  "lat": 55.75,
-  "lon": 37.61
-}
-```
-
-Получение ссылки для QR уже созданного занятия:
-
-`POST /api/teacher/attendance-link`
-
-```json
-{
-  "lesson_id": 1
-}
-```
-
-Отметка студента из Android-приложения:
-
-`POST /api/student/mark-attendance`
-
-```json
+POST /api/student/mark-attendance
 {
   "lesson_id": 1,
   "device_id": "android-device-id",
@@ -285,25 +327,6 @@ Legacy-регистрация студента через `role_hash`:
   "lon": 37.61
 }
 ```
-
-Загрузка аватара текущего пользователя:
-
-`POST /api/user/upload-avatar`
-
-Формат запроса: `multipart/form-data`, поле файла: `avatar`.
-
-### 6) Просмотр посещаемости по группе (teacher)
-
-`POST /api/teacher/attendance/group`
-
-```json
-{
-  "group_id": 1,
-  "subject_id": 1
-}
-```
-
-`subject_id` опционален. Если его не передать, статистика будет по всем предметам преподавателя для выбранной группы.
 
 ## Примеры curl
 
@@ -327,14 +350,45 @@ curl -X POST http://localhost:9999/login \
 curl http://localhost:9999/profile \
   -H "Authorization: Bearer <TOKEN>"
   #вставьте токен который выдался выше после логина
+
+# Staff overview (роль head/dean/admin увидит больше, чем teacher)
+curl http://localhost:9999/api/staff/overview \
+  -H "Authorization: Bearer <TOKEN>"
 ```
+
+## Frontend
+
+React-приложение в `frontend/` (hash-роутинг через `useHashRoute`). Основные экраны и компоненты:
+
+- `LoginPage`, `ProfilePage` / `PersonalAccount` / `ProfileSquare` — вход и профиль
+- `TeacherAccount`, `AttendancePage`, `AttendanceGrid`, `AttendanceHeatmap`, `QRCode` — рабочее место преподавателя: сессии посещаемости, QR-код приглашения, тепловая карта посещаемости
+- `GradesPage`, `StudentGradesPanel`, `RadarChart` — оценки и radar-диаграмма успеваемости
+- `StaffDashboard` — обзор оргструктуры (роль-зависимый: teacher/head/dean/admin)
+- `Calendar`, `DataTable`, `InfoCard`, `ThemeToggle` — общие UI-компоненты
 
 ## Структура проекта
 
-- `cmd/server/main.go` - точка входа приложения
-- `internal/app/service.go` - доменная логика, JWT, роли, worker pool
-- `internal/httpserver/server.go` - HTTP-слой и маршруты
-- `internal/config/config.go` - загрузка конфигурации из env
-- `internal/db/*` - слой доступа к PostgreSQL (store + репозитории)
-- `migrations/*` - goose-миграции БД
-- `go.mod` / `go.sum` - зависимости
+Backend (`backend/`):
+- `cmd/server/main.go` — точка входа приложения, Swagger-аннотации
+- `internal/app/service.go` — доменная логика, JWT, роли, worker pool
+- `internal/app/android.go` — посещаемость с геолокацией для Android-клиента
+- `internal/app/grades.go` — контрольные точки и оценки
+- `internal/app/supervision.go` — ролевой обзор оргструктуры (staff overview)
+- `internal/app/mailer.go` — отправка писем (SMTP, восстановление пароля)
+- `internal/httpserver/server.go` — HTTP-слой и маршруты
+- `internal/config/config.go` — загрузка конфигурации из env
+- `internal/db/*` — слой доступа к PostgreSQL (store + репозитории)
+- `docs/*` — сгенерированные swagger-файлы (`swag init`, не редактировать руками)
+- `migrations/*` — goose-миграции БД
+- `go.mod` / `go.sum` — зависимости
+
+Frontend (`frontend/src/`):
+- `pages/` — `AttendancePage`, `GradesPage`, `ProfilePage`
+- `components/` — экраны и виджеты (см. раздел [Frontend](#frontend))
+- `services/api.js` — обёртка над fetch
+- `hooks/useHashRoute.js` — hash-роутинг
+
+Инфраструктура (корень репозитория):
+- `docker-compose.yml` — postgres, migrate, ejournal-backend, web (nginx+frontend), certbot, mailserver
+- `frontend/nginx.conf.template` + `frontend/40-envsubst-domain.sh` — nginx-конфиг с доменом из `$DOMAIN`
+- `init-letsencrypt.sh` — bootstrap первого Let's Encrypt сертификата
