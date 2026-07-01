@@ -6,11 +6,12 @@ DROP VIEW IF EXISTS view_attendance_journal;
 DROP VIEW IF EXISTS view_next_lessons;
 
 -- 1. Обновление таблицы lecterns
-ALTER TABLE lecterns ALTER COLUMN code TYPE VARCHAR(20);
+ALTER TABLE lecterns DROP CONSTRAINT IF EXISTS lecterns_code_unique;
 ALTER TABLE lecterns ADD CONSTRAINT lecterns_code_unique UNIQUE (code);
 
 -- 2. Обновление таблицы groups
 ALTER TABLE groups ALTER COLUMN group_name TYPE VARCHAR(50);
+ALTER TABLE groups DROP CONSTRAINT IF EXISTS groups_group_name_unique;
 ALTER TABLE groups ADD CONSTRAINT groups_group_name_unique UNIQUE (group_name);
 
 -- 3. Обновление таблицы teachers
@@ -21,6 +22,7 @@ ALTER TABLE teachers ALTER COLUMN job_title TYPE VARCHAR(255);
 -- 4. Обновление таблицы students
 ALTER TABLE students ALTER COLUMN student_name TYPE VARCHAR(255);
 ALTER TABLE students ALTER COLUMN student_name SET NOT NULL;
+ALTER TABLE students DROP CONSTRAINT IF EXISTS unique_student_group;
 ALTER TABLE students ADD CONSTRAINT unique_student_group UNIQUE (student_name, group_id);
 
 -- 5. Пересоздаем вьюхи (уже с новыми типами колонок)
