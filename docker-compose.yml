@@ -68,10 +68,28 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: sibsutis_front
+    environment:
+      DOMAIN: ${DOMAIN:-lms.signal.qlabs.pro}
     depends_on:
       - ejournal-backend
     ports:
       - "${FRONTEND_PORT:-9999}:80"
+      - "${FRONTEND_HTTPS_PORT:-443}:443"
+    volumes:
+      - ./certbot/conf:/etc/letsencrypt:ro
+      - ./certbot/www:/var/www/certbot:ro
+    command: >
+      sh -c "while :; do sleep 6h & wait $${!}; nginx -s reload; done & nginx -g 'daemon off;'"
+    restart: unless-stopped
+
+  certbot:
+    image: certbot/certbot
+    container_name: ejournal-certbot
+    volumes:
+      - ./certbot/conf:/etc/letsencrypt
+      - ./certbot/www:/var/www/certbot
+    entrypoint: >
+      sh -c "trap exit TERM; while :; do certbot renew --webroot -w /var/www/certbot -q; sleep 12h & wait $${!}; done;"
     restart: unless-stopped
 
   mailserver:
