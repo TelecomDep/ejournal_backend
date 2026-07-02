@@ -114,11 +114,6 @@ services:
       - /etc/letsencrypt:/etc/letsencrypt:ro
     restart: unless-stopped
 
-networks:
-  default:
-    driver_opts:
-      com.docker.network.driver.mtu: 1420
-
 volumes:
   pgdata:
   avataruploads:
