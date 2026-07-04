@@ -102,6 +102,12 @@ type AttendanceSessionData struct {
 	LessonID int32 `json:"lesson_id"`
 }
 
+type TeacherAttendanceMarkData struct {
+	LessonID  int32  `json:"lesson_id"`
+	StudentID int32  `json:"student_id"`
+	Status    string `json:"status"`
+}
+
 type AttendanceHistoryData struct {
 	Year int `json:"year"`
 }
@@ -1410,6 +1416,48 @@ func (s *Service) attendanceSessionTimerForTeacher(sessionToken string, data Att
 	}
 }
 
+var validAttendanceStatuses = map[string]bool{
+	"present": true,
+	"absent":  true,
+	"late":    true,
+	"excused": true,
+}
+
+func (s *Service) attendanceManualMarkByTeacher(sessionToken string, data TeacherAttendanceMarkData) Response {
+	ctx, cancel := s.dbContext()
+	defer cancel()
+
+	session, ok, resp := s.attendanceSessionByTeacher(ctx, sessionToken, data.LessonID)
+	if !ok {
+		return resp
+	}
+
+	if data.StudentID <= 0 {
+		return Response{OK: false, Error: "student_id is required"}
+	}
+	status := strings.ToLower(strings.TrimSpace(data.Status))
+	if !validAttendanceStatuses[status] {
+		return Response{OK: false, Error: "status must be one of: present, absent, late, excused"}
+	}
+
+	result, err := s.store.Attendance.SetStudentAttendanceStatus(ctx, session.ID, data.StudentID, status, time.Now().UTC())
+	if err != nil {
+		return Response{OK: false, Error: "failed to update attendance status"}
+	}
+	if result == "not_found" {
+		return Response{OK: false, Error: "student not found in this session's roster"}
+	}
+
+	return Response{
+		OK: true,
+		Result: map[string]any{
+			"lesson_id":  session.ID,
+			"student_id": data.StudentID,
+			"status":     status,
+		},
+	}
+}
+
 func (s *Service) activeAttendanceSessionForTeacher(sessionToken string) Response {
 	teacherUser, err := s.userBySessionToken(sessionToken)
 	if err != nil {
@@ -1874,6 +1922,22 @@ func (s *Service) handleRequest(raw string) Response {
 		return resp
 	case "teacher_active_attendance_session":
 		resp := s.activeAttendanceSessionForTeacher(req.Token)
+		resp.ID = req.ID
+		return resp
+	case "teacher_attendance_mark":
+		var data TeacherAttendanceMarkData
+		if err := json.Unmarshal(req.Data, &data); err != nil {
+			return Response{ID: req.ID, OK: false, Error: "invalid teacher_attendance_mark payload"}
+		}
+		resp := s.attendanceManualMarkByTeacher(req.Token, data)
+		resp.ID = req.ID
+		return resp
+	case "student_schedule_day":
+		var data StudentScheduleDayData
+		if err := json.Unmarshal(req.Data, &data); err != nil {
+			return Response{ID: req.ID, OK: false, Error: "invalid student_schedule_day payload"}
+		}
+		resp := s.studentScheduleForDay(req.Token, data)
 		resp.ID = req.ID
 		return resp
 	case "student_attendance_history":

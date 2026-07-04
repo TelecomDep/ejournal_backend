@@ -192,6 +192,7 @@ Swagger UI: `/swagger/index.html` (там же, где фронтенд — ngin
 | `GET /api/teacher/subjects` | предметы и группы преподавателя (из расписания) |
 | `POST /api/teacher/attendance/group` | статистика посещаемости по группе (опционально по предмету) |
 | `POST /api/teacher/attendance/student/history` | история посещаемости одного студента по предмету |
+| `POST /api/teacher/attendance/mark` | ручная корректировка статуса студента в сессии (`present`/`absent`/`late`/`excused`) |
 | `POST /api/teacher/group/performance` | сводный обзор посещаемости + оценок по группе |
 
 ### Посещаемость — студент
@@ -200,6 +201,7 @@ Swagger UI: `/swagger/index.html` (там же, где фронтенд — ngin
 |---|---|
 | `POST /api/student/attendance/confirm` | подтвердить посещаемость по инвайт-токену |
 | `GET /api/student/attendance/history?year=` | своя история посещаемости |
+| `GET /api/student/schedule/day?date=` | своё расписание на день (текущая или следующая календарная неделя, по умолчанию — сегодня) |
 
 ### Android-совместимый API
 
@@ -316,6 +318,27 @@ POST /api/student/attendance/confirm
 }
 ```
 
+Ручная корректировка посещаемости (преподаватель, для своей сессии):
+
+```json
+POST /api/teacher/attendance/mark
+{
+  "lesson_id": 1,
+  "student_id": 6,
+  "status": "excused"
+}
+```
+
+`status` — один из `present`, `absent`, `late`, `excused`.
+
+Расписание студента на день (текущая или следующая неделя):
+
+```
+GET /api/student/schedule/day?date=2026-07-12
+```
+
+`date` необязателен (по умолчанию — сегодня), формат `YYYY-MM-DD`. Дата вне текущей/следующей календарной недели вернёт ошибку `400`.
+
 Отметка студента из Android-приложения (с геолокацией):
 
 ```json
@@ -374,6 +397,7 @@ Backend (`backend/`):
 - `internal/app/android.go` — посещаемость с геолокацией для Android-клиента
 - `internal/app/grades.go` — контрольные точки и оценки
 - `internal/app/supervision.go` — ролевой обзор оргструктуры (staff overview)
+- `internal/app/schedule.go` — расписание студента на день
 - `internal/app/mailer.go` — отправка писем (SMTP, восстановление пароля)
 - `internal/httpserver/server.go` — HTTP-слой и маршруты
 - `internal/config/config.go` — загрузка конфигурации из env

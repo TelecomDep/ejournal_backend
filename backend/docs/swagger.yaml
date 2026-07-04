@@ -139,6 +139,15 @@ definitions:
         type: boolean
       result: {}
     type: object
+  app.TeacherAttendanceMarkData:
+    properties:
+      lesson_id:
+        type: integer
+      status:
+        type: string
+      student_id:
+        type: integer
+    type: object
   app.TeacherAttendanceStudentHistoryData:
     properties:
       student_id:
@@ -1118,6 +1127,39 @@ paths:
       summary: Get current student performance radar
       tags:
       - grades
+  /api/student/schedule/day:
+    get:
+      description: Returns the current student's lessons for a given date, restricted
+        to the current or next calendar week. Defaults to today if date is omitted.
+      parameters:
+      - description: Date in YYYY-MM-DD format (defaults to today)
+        in: query
+        name: date
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/app.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/app.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/app.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/app.Response'
+      security:
+      - BearerAuth: []
+      summary: Get student's schedule for a day
+      tags:
+      - schedule
   /api/teacher/attendance-link:
     post:
       consumes:
@@ -1198,6 +1240,47 @@ paths:
       security:
       - BearerAuth: []
       summary: Get attendance stats by group
+      tags:
+      - attendance
+  /api/teacher/attendance/mark:
+    post:
+      consumes:
+      - application/json
+      description: Teacher sets a student's attendance status (present/absent/late/excused)
+        for a session they own, overriding self/device check-in.
+      parameters:
+      - description: Lesson, student and new status
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/app.TeacherAttendanceMarkData'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/app.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/app.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/app.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/app.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/app.Response'
+      security:
+      - BearerAuth: []
+      summary: Manually correct a student's attendance status
       tags:
       - attendance
   /api/teacher/attendance/session:

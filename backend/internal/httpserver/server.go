@@ -56,6 +56,7 @@ func (s *Server) Start() {
 	fiberApp.Get("/api/teacher/attendance/session/marked-count", s.teacherAttendanceMarkedCountHandler)
 	fiberApp.Get("/api/teacher/attendance/session/timer", s.teacherAttendanceSessionTimerHandler)
 	fiberApp.Get("/api/teacher/attendance/session/active", s.teacherActiveAttendanceSessionHandler)
+	fiberApp.Post("/api/teacher/attendance/mark", s.teacherAttendanceMarkHandler)
 	fiberApp.Get("/api/teacher/subjects", s.teacherSubjectsHandler)
 	fiberApp.Post("/api/teacher/attendance/group", s.teacherAttendanceByGroupHandler)
 	fiberApp.Post("/api/teacher/group/performance", s.teacherGroupPerformanceHandler)
@@ -64,6 +65,7 @@ func (s *Server) Start() {
 	fiberApp.Post("/api/student/mark-attendance", s.androidStudentAttendanceMarkHandler)
 	fiberApp.Get("/api/student/attendance/history", s.studentAttendanceHistoryHandler)
 	fiberApp.Get("/api/staff/overview", s.staffOverviewHandler)
+	fiberApp.Get("/api/student/schedule/day", s.studentScheduleDayHandler)
 	fiberApp.Post("/api/user/upload-avatar", s.uploadAvatarHandler)
 	fiberApp.Post("/api/teacher/grades/items", s.teacherCreateGradeItemHandler)
 	fiberApp.Post("/api/teacher/grades/items/list", s.teacherGradeItemsBySubjectHandler)
@@ -710,6 +712,62 @@ func (s *Server) teacherAttendanceReadHandler(c *fiber.Ctx, requestID, action st
 	return c.JSON(resp)
 }
 
+// teacherAttendanceMarkHandler godoc
+// @Summary Manually correct a student's attendance status
+// @Description Teacher sets a student's attendance status (present/absent/late/excused) for a session they own, overriding self/device check-in.
+// @Tags attendance
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body app.TeacherAttendanceMarkData true "Lesson, student and new status"
+// @Success 200 {object} app.Response
+// @Failure 400 {object} app.Response
+// @Failure 401 {object} app.Response
+// @Failure 403 {object} app.Response
+// @Failure 404 {object} app.Response
+// @Router /api/teacher/attendance/mark [post]
+func (s *Server) teacherAttendanceMarkHandler(c *fiber.Ctx) error {
+	token := c.Get("Authorization")
+	if token == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(app.Response{OK: false, Error: "missing Authorization header"})
+	}
+
+	var body app.TeacherAttendanceMarkData
+	if err := c.BodyParser(&body); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(app.Response{OK: false, Error: "Error parsing body"})
+	}
+
+	data, err := json.Marshal(body)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(app.Response{OK: false, Error: "Error marshalling request"})
+	}
+
+	req := app.Request{ID: "http-teacher-attendance-mark", Action: "teacher_attendance_mark", Token: token, Data: data}
+	raw, err := json.Marshal(req)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(app.Response{OK: false, Error: "Error marshalling envelope"})
+	}
+
+	resp, err := s.svc.DispatchRequest(string(raw), s.requestTimeout)
+	if err != nil {
+		return c.Status(fiber.StatusServiceUnavailable).JSON(app.Response{OK: false, Error: err.Error()})
+	}
+	if !resp.OK {
+		if resp.Error == "forbidden: teacher role required" || resp.Error == "forbidden: lesson belongs to another teacher" {
+			return c.Status(fiber.StatusForbidden).JSON(resp)
+		}
+		if resp.Error == "invalid token" || resp.Error == "session not found" || resp.Error == "missing token" {
+			return c.Status(fiber.StatusUnauthorized).JSON(resp)
+		}
+		if resp.Error == "student not found in this session's roster" {
+			return c.Status(fiber.StatusNotFound).JSON(resp)
+		}
+		return c.Status(fiber.StatusBadRequest).JSON(resp)
+	}
+
+	return c.JSON(resp)
+}
+
 // teacherSubjectsHandler godoc
 // @Summary Get teacher subjects
 // @Description Returns subjects (and groups) assigned to current teacher from schedule.
@@ -796,6 +854,47 @@ func (s *Server) studentAttendanceHistoryHandler(c *fiber.Ctx) error {
 			return c.Status(fiber.StatusUnauthorized).JSON(resp)
 		}
 		return c.Status(fiber.StatusBadRequest).JSON(resp)
+	}
+
+	return c.JSON(resp)
+}
+
+// studentScheduleDayHandler godoc
+// @Summary Get student's schedule for a day
+// @Description Returns the current student's lessons for a given date, restricted to the current or next calendar week. Defaults to today if date is omitted.
+// @Tags schedule
+// @Produce json
+// @Security BearerAuth
+// @Param date query string false "Date in YYYY-MM-DD format (defaults to today)"
+// @Success 200 {object} app.Response
+// @Failure 400 {object} app.Response
+// @Failure 401 {object} app.Response
+// @Failure 403 {object} app.Response
+// @Router /api/student/schedule/day [get]
+func (s *Server) studentScheduleDayHandler(c *fiber.Ctx) error {
+	token := c.Get("Authorization")
+	if token == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(app.Response{OK: false, Error: "missing Authorization header"})
+	}
+
+	body := app.StudentScheduleDayData{Date: c.Query("date", "")}
+	data, err := json.Marshal(body)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(app.Response{OK: false, Error: "Error marshalling request"})
+	}
+
+	req := app.Request{ID: "http-student-schedule-day", Action: "student_schedule_day", Token: token, Data: data}
+	raw, err := json.Marshal(req)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(app.Response{OK: false, Error: "Error marshalling envelope"})
+	}
+
+	resp, err := s.svc.DispatchRequest(string(raw), s.requestTimeout)
+	if err != nil {
+		return c.Status(fiber.StatusServiceUnavailable).JSON(app.Response{OK: false, Error: err.Error()})
+	}
+	if !resp.OK {
+		return c.Status(app.GradeHTTPStatus(resp)).JSON(resp)
 	}
 
 	return c.JSON(resp)

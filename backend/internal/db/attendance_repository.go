@@ -399,6 +399,44 @@ func (r *AttendanceRepository) MarkStudentPresentFromDevice(
 	return "updated", nil
 }
 
+func (r *AttendanceRepository) SetStudentAttendanceStatus(
+	ctx context.Context,
+	sessionID, studentID int32,
+	status string,
+	markedAt time.Time,
+) (string, error) {
+	if sessionID <= 0 {
+		return "", fmt.Errorf("session id is required")
+	}
+	if studentID <= 0 {
+		return "", fmt.Errorf("student id is required")
+	}
+	if markedAt.IsZero() {
+		markedAt = time.Now().UTC()
+	}
+
+	cmd, err := r.pool.Exec(
+		ctx,
+		`UPDATE attendance_session_students
+		 SET status = $3,
+		     marked_at = $4,
+		     marked_by = 'teacher'
+		 WHERE session_id = $1 AND student_id = $2`,
+		sessionID,
+		studentID,
+		status,
+		markedAt.UTC(),
+	)
+	if err != nil {
+		return "", fmt.Errorf("set student attendance status: %w", err)
+	}
+	if cmd.RowsAffected() == 0 {
+		return "not_found", nil
+	}
+
+	return "updated", nil
+}
+
 func (r *AttendanceRepository) GetStudentSubjectAttendanceHistory(
 	ctx context.Context,
 	studentID, subjectID int32,
