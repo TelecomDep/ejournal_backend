@@ -233,7 +233,7 @@ func (s *Service) staffOverview(token string) Response {
 		       COUNT(DISTINCT st.student_id) AS student_count,
 		       COALESCE(ROUND(
 		           100.0 * COUNT(ass.student_id) FILTER (WHERE ass.status IN ('present','late'))
-		           / NULLIF(COUNT(ass.student_id), 0)
+		           / NULLIF(COUNT(ass.student_id) FILTER (WHERE ass.status <> 'excused'), 0)
 		       ), 0) AS attendance_pct
 		FROM groups g
 		LEFT JOIN lecterns l ON l.lectern_id = g.lectern_id
@@ -280,7 +280,7 @@ func (s *Service) staffOverview(token string) Response {
 		SELECT s.student_id, COALESCE(s.student_name, ''), COALESCE(g.group_name, ''), COALESCE(l.name, ''),
 		       COALESCE(ROUND(
 		           100.0 * COUNT(ass.student_id) FILTER (WHERE ass.status IN ('present','late'))
-		           / NULLIF(COUNT(ass.student_id), 0)
+		           / NULLIF(COUNT(ass.student_id) FILTER (WHERE ass.status <> 'excused'), 0)
 		       ), 0) AS attendance_pct
 		FROM students s
 		LEFT JOIN groups g ON g.group_id = s.group_id

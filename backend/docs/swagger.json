@@ -141,6 +141,92 @@
                 }
             }
         },
+        "/api/staff/reports/performance.pdf": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Head, dean, or admin downloads a PDF performance rating report: one page (or more) for the whole scope plus one section per group, colour-coded by percent, matching the xlsx report.",
+                "produces": [
+                    "application/pdf"
+                ],
+                "tags": [
+                    "staff"
+                ],
+                "summary": "Download performance report as PDF",
+                "responses": {
+                    "200": {
+                        "description": "PDF document",
+                        "schema": {
+                            "type": "file"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/staff/reports/performance.xlsx": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Head, dean, or admin downloads an xlsx performance rating report: one sheet for the whole scope plus one sheet per group. Rows are students ranked by overall rating with per-subject percents and attendance.",
+                "produces": [
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                ],
+                "tags": [
+                    "staff"
+                ],
+                "summary": "Download performance report as Excel",
+                "responses": {
+                    "200": {
+                        "description": "Excel workbook",
+                        "schema": {
+                            "type": "file"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/api/student/attendance/confirm": {
             "post": {
                 "security": [
@@ -2524,6 +2610,10 @@
                     "type": "integer",
                     "example": 2
                 },
+                "excused_sessions": {
+                    "type": "integer",
+                    "example": 0
+                },
                 "last_marked_at": {
                     "type": "string",
                     "example": "2026-04-20T20:13:07+07:00"
@@ -2882,6 +2972,10 @@
                 "current_score": {
                     "type": "integer",
                     "example": 13
+                },
+                "excused_sessions": {
+                    "type": "integer",
+                    "example": 0
                 },
                 "grade_percent": {
                     "type": "number",

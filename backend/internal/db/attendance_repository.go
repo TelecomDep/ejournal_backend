@@ -173,7 +173,7 @@ func (r *AttendanceRepository) GetSessionProgress(ctx context.Context, sessionID
 	err := r.pool.QueryRow(
 		ctx,
 		`SELECT COUNT(*)::INTEGER AS roster_size,
-		        COUNT(*) FILTER (WHERE status = 'present')::INTEGER AS marked_count
+		        COUNT(*) FILTER (WHERE status <> 'absent')::INTEGER AS marked_count
 		 FROM attendance_session_students
 		 WHERE session_id = $1`,
 		sessionID,
@@ -513,8 +513,9 @@ func (r *AttendanceRepository) GetTeacherGroupAttendanceStats(
 		   agg AS (
 		     SELECT ass.student_id,
 		            COUNT(*)::INTEGER AS total_sessions,
-		            SUM(CASE WHEN ass.status = 'present' THEN 1 ELSE 0 END)::INTEGER AS attended_sessions,
-		            MAX(CASE WHEN ass.status = 'present' THEN ass.marked_at ELSE NULL END) AS last_marked_at
+		            SUM(CASE WHEN ass.status IN ('present', 'late') THEN 1 ELSE 0 END)::INTEGER AS attended_sessions,
+		            SUM(CASE WHEN ass.status = 'excused' THEN 1 ELSE 0 END)::INTEGER AS excused_sessions,
+		            MAX(CASE WHEN ass.status IN ('present', 'late') THEN ass.marked_at ELSE NULL END) AS last_marked_at
 		     FROM attendance_session_students ass
 		     INNER JOIN scoped_sessions ss
 		             ON ss.session_id = ass.session_id
@@ -525,6 +526,7 @@ func (r *AttendanceRepository) GetTeacherGroupAttendanceStats(
 		          st.student_name,
 		          COALESCE(agg.total_sessions, 0),
 		          COALESCE(agg.attended_sessions, 0),
+		          COALESCE(agg.excused_sessions, 0),
 		          agg.last_marked_at
 		   FROM students st
 		   LEFT JOIN agg ON agg.student_id = st.student_id
@@ -547,6 +549,7 @@ func (r *AttendanceRepository) GetTeacherGroupAttendanceStats(
 			&item.StudentName,
 			&item.TotalSessions,
 			&item.AttendedSessions,
+			&item.ExcusedSessions,
 			&item.LastMarkedAt,
 		); err != nil {
 			return nil, fmt.Errorf("scan teacher group attendance stat: %w", err)
@@ -593,7 +596,8 @@ func (r *AttendanceRepository) GetGroupSubjectPerformance(
 		   att AS (
 		     SELECT ass.student_id,
 		            COUNT(*)::INTEGER AS total_sessions,
-		            SUM(CASE WHEN ass.status = 'present' THEN 1 ELSE 0 END)::INTEGER AS attended_sessions
+		            SUM(CASE WHEN ass.status IN ('present', 'late') THEN 1 ELSE 0 END)::INTEGER AS attended_sessions,
+		            SUM(CASE WHEN ass.status = 'excused' THEN 1 ELSE 0 END)::INTEGER AS excused_sessions
 		     FROM attendance_session_students ass
 		     INNER JOIN scoped_sessions ss
 		             ON ss.session_id = ass.session_id
@@ -615,6 +619,7 @@ func (r *AttendanceRepository) GetGroupSubjectPerformance(
 		          st.student_name,
 		          COALESCE(att.total_sessions, 0),
 		          COALESCE(att.attended_sessions, 0),
+		          COALESCE(att.excused_sessions, 0),
 		          COALESCE(grd.total_max, 0),
 		          COALESCE(grd.passed_max, 0),
 		          COALESCE(grd.current_score, 0)
@@ -640,6 +645,7 @@ func (r *AttendanceRepository) GetGroupSubjectPerformance(
 			&item.StudentName,
 			&item.TotalSessions,
 			&item.AttendedSessions,
+			&item.ExcusedSessions,
 			&item.TotalMax,
 			&item.PassedMax,
 			&item.CurrentScore,

@@ -532,6 +532,9 @@ definitions:
       attended_sessions:
         example: 2
         type: integer
+      excused_sessions:
+        example: 0
+        type: integer
       last_marked_at:
         example: "2026-04-20T20:13:07+07:00"
         type: string
@@ -787,6 +790,9 @@ definitions:
       current_score:
         example: 13
         type: integer
+      excused_sessions:
+        example: 0
+        type: integer
       grade_percent:
         example: 65
         type: number
@@ -910,6 +916,64 @@ paths:
       security:
       - BearerAuth: []
       summary: Supervisory overview (teacher/head/dean/admin)
+      tags:
+      - staff
+  /api/staff/reports/performance.pdf:
+    get:
+      description: 'Head, dean, or admin downloads a PDF performance rating report:
+        one page (or more) for the whole scope plus one section per group, colour-coded
+        by percent, matching the xlsx report.'
+      produces:
+      - application/pdf
+      responses:
+        "200":
+          description: PDF document
+          schema:
+            type: file
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/app.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/app.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/app.Response'
+      security:
+      - BearerAuth: []
+      summary: Download performance report as PDF
+      tags:
+      - staff
+  /api/staff/reports/performance.xlsx:
+    get:
+      description: 'Head, dean, or admin downloads an xlsx performance rating report:
+        one sheet for the whole scope plus one sheet per group. Rows are students
+        ranked by overall rating with per-subject percents and attendance.'
+      produces:
+      - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+      responses:
+        "200":
+          description: Excel workbook
+          schema:
+            type: file
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/app.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/app.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/app.Response'
+      security:
+      - BearerAuth: []
+      summary: Download performance report as Excel
       tags:
       - staff
   /api/student/attendance/confirm:

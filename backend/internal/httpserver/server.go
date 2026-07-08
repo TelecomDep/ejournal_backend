@@ -65,6 +65,8 @@ func (s *Server) Start() {
 	fiberApp.Post("/api/student/mark-attendance", s.androidStudentAttendanceMarkHandler)
 	fiberApp.Get("/api/student/attendance/history", s.studentAttendanceHistoryHandler)
 	fiberApp.Get("/api/staff/overview", s.staffOverviewHandler)
+	fiberApp.Get("/api/staff/reports/performance.xlsx", s.staffPerformanceReportHandler)
+	fiberApp.Get("/api/staff/reports/performance.pdf", s.staffPerformanceReportPDFHandler)
 	fiberApp.Get("/api/student/schedule/day", s.studentScheduleDayHandler)
 	fiberApp.Post("/api/user/upload-avatar", s.uploadAvatarHandler)
 	fiberApp.Post("/api/teacher/grades/items", s.teacherCreateGradeItemHandler)
@@ -419,6 +421,82 @@ func (s *Server) staffOverviewHandler(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(resp)
+}
+
+func (s *Server) loadStaffPerformanceReport(c *fiber.Ctx) (*app.PerformanceReport, error) {
+	token := c.Get("Authorization")
+	if token == "" {
+		return nil, c.Status(fiber.StatusUnauthorized).JSON(app.Response{OK: false, Error: "missing Authorization header"})
+	}
+
+	report, resp := s.svc.StaffPerformanceReport(token)
+	if report == nil {
+		switch resp.Error {
+		case "forbidden: head role or higher required":
+			return nil, c.Status(fiber.StatusForbidden).JSON(resp)
+		case "invalid token", "session not found", "missing token":
+			return nil, c.Status(fiber.StatusUnauthorized).JSON(resp)
+		default:
+			return nil, c.Status(fiber.StatusInternalServerError).JSON(resp)
+		}
+	}
+	return report, nil
+}
+
+// staffPerformanceReportHandler godoc
+// @Summary Download performance report as Excel
+// @Description Head, dean, or admin downloads an xlsx performance rating report: one sheet for the whole scope plus one sheet per group. Rows are students ranked by overall rating with per-subject percents and attendance.
+// @Tags staff
+// @Produce application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+// @Security BearerAuth
+// @Success 200 {file} file "Excel workbook"
+// @Failure 401 {object} app.Response
+// @Failure 403 {object} app.Response
+// @Failure 500 {object} app.Response
+// @Router /api/staff/reports/performance.xlsx [get]
+func (s *Server) staffPerformanceReportHandler(c *fiber.Ctx) error {
+	report, err := s.loadStaffPerformanceReport(c)
+	if report == nil {
+		return err
+	}
+
+	buf, buildErr := app.BuildPerformanceReportXLSX(report)
+	if buildErr != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(app.Response{OK: false, Error: "failed to build report file"})
+	}
+
+	filename := "performance_" + report.GeneratedAt.Format("2006-01-02") + ".xlsx"
+	c.Set(fiber.HeaderContentType, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+	c.Set(fiber.HeaderContentDisposition, `attachment; filename="`+filename+`"`)
+	return c.Send(buf.Bytes())
+}
+
+// staffPerformanceReportPDFHandler godoc
+// @Summary Download performance report as PDF
+// @Description Head, dean, or admin downloads a PDF performance rating report: one page (or more) for the whole scope plus one section per group, colour-coded by percent, matching the xlsx report.
+// @Tags staff
+// @Produce application/pdf
+// @Security BearerAuth
+// @Success 200 {file} file "PDF document"
+// @Failure 401 {object} app.Response
+// @Failure 403 {object} app.Response
+// @Failure 500 {object} app.Response
+// @Router /api/staff/reports/performance.pdf [get]
+func (s *Server) staffPerformanceReportPDFHandler(c *fiber.Ctx) error {
+	report, err := s.loadStaffPerformanceReport(c)
+	if report == nil {
+		return err
+	}
+
+	buf, buildErr := app.BuildPerformanceReportPDF(report)
+	if buildErr != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(app.Response{OK: false, Error: "failed to build report file"})
+	}
+
+	filename := "performance_" + report.GeneratedAt.Format("2006-01-02") + ".pdf"
+	c.Set(fiber.HeaderContentType, "application/pdf")
+	c.Set(fiber.HeaderContentDisposition, `attachment; filename="`+filename+`"`)
+	return c.Send(buf.Bytes())
 }
 
 // teacherAttendanceLinkHandler godoc

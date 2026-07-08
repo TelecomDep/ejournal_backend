@@ -1,0 +1,882 @@
+# EJournal Backend API — документация для фронтенда
+
+Backend API электронного журнала: авторизация, посещаемость по QR/ссылке, оценки, расписание, отчёты.
+
+- **Base URL (локально):** `http://localhost:8888`
+- **Формат:** JSON (кроме загрузки аватара и скачивания отчётов)
+- **Swagger UI:** `GET /swagger/index.html`
+
+## Общие сведения
+
+### Авторизация
+
+Все ручки, кроме `/register`, `/register/by-invite`, `/login`, `/api/auth/forgot-password`, `/api/auth/reset-password`, требуют JWT-токен в заголовке:
+
+```
+Authorization: Bearer <jwt_token>
+```
+
+Токен выдаётся ручками `/login` и `/register`.
+
+### Единый формат ответа
+
+Почти все ручки возвращают конверт:
+
+```json
+{
+  "ok": true,
+  "id": "http-login",
+  "result": { ... },
+  "error": ""
+}
+```
+
+| Поле | Тип | Описание |
+|---|---|---|
+| `ok` | bool | `true` — успех, `false` — ошибка |
+| `id` | string | Идентификатор операции (для отладки) |
+| `result` | object/array | Полезные данные (при успехе) |
+| `error` | string | Текст ошибки (при `ok: false`) |
+
+### Коды ошибок
+
+| Код | Значение |
+|---|---|
+| `400` | Невалидное тело запроса / параметры |
+| `401` | Нет токена или токен невалиден |
+| `403` | Роль не имеет доступа к ручке |
+| `404` | Объект не найден |
+| `409` | Конфликт (например, посещение уже отмечено) |
+| `500` | Внутренняя ошибка сервера |
+
+### Роли
+
+`student`, `teacher`, `head` (зав. кафедрой), `dean` (декан), `admin`.
+
+---
+
+## 1. Аутентификация
+
+### POST `/register` — регистрация
+
+Регистрация по одноразовому `invite_code`. Легаси-вариант с `role_hash` тоже поддерживается.
+
+**Auth:** не требуется.
+
+**Тело запроса:**
+
+```json
+{
+  "login": "teacher1",
+  "password": "secret",
+  "invite_code": "ABC123",
+  "role": "teacher",       // только для легаси-варианта
+  "role_hash": "..."       // только для легаси-варианта
+}
+```
+
+**Ответ 200:**
+
+```json
+{
+  "ok": true,
+  "id": "http-register",
+  "result": {
+    "login": "teacher1",
+    "role": "teacher",
+    "token": "<jwt_token>",
+    "user_id": "5"
+  }
+}
+```
+
+**Ошибки:** `400`, `500`.
+
+---
+
+### POST `/register/by-invite` — регистрация по инвайт-коду
+
+Создаёт аккаунт студента / преподавателя / админа по одноразовому коду из БД. Токен не возвращает — после регистрации нужно вызвать `/login`.
+
+**Auth:** не требуется.
+
+**Тело запроса:**
+
+```json
+{
+  "invite_code": "ABC123",
+  "login": "student_iks_21",
+  "password": "secret"
+}
+```
+
+**Ответ 200 (`result`):**
+
+```json
+{
+  "user_id": "12",
+  "login": "student_iks_21",
+  "role": "student",
+  "group_id": 237,
+  "group_name": "ИКС-433",
+  "student_id": 56,
+  "student_name": "Демин Сергей А.",
+  "teacher_id": 3,
+  "teacher_name": "Солодов Павел Сергеевич",
+  "job_title": "Преподаватель"
+}
+```
+
+Поля `student_*` / `teacher_*` / `group_*` заполняются в зависимости от роли.
+
+**Ошибки:** `400`, `409` (логин занят / код использован), `500`.
+
+---
+
+### POST `/login` — вход
+
+**Auth:** не требуется.
+
+**Тело запроса:**
+
+```json
+{
+  "login": "teacher_test",
+  "password": "123456"
+}
+```
+
+**Ответ 200 (`result`):**
+
+```json
+{
+  "login": "teacher_test",
+  "role": "teacher",
+  "token": "<jwt_token>",
+  "user_ID": "3"
+}
+```
+
+**Ошибки:** `401` (неверный логин/пароль), `500`.
+
+---
+
+### GET `/profile` — профиль текущего пользователя
+
+**Auth:** Bearer.
+
+**Ответ 200 (`result`):**
+
+```json
+{
+  "user_id": "3",
+  "login": "student_iks_21",
+  "role": "student",
+  "name": "Демин Сергей А.",
+  "avatar": "https://server.com/uploads/avatars/avatar.png",
+  "group": "ИКС-433",
+  "group_id": 237,
+  "group_name": "ИКС-433",
+  "student_id": 56,
+  "student_name": "Демин Сергей А.",
+  "teacher_id": 3,
+  "teacher_name": "Солодов Павел Сергеевич",
+  "job_title": "Преподаватель",
+  "lectern_id": 1,
+  "nfc_tag": "04:XX:YY:ZZ",
+  "total_cheat_attempts": 0
+}
+```
+
+Набор заполненных полей зависит от роли (у студента — `student_*`/`group_*`, у преподавателя — `teacher_*`/`job_title`/`lectern_id`).
+
+**Ошибки:** `401`, `500`.
+
+---
+
+### POST `/api/auth/forgot-password` — запрос сброса пароля
+
+Генерирует токен сброса и отправляет на email пользователя.
+
+**Auth:** не требуется.
+
+**Тело запроса:**
+
+```json
+{ "identity": "login_или_email" }
+```
+
+**Ответ 200:** стандартный конверт. **Ошибки:** `400`, `500`.
+
+---
+
+### POST `/api/auth/reset-password` — сброс пароля
+
+**Auth:** не требуется.
+
+**Тело запроса:**
+
+```json
+{
+  "token": "<reset_token_из_письма>",
+  "new_password": "newsecret"
+}
+```
+
+**Ответ 200:** стандартный конверт. **Ошибки:** `400` (токен невалиден/просрочен), `500`.
+
+---
+
+## 2. Профиль пользователя
+
+### POST `/api/user/email` — привязать/обновить email
+
+**Auth:** Bearer.
+
+**Тело запроса:**
+
+```json
+{ "email": "user@example.com" }
+```
+
+**Ответ 200:** стандартный конверт. **Ошибки:** `400`, `401`, `500`.
+
+---
+
+### POST `/api/user/upload-avatar` — загрузка аватара
+
+**Auth:** Bearer. **Content-Type:** `multipart/form-data`.
+
+**Форма:** поле `avatar` — файл JPEG / PNG / WebP, до 5 MiB.
+
+**Ответ 200 (`result`):** публичный URL картинки (отдаётся со статики `/uploads/...`).
+
+**Ошибки:** `400` (не тот формат / слишком большой), `401`.
+
+---
+
+## 3. Посещаемость — преподаватель
+
+### POST `/api/teacher/attendance-link` — создать сессию посещаемости
+
+Алиас: `POST /api/teacher/attendance/session` (то же самое).
+
+Преподаватель создаёт сессию и получает ссылку/QR для отметки. Если `subject_id` / `group_ids` не переданы — берутся из ближайшей пары в расписании.
+
+**Auth:** Bearer (teacher).
+
+**Тело запроса:**
+
+```json
+{
+  "lesson_name": "Networks",
+  "expires_minutes": 20,
+  "subject_id": 2,        // опционально
+  "group_ids": [1],       // опционально
+  "lesson_id": 5          // опционально
+}
+```
+
+**Ответ 200 (`result`):**
+
+```json
+{
+  "lesson_id": "5",
+  "lesson_name": "Networks",
+  "subject_id": 2,
+  "teacher_id": "3",
+  "group_ids": [1],
+  "invite_token": "<attendance_invite_jwt>",
+  "join_url": "http://localhost:3000/attendance/join?token=<jwt>",
+  "url": "http://localhost:3000/attendance/join?token=<jwt>",
+  "qr_payload": "http://localhost:3000/attendance/join?token=<jwt>",
+  "expires_minutes": 20,
+  "expires_at": "2026-04-21T21:25:37+07:00",
+  "schedule_start": "2026-04-21T21:15:24+07:00",
+  "schedule_end": "2026-04-21T22:25:24+07:00",
+  "roster_size": 25,
+  "timezone": "Asia/Novosibirsk"
+}
+```
+
+`qr_payload` рендерите в QR-код; `join_url` — та же ссылка для перехода.
+
+**Ошибки:** `400`, `401`, `403`, `500`.
+
+---
+
+### GET `/api/teacher/attendance/session/active` — активная сессия
+
+Возвращает не истёкшую сессию текущего преподавателя (для восстановления экрана после перезагрузки).
+
+**Auth:** Bearer (teacher).
+
+**Ответ 200 (`result`):**
+
+```json
+{
+  "active": true,
+  "remaining_seconds": 900,
+  "seconds_remaining": 900,
+  "server_time": "2026-04-21T21:10:37+07:00",
+  "timezone": "Asia/Novosibirsk",
+  "session": {
+    "id": 5,
+    "lesson_id": 5,
+    "lesson_name": "Networks",
+    "subject_id": 2,
+    "teacher_id": 3,
+    "is_active": true,
+    "created_at": "2026-04-21T21:05:37+07:00",
+    "expires_at": "2026-04-21T21:25:37+07:00",
+    "remaining_seconds": 900,
+    "marked_count": 18,
+    "roster_size": 25,
+    "attendance_percent": 72
+  }
+}
+```
+
+Если активной сессии нет — `active: false`, `session: null`.
+
+**Ошибки:** `400`, `401`, `403`.
+
+---
+
+### GET `/api/teacher/attendance/session/timer` — таймер сессии
+
+**Auth:** Bearer (teacher).
+
+**Query:** `lesson_id` (int, обязателен) — ID сессии.
+
+**Ответ 200 (`result`):**
+
+```json
+{
+  "lesson_id": 5,
+  "is_active": true,
+  "remaining_seconds": 900,
+  "seconds_remaining": 900,
+  "expires_at": "2026-04-21T21:25:37+07:00",
+  "server_time": "2026-04-21T21:10:37+07:00",
+  "timezone": "Asia/Novosibirsk"
+}
+```
+
+**Ошибки:** `400`, `401`, `403` (чужая сессия).
+
+---
+
+### GET `/api/teacher/attendance/session/marked-count` — сколько отметилось
+
+**Auth:** Bearer (teacher).
+
+**Query:** `lesson_id` (int, обязателен).
+
+**Ответ 200 (`result`):**
+
+```json
+{
+  "lesson_id": 5,
+  "marked_count": 18,
+  "roster_size": 25,
+  "attendance_percent": 72
+}
+```
+
+Удобно поллить вместе с таймером во время активной сессии.
+
+**Ошибки:** `400`, `401`, `403`.
+
+---
+
+### POST `/api/teacher/attendance/mark` — ручная правка посещения
+
+Преподаватель вручную ставит статус студенту в своей сессии (поверх само-отметки).
+
+**Auth:** Bearer (teacher).
+
+**Тело запроса:**
+
+```json
+{
+  "lesson_id": 5,
+  "student_id": 4,
+  "status": "present"   // present | absent | late | excused
+}
+```
+
+**Ответ 200:** стандартный конверт. **Ошибки:** `400`, `401`, `403`, `404`.
+
+---
+
+### GET `/api/teacher/subjects` — предметы преподавателя
+
+Возвращает предметы и группы текущего преподавателя из расписания. Используйте для выпадающих списков.
+
+**Auth:** Bearer (teacher).
+
+**Ответ 200:** стандартный конверт, `result` — список предметов с группами.
+
+**Ошибки:** `401`, `403`, `500`.
+
+---
+
+### POST `/api/teacher/attendance/group` — статистика посещаемости группы
+
+**Auth:** Bearer (teacher).
+
+**Тело запроса:**
+
+```json
+{
+  "group_id": 1,
+  "subject_id": 2   // опционально
+}
+```
+
+**Ответ 200 (`result`):**
+
+```json
+{
+  "group_id": 1,
+  "subject_id": 2,
+  "timezone": "Asia/Novosibirsk",
+  "summary": { "sessions_count": 3, "students_count": 1 },
+  "students": [
+    {
+      "student_id": 4,
+      "student_name": "Test Student",
+      "attended_sessions": 2,
+      "excused_sessions": 0,
+      "total_sessions": 3,
+      "attendance_percent": 66.67,
+      "last_marked_at": "2026-04-20T20:13:07+07:00"
+    }
+  ]
+}
+```
+
+**Ошибки:** `400`, `401`, `403`, `500`.
+
+---
+
+### POST `/api/teacher/attendance/student/history` — история посещений студента
+
+Детальная история студента по конкретному предмету.
+
+**Auth:** Bearer (teacher).
+
+**Тело запроса:**
+
+```json
+{
+  "student_id": 4,
+  "subject_id": 2
+}
+```
+
+**Ответ 200 (`result`):**
+
+```json
+{
+  "items": [
+    { "date": "2026-04-20", "lesson_name": "Math", "status": "attended" }
+  ]
+}
+```
+
+**Ошибки:** `400`, `401`, `403`, `404`.
+
+---
+
+### POST `/api/teacher/group/performance` — сводка по группе (посещаемость + оценки)
+
+Комбинированный отчёт по каждому студенту группы по предмету.
+
+**Auth:** Bearer (teacher).
+
+**Тело запроса:**
+
+```json
+{
+  "group_id": 2,
+  "subject_id": 1
+}
+```
+
+**Ответ 200 (`result`):**
+
+```json
+{
+  "group_id": 2,
+  "group_name": "ИКС-433",
+  "subject_id": 1,
+  "subject_name": "Networks",
+  "timezone": "Asia/Novosibirsk",
+  "summary": {
+    "students_count": 1,
+    "sessions_count": 4,
+    "avg_attendance_percent": 75,
+    "avg_grade_percent": 65
+  },
+  "students": [
+    {
+      "student_id": 4,
+      "student_name": "Test Student",
+      "attended_sessions": 3,
+      "excused_sessions": 0,
+      "total_sessions": 4,
+      "attendance_percent": 75,
+      "current_score": 13,
+      "passed_max": 10,
+      "total_max": 20,
+      "grade_percent": 65
+    }
+  ]
+}
+```
+
+**Ошибки:** `400`, `401`, `403`, `404`.
+
+---
+
+## 4. Посещаемость — студент
+
+### POST `/api/student/attendance/confirm` — подтвердить посещение по токену
+
+Студент открывает `join_url` (или сканирует QR), фронт достаёт `token` из query и шлёт его сюда.
+
+**Auth:** Bearer (student).
+
+**Тело запроса:**
+
+```json
+{ "invite_token": "<attendance_invite_jwt>" }
+```
+
+**Ответ 200 (`result`):**
+
+```json
+{
+  "attendance": "confirmed",
+  "lesson_id": "5",
+  "student_id": "4",
+  "teacher_id": "3",
+  "subject_id": 2,
+  "marked_at": "2026-04-20T20:13:07+07:00"
+}
+```
+
+**Ошибки:** `400` (токен невалиден/просрочен), `401`, `403` (студент не из группы), `409` (уже отмечен), `500`.
+
+---
+
+### POST `/api/student/mark-attendance` — отметка с Android-клиента
+
+Отметка с геолокацией и ID устройства (мобильное приложение).
+
+**Auth:** Bearer (student).
+
+**Тело запроса:**
+
+```json
+{
+  "invite_token": "<attendance_invite_jwt>",
+  "lesson_id": 5,
+  "device_id": "android-device-uuid",
+  "lat": 55.0084,
+  "lon": 82.9357
+}
+```
+
+**Ответ 200:** стандартный конверт. **Ошибки:** `400`, `401`, `403`, `409` (уже отмечен / устройство уже использовалось).
+
+---
+
+### GET `/api/student/attendance/history` — история посещений (календарь)
+
+Отметки текущего студента, сгруппированные по датам, за выбранный год. Подходит для «теплокарты» активности.
+
+**Auth:** Bearer (student).
+
+**Query:** `year` (int, по умолчанию текущий год).
+
+**Ответ 200 (`result`):**
+
+```json
+{
+  "year": 2026,
+  "items": [
+    { "date": "2026-04-20", "count": 1 }
+  ]
+}
+```
+
+**Ошибки:** `400`, `401`, `403`, `500`.
+
+---
+
+## 5. Оценки — преподаватель
+
+### POST `/api/teacher/grades/items` — создать контрольную точку
+
+**Auth:** Bearer (teacher).
+
+**Тело запроса:**
+
+```json
+{
+  "subject_id": 1,
+  "title": "Лабораторная 1",
+  "item_type": "lab",
+  "max_score": 10,
+  "deadline": "2026-05-01"
+}
+```
+
+**Ответ 200:** стандартный конверт (созданный item в `result`). **Ошибки:** `400`, `401`, `403`, `404`.
+
+---
+
+### POST `/api/teacher/grades/items/list` — список контрольных точек предмета
+
+**Auth:** Bearer (teacher).
+
+**Тело запроса:**
+
+```json
+{ "subject_id": 1 }
+```
+
+**Ответ 200:** стандартный конверт, `result` — массив контрольных точек.
+
+**Ошибки:** `400`, `401`, `403`, `404`.
+
+---
+
+### POST `/api/teacher/grades` — поставить/обновить оценку
+
+Upsert: если оценка по этой точке у студента уже есть — обновляется.
+
+**Auth:** Bearer (teacher).
+
+**Тело запроса:**
+
+```json
+{
+  "item_id": 7,
+  "student_id": 4,
+  "score": 8,
+  "comment": "Хорошо",       // опционально
+  "session_id": 5            // опционально
+}
+```
+
+**Ответ 200:** стандартный конверт. **Ошибки:** `400` (score > max_score и т.п.), `401`, `403`, `404`.
+
+---
+
+### POST `/api/teacher/grades/student` — ведомость студента по предмету
+
+**Auth:** Bearer (teacher).
+
+**Тело запроса:**
+
+```json
+{
+  "student_id": 4,
+  "subject_id": 1
+}
+```
+
+**Ответ 200:** стандартный конверт, `result` — ведомость (контрольные точки с баллами студента и итогами).
+
+**Ошибки:** `400`, `401`, `403`, `404`.
+
+---
+
+### POST `/api/teacher/student/performance/radar` — радар успеваемости студента
+
+Точка на радаре по каждому предмету студента, которого ведёт преподаватель.
+
+**Auth:** Bearer (teacher).
+
+**Тело запроса:**
+
+```json
+{ "student_id": 4 }
+```
+
+**Ответ 200:** стандартный конверт, `result` — массив `{предмет, процент}` для радар-чарта.
+
+**Ошибки:** `400`, `401`, `403`, `404`.
+
+---
+
+## 6. Оценки — студент
+
+### POST `/api/student/grades` — свои оценки по предмету
+
+**Auth:** Bearer (student).
+
+**Тело запроса:**
+
+```json
+{ "subject_id": 1 }
+```
+
+**Ответ 200:** стандартный конверт, `result` — ведомость студента по предмету.
+
+**Ошибки:** `400`, `401`, `403`, `404`.
+
+---
+
+### GET `/api/student/grades/all` — все оценки одним запросом
+
+Все предметы учебного плана с контрольными точками, суммами по предмету и общим итогом. Подходит для главного экрана «Оценки».
+
+**Auth:** Bearer (student).
+
+**Ответ 200:** стандартный конверт. **Ошибки:** `401`, `403`.
+
+---
+
+### GET `/api/student/performance/radar` — радар успеваемости
+
+По одной точке на предмет (из расписания группы) с процентом набранных баллов за уже оценённые работы семестра.
+
+**Auth:** Bearer (student).
+
+**Ответ 200:** стандартный конверт. **Ошибки:** `401`, `403`, `500`.
+
+---
+
+## 7. Расписание
+
+### GET `/api/student/schedule/day` — расписание студента на день
+
+Пары текущего студента на дату. Доступна только текущая и следующая календарная неделя.
+
+**Auth:** Bearer (student).
+
+**Query:** `date` (string, `YYYY-MM-DD`, по умолчанию сегодня).
+
+**Ответ 200:** стандартный конверт, `result` — список пар на день.
+
+**Ошибки:** `400` (дата вне разрешённого диапазона / кривой формат), `401`, `403`.
+
+---
+
+## 8. Персонал (head / dean / admin)
+
+### GET `/api/staff/overview` — обзор по зоне ответственности
+
+Группы, преподаватели и студенты в рамках роли вызывающего:
+- `teacher` → свои группы;
+- `head` → своя кафедра;
+- `dean` → свой факультет;
+- `admin` → всё.
+
+**Auth:** Bearer.
+
+**Ответ 200:** стандартный конверт. **Ошибки:** `401`, `403`.
+
+---
+
+### GET `/api/staff/reports/performance.xlsx` — отчёт Excel
+
+Рейтинговый отчёт: один лист по всей зоне + по листу на группу. Студенты отсортированы по рейтингу, с процентами по предметам и посещаемостью.
+
+**Auth:** Bearer (head / dean / admin).
+
+**Ответ 200:** бинарный файл `.xlsx` (`Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`). На фронте скачивайте как blob.
+
+**Ошибки:** `401`, `403`, `500`.
+
+---
+
+### GET `/api/staff/reports/performance.pdf` — отчёт PDF
+
+То же, что xlsx, но PDF с цветовой кодировкой процентов.
+
+**Auth:** Bearer (head / dean / admin).
+
+**Ответ 200:** бинарный файл `application/pdf`. **Ошибки:** `401`, `403`, `500`.
+
+---
+
+## 9. Прочее / Android
+
+### POST `/lessons/create` — создать пару (Android-клиент)
+
+Преподаватель создаёт занятие по именам или ID предмета/групп и текущей геолокации.
+
+**Auth:** Bearer (teacher).
+
+**Тело запроса:**
+
+```json
+{
+  "lesson_name": "Networks",
+  "subject": "Сети",          // или subject_id
+  "subject_id": 2,
+  "groups": ["ИКС-433"],      // или group_ids
+  "group_ids": [1],
+  "teacher_id": 3,
+  "expires_minutes": 20,
+  "lat": 55.0084,
+  "lon": 82.9357
+}
+```
+
+**Ответ 200:** стандартный конверт. **Ошибки:** `400`, `401`, `403`.
+
+---
+
+### GET `/uploads/*` — статика
+
+Публичная раздача загруженных файлов (аватары и т.п.). Auth не требуется.
+
+---
+
+## Сводная таблица
+
+| Метод | Путь | Роль | Назначение |
+|---|---|---|---|
+| POST | `/register` | — | Регистрация (invite_code / легаси role_hash) |
+| POST | `/register/by-invite` | — | Регистрация по инвайт-коду |
+| POST | `/login` | — | Вход, выдача JWT |
+| GET | `/profile` | любая | Профиль текущего пользователя |
+| POST | `/api/auth/forgot-password` | — | Запрос сброса пароля |
+| POST | `/api/auth/reset-password` | — | Сброс пароля по токену |
+| POST | `/api/user/email` | любая | Привязка email |
+| POST | `/api/user/upload-avatar` | любая | Загрузка аватара (multipart) |
+| POST | `/api/teacher/attendance-link` | teacher | Создать сессию посещаемости (+QR) |
+| POST | `/api/teacher/attendance/session` | teacher | Алиас предыдущей |
+| GET | `/api/teacher/attendance/session/active` | teacher | Активная сессия |
+| GET | `/api/teacher/attendance/session/timer` | teacher | Таймер сессии |
+| GET | `/api/teacher/attendance/session/marked-count` | teacher | Счётчик отметившихся |
+| POST | `/api/teacher/attendance/mark` | teacher | Ручная правка статуса |
+| GET | `/api/teacher/subjects` | teacher | Предметы и группы преподавателя |
+| POST | `/api/teacher/attendance/group` | teacher | Посещаемость по группе |
+| POST | `/api/teacher/attendance/student/history` | teacher | История посещений студента |
+| POST | `/api/teacher/group/performance` | teacher | Сводка группа+предмет |
+| POST | `/api/student/attendance/confirm` | student | Подтвердить посещение по токену |
+| POST | `/api/student/mark-attendance` | student | Отметка с Android (гео + device) |
+| GET | `/api/student/attendance/history` | student | История посещений по датам |
+| POST | `/api/teacher/grades/items` | teacher | Создать контрольную точку |
+| POST | `/api/teacher/grades/items/list` | teacher | Список контрольных точек |
+| POST | `/api/teacher/grades` | teacher | Поставить/обновить оценку |
+| POST | `/api/teacher/grades/student` | teacher | Ведомость студента |
+| POST | `/api/teacher/student/performance/radar` | teacher | Радар студента |
+| POST | `/api/student/grades` | student | Свои оценки по предмету |
+| GET | `/api/student/grades/all` | student | Все оценки разом |
+| GET | `/api/student/performance/radar` | student | Свой радар успеваемости |
+| GET | `/api/student/schedule/day` | student | Расписание на день |
+| GET | `/api/staff/overview` | teacher+ | Обзор групп/людей по роли |
+| GET | `/api/staff/reports/performance.xlsx` | head/dean/admin | Excel-отчёт |
+| GET | `/api/staff/reports/performance.pdf` | head/dean/admin | PDF-отчёт |
+| POST | `/lessons/create` | teacher | Создать пару (Android) |
+| GET | `/uploads/*` | — | Статика (аватары) |
+| GET | `/swagger/*` | — | Swagger UI |

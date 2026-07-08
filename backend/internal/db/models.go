@@ -99,6 +99,7 @@ type AttendanceGroupStat struct {
 	StudentName      string     `json:"student_name"`
 	TotalSessions    int32      `json:"total_sessions"`
 	AttendedSessions int32      `json:"attended_sessions"`
+	ExcusedSessions  int32      `json:"excused_sessions"`
 	LastMarkedAt     *time.Time `json:"last_marked_at,omitempty"`
 }
 
@@ -120,6 +121,7 @@ type GroupSubjectPerformanceRow struct {
 	StudentName      string `json:"student_name"`
 	TotalSessions    int32  `json:"total_sessions"`
 	AttendedSessions int32  `json:"attended_sessions"`
+	ExcusedSessions  int32  `json:"excused_sessions"`
 	TotalMax         int32  `json:"total_max"`
 	PassedMax        int32  `json:"passed_max"`
 	CurrentScore     int32  `json:"current_score"`

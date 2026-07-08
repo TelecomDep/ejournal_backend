@@ -1152,9 +1152,10 @@ func (s *Service) attendanceByGroupForTeacher(sessionToken string, data Attendan
 		if row.LastMarkedAt != nil {
 			lastMarkedAt = formatAPITime(*row.LastMarkedAt)
 		}
+		countedSessions := row.TotalSessions - row.ExcusedSessions
 		attendancePercent := 0.0
-		if row.TotalSessions > 0 {
-			attendancePercent = float64(row.AttendedSessions) * 100 / float64(row.TotalSessions)
+		if countedSessions > 0 {
+			attendancePercent = float64(row.AttendedSessions) * 100 / float64(countedSessions)
 		}
 		if row.TotalSessions > sessionsCount {
 			sessionsCount = row.TotalSessions
@@ -1165,6 +1166,7 @@ func (s *Service) attendanceByGroupForTeacher(sessionToken string, data Attendan
 			"student_name":       row.StudentName,
 			"total_sessions":     row.TotalSessions,
 			"attended_sessions":  row.AttendedSessions,
+			"excused_sessions":   row.ExcusedSessions,
 			"attendance_percent": attendancePercent,
 			"last_marked_at":     lastMarkedAt,
 		})
@@ -1245,9 +1247,10 @@ func (s *Service) groupPerformanceForTeacher(sessionToken string, data GroupPerf
 		gradedStudentCount int
 	)
 	for _, row := range rows {
+		countedSessions := row.TotalSessions - row.ExcusedSessions
 		attendancePercent := 0.0
-		if row.TotalSessions > 0 {
-			attendancePercent = float64(row.AttendedSessions) * 100 / float64(row.TotalSessions)
+		if countedSessions > 0 {
+			attendancePercent = float64(row.AttendedSessions) * 100 / float64(countedSessions)
 		}
 		gradePercent := 0.0
 		if row.TotalMax > 0 {
@@ -1265,6 +1268,7 @@ func (s *Service) groupPerformanceForTeacher(sessionToken string, data GroupPerf
 			"student_name":       row.StudentName,
 			"total_sessions":     row.TotalSessions,
 			"attended_sessions":  row.AttendedSessions,
+			"excused_sessions":   row.ExcusedSessions,
 			"attendance_percent": attendancePercent,
 			"current_score":      row.CurrentScore,
 			"total_max":          row.TotalMax,
@@ -1541,7 +1545,7 @@ func (s *Service) attendanceHistoryForStudent(sessionToken string, data Attendan
 		        COUNT(*)::int AS count
 		 FROM attendance_session_students ass
 		 WHERE ass.student_id = $1
-		   AND ass.status = 'present'
+		   AND ass.status IN ('present', 'late')
 		   AND ass.marked_at IS NOT NULL
 		   AND ass.marked_at >= $2
 		   AND ass.marked_at < $3

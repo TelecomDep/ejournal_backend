@@ -128,6 +128,7 @@ type teacherAttendanceGroupStudent struct {
 	StudentName       string  `json:"student_name" example:"Test Student"`
 	TotalSessions     int32   `json:"total_sessions" example:"3"`
 	AttendedSessions  int32   `json:"attended_sessions" example:"2"`
+	ExcusedSessions   int32   `json:"excused_sessions" example:"0"`
 	AttendancePercent float64 `json:"attendance_percent" example:"66.67"`
 	LastMarkedAt      *string `json:"last_marked_at,omitempty" example:"2026-04-20T20:13:07+07:00"`
 }
@@ -256,6 +257,7 @@ type teacherGroupPerformanceStudent struct {
 	StudentName       string  `json:"student_name" example:"Test Student"`
 	TotalSessions     int32   `json:"total_sessions" example:"4"`
 	AttendedSessions  int32   `json:"attended_sessions" example:"3"`
+	ExcusedSessions   int32   `json:"excused_sessions" example:"0"`
 	AttendancePercent float64 `json:"attendance_percent" example:"75"`
 	CurrentScore      int32   `json:"current_score" example:"13"`
 	TotalMax          int32   `json:"total_max" example:"20"`
