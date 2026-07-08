@@ -7,21 +7,27 @@ const ROLE_LABELS = {
 };
 
 const STUDENT_NAV = [
-  { key: 'profile', label: 'Профиль', title: 'Профиль студента', route: '/profile', icon: 'П' },
-  { key: 'attendance', label: 'Посещаемость', title: 'Посещаемость', route: '/attendance', icon: 'Н' },
-  { key: 'grades', label: 'Оценки', title: 'Оценки', route: '/grades', icon: 'О' }
+  { key: 'dashboard', label: 'Главная', title: 'Главная', route: '/dashboard', icon: '⌂' },
+  { key: 'schedule', label: 'Расписание', title: 'Расписание', route: '/schedule', icon: '□' },
+  { key: 'grades', label: 'Оценки', title: 'Оценки', route: '/grades', icon: '◇' },
+  { key: 'attendance', label: 'Посещаемость', title: 'Посещаемость', route: '/attendance', icon: '✓' },
+  { key: 'analytics', label: 'Аналитика', title: 'Аналитика', route: '/analytics', icon: '▥' },
+  { key: 'profile', label: 'Профиль', title: 'Профиль студента', route: '/profile', icon: '○' }
 ];
 
 const TEACHER_NAV = [
-  { key: 'profile', label: 'Профиль', title: 'Профиль преподавателя', route: '/profile', icon: 'П' },
-  { key: 'attendance', label: 'Посещаемость', title: 'Посещаемость группы', route: '/teacher/attendance', icon: 'Н' },
-  { key: 'stats', label: 'Статистика', title: 'Статистика группы', route: '/teacher/stats', icon: 'С' },
-  { key: 'grades', label: 'Оценки', title: 'Ведомость оценок', route: '/teacher/grades', icon: 'О' }
+  { key: 'dashboard', label: 'Главная', title: 'Главная', route: '/dashboard', icon: '⌂' },
+  { key: 'schedule', label: 'Расписание', title: 'Расписание', route: '/schedule', icon: '□' },
+  { key: 'attendance', label: 'Посещаемость', title: 'Посещаемость группы', route: '/teacher/attendance', icon: '✓' },
+  { key: 'stats', label: 'Аналитика', title: 'Статистика группы', route: '/teacher/stats', icon: '▥' },
+  { key: 'grades', label: 'Оценки', title: 'Ведомость оценок', route: '/teacher/grades', icon: '◇' },
+  { key: 'profile', label: 'Профиль', title: 'Профиль преподавателя', route: '/profile', icon: '○' }
 ];
 
 const STAFF_NAV = [
-  { key: 'profile', label: 'Профиль', title: 'Профиль', route: '/profile', icon: 'П' },
-  { key: 'overview', label: 'Сводка', title: 'Сводка по охвату', route: '/staff/overview', icon: 'С' }
+  { key: 'dashboard', label: 'Главная', title: 'Главная', route: '/dashboard', icon: '⌂' },
+  { key: 'overview', label: 'Сводка', title: 'Сводка по охвату', route: '/staff/overview', icon: '▥' },
+  { key: 'profile', label: 'Профиль', title: 'Профиль', route: '/profile', icon: '○' }
 ];
 
 const STAFF_ROLES = ['admin', 'head', 'dean'];

@@ -113,7 +113,8 @@ const LoginPage = ({ onLogin, onRegister, loading, error }) => {
         </h1>
 
         {(view === 'login' || view === 'register') && (
-          <div className="toggle-buttons">
+          <div className={`toggle-buttons ${view === 'register' ? 'is-register' : 'is-login'}`}>
+            <span className="toggle-indicator" aria-hidden="true" />
             <button
               type="button"
               className={view === 'login' ? 'active' : ''}
@@ -132,113 +133,108 @@ const LoginPage = ({ onLogin, onRegister, loading, error }) => {
         )}
 
         <form className="login-form" onSubmit={handleSubmit}>
-          {(view === 'login' || view === 'register') && (
-            <>
+          <div key={view} className={`login-form-panel login-form-panel--${view}`}>
+            {(view === 'login' || view === 'register') && (
+              <>
+                <label>
+                  Логин
+                  <input
+                    type="text"
+                    value={login}
+                    onChange={(e) => setLogin(e.target.value)}
+                    placeholder="Введите логин"
+                    required
+                  />
+                </label>
+
+                <label>
+                  Пароль
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Введите пароль"
+                    required
+                  />
+                </label>
+              </>
+            )}
+
+            {view === 'login' && (
+              <div className="forgot-password-link">
+                <button
+                  type="button"
+                  className="forgot-password-button"
+                  onClick={() => { setView('forgot'); setLocalError(''); setLocalMessage(''); }}
+                >
+                  Забыли пароль?
+                </button>
+              </div>
+            )}
+
+            {view === 'register' && (
               <label>
-                Логин
+                Код регистрации
                 <input
                   type="text"
-                  value={login}
-                  onChange={(e) => setLogin(e.target.value)}
-                  placeholder="Введите логин"
+                  value={registrationCode}
+                  onChange={(e) => setRegistrationCode(e.target.value)}
+                  placeholder="Введите код из БД"
                   required
                 />
               </label>
+            )}
 
+            {view === 'forgot' && (
               <label>
-                Пароль
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Введите пароль"
-                  required
-                />
-              </label>
-            </>
-          )}
-
-          {view === 'login' && (
-            <div className="forgot-password-link" style={{ textAlign: 'right', marginTop: '-8px', marginBottom: '16px' }}>
-              <button
-                type="button"
-                onClick={() => { setView('forgot'); setLocalError(''); setLocalMessage(''); }}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: '#2c44b8',
-                  cursor: 'pointer',
-                  fontSize: '13px',
-                  padding: 0
-                }}
-              >
-                Забыли пароль?
-              </button>
-            </div>
-          )}
-
-          {view === 'register' && (
-            <label>
-              Код регистрации
-              <input
-                type="text"
-                value={registrationCode}
-                onChange={(e) => setRegistrationCode(e.target.value)}
-                placeholder="Введите код из БД"
-                required
-              />
-            </label>
-          )}
-
-          {view === 'forgot' && (
-            <label>
-              Логин или Email
-              <input
-                type="text"
-                value={identity}
-                onChange={(e) => setIdentity(e.target.value)}
-                placeholder="Введите ваш логин или email"
-                required
-              />
-            </label>
-          )}
-
-          {view === 'reset' && (
-            <>
-              <label>
-                Токен восстановления
+                Логин или Email
                 <input
                   type="text"
-                  value={resetToken}
-                  onChange={(e) => setResetToken(e.target.value)}
-                  placeholder="Введите токен из письма"
+                  value={identity}
+                  onChange={(e) => setIdentity(e.target.value)}
+                  placeholder="Введите ваш логин или email"
                   required
                 />
               </label>
+            )}
 
-              <label>
-                Новый пароль
-                <input
-                  type="password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="Новый пароль"
-                  required
-                />
-              </label>
+            {view === 'reset' && (
+              <>
+                <label>
+                  Токен восстановления
+                  <input
+                    type="text"
+                    value={resetToken}
+                    onChange={(e) => setResetToken(e.target.value)}
+                    placeholder="Введите токен из письма"
+                    required
+                  />
+                </label>
 
-              <label>
-                Подтверждение пароля
-                <input
-                  type="password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="Повторите новый пароль"
-                  required
-                />
-              </label>
-            </>
-          )}
+                <label>
+                  Новый пароль
+                  <input
+                    type="password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Новый пароль"
+                    required
+                  />
+                </label>
+
+                <label>
+                  Подтверждение пароля
+                  <input
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Повторите новый пароль"
+                    required
+                  />
+                </label>
+              </>
+            )}
+          </div>
 
           {(error || localError) && <div className="login-error">{error || localError}</div>}
           {localMessage && <div className="login-success">{localMessage}</div>}
