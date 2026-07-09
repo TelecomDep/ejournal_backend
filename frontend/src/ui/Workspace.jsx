@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import SibLogo from '../components/SibLogo';
 import { getNavigationForRole, getRoleLabel } from './navigation';
 import ProfilePage from './pages/ProfilePage';
+import SchedulePage from './pages/SchedulePage';
 import './ui.css';
 
 const getDisplayName = (user) => (
@@ -93,6 +94,9 @@ const NavIcon = ({ name }) => (
 const renderPage = (activeItem, user, token) => {
   if (activeItem.key === 'profile') {
     return <ProfilePage user={user} token={token} />;
+  }
+  if (activeItem.key === 'schedule') {
+    return <SchedulePage user={user} token={token} />;
   }
 
   return (

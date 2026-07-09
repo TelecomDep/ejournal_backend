@@ -107,6 +107,19 @@ const api = {
     }
   },
 
+  async getStudentScheduleDay(token, date) {
+    try {
+      const response = await axios.get(`${BACKEND_URL}/api/student/schedule/day`, {
+        headers: authHeaders(token),
+        params: date ? { date } : {}
+      });
+      return unwrapApiResponse(response.data);
+    } catch (error) {
+      console.error('Ошибка загрузки расписания:', error);
+      throw error;
+    }
+  },
+
   // Student: Get students list
   async getStudentsList(token) {
     try {

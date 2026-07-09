@@ -57,7 +57,7 @@
   gap: 14px;
   padding: 7px 12px;
   border: 0;
-  border-radius: 8px;
+  border-radius: 12px;
   background: transparent;
   color: #263756;
   font: inherit;
@@ -101,7 +101,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 8px;
+  border-radius: 12px;
   background: #ffffff;
   color: inherit;
   box-shadow: inset 0 0 0 1px #d8e3f8;
@@ -124,7 +124,7 @@
   gap: 14px;
   padding: 7px 12px;
   border: 0;
-  border-radius: 8px;
+  border-radius: 12px;
   background: transparent;
   color: #526079;
   font: inherit;
@@ -151,7 +151,9 @@
   justify-content: space-between;
   gap: 16px;
   padding: 14px 30px;
-  background: linear-gradient(135deg, #1f3fb6 0%, #102777 100%);
+  background:
+    radial-gradient(circle at 96% 0%, rgba(106, 160, 255, 0.38), transparent 320px),
+    linear-gradient(135deg, #0c4ed3 0%, #0b42bd 45%, #0a2f98 100%);
   border-bottom: 1px solid rgba(255, 255, 255, 0.18);
   color: #ffffff;
 }
@@ -234,7 +236,7 @@
   padding: 24px;
   background: #ffffff;
   border: 1px solid #e1e7f5;
-  border-radius: 8px;
+  border-radius: 14px;
   box-shadow: 0 16px 40px rgba(38, 60, 112, 0.07);
 }
 
@@ -253,7 +255,7 @@
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  border-radius: 8px;
+  border-radius: 14px;
   background: #edf3ff;
   color: var(--sib-blue);
   font-size: 30px;
@@ -281,7 +283,7 @@
   min-height: 40px;
   padding: 0 16px;
   border: 0;
-  border-radius: 8px;
+  border-radius: 10px;
   background: linear-gradient(135deg, #3154d4, #17359f);
   color: #ffffff;
   font: inherit;
@@ -305,7 +307,7 @@
   padding: 18px;
   background: #ffffff;
   border: 1px solid #e1e7f5;
-  border-radius: 8px;
+  border-radius: 13px;
 }
 
 .profile-metric span,
@@ -333,7 +335,7 @@
   overflow-x: auto;
   background: #ffffff;
   border: 1px solid #e1e7f5;
-  border-radius: 8px;
+  border-radius: 14px;
 }
 
 .profile-tabs button {
@@ -341,7 +343,7 @@
   flex: 0 0 auto;
   padding: 0 14px;
   border: 0;
-  border-radius: 7px;
+  border-radius: 12px;
   background: transparent;
   color: #526079;
   font: inherit;
@@ -377,7 +379,7 @@
   padding: 22px;
   background: #ffffff;
   border: 1px solid #e1e7f5;
-  border-radius: 8px;
+  border-radius: 14px;
 }
 
 .profile-card-header {
@@ -414,7 +416,7 @@
   padding: 16px;
   background: #f8faff;
   border: 1px solid #e7ecf8;
-  border-radius: 8px;
+  border-radius: 13px;
 }
 
 .profile-detail strong {
@@ -439,7 +441,7 @@
 
 .profile-security {
   border: 1px solid #e1e7f5;
-  border-radius: 8px;
+  border-radius: 14px;
 }
 
 .security-grid {
@@ -456,7 +458,7 @@
   padding: 18px;
   background: #f8faff;
   border: 1px solid #e7ecf8;
-  border-radius: 8px;
+  border-radius: 13px;
 }
 
 .security-status-dot {
@@ -506,7 +508,7 @@
   min-height: 44px;
   padding: 0 14px;
   border: 1px solid #dbe4f7;
-  border-radius: 8px;
+  border-radius: 10px;
   background: #ffffff;
   color: #101b37;
   font: inherit;
@@ -523,7 +525,7 @@
   min-height: 40px;
   padding: 0 18px;
   border: 0;
-  border-radius: 8px;
+  border-radius: 10px;
   background: linear-gradient(135deg, #3154d4, #17359f);
   color: #ffffff;
   font: inherit;
@@ -540,7 +542,7 @@
 
 .security-message {
   padding: 11px 12px;
-  border-radius: 8px;
+  border-radius: 10px;
   font-size: 14px;
   font-weight: 650;
 }
@@ -557,7 +559,7 @@
 
 .profile-notifications {
   border: 1px solid #e1e7f5;
-  border-radius: 8px;
+  border-radius: 14px;
 }
 
 .notification-list {
@@ -575,7 +577,7 @@
   padding: 16px 18px;
   background: #f8faff;
   border: 1px solid #e7ecf8;
-  border-radius: 8px;
+  border-radius: 13px;
   cursor: pointer;
 }
 
@@ -675,7 +677,7 @@
   text-align: center;
   background: #f8faff;
   border: 1px dashed #cfdaef;
-  border-radius: 8px;
+  border-radius: 13px;
 }
 
 .notification-empty strong {
@@ -793,7 +795,7 @@
   gap: 4px;
   flex-direction: column;
   border: 1px solid #dbe4f7;
-  border-radius: 8px;
+  border-radius: 14px;
   background: #ffffff;
   cursor: pointer;
 }
@@ -832,7 +834,7 @@
   gap: 18px;
   padding: 34px 26px;
   border: 1px solid #e1e7f5;
-  border-radius: 8px;
+  border-radius: 14px;
   background:
     linear-gradient(180deg, rgba(237, 243, 255, 0.78), rgba(255, 255, 255, 0) 150px),
     #ffffff;
@@ -862,7 +864,7 @@
   min-width: 0;
   padding: 34px 32px;
   border: 1px solid #e1e7f5;
-  border-radius: 8px;
+  border-radius: 14px;
   box-shadow: 0 16px 40px rgba(38, 60, 112, 0.06);
   background:
     linear-gradient(135deg, rgba(31, 63, 182, 0.08) 0, rgba(255, 255, 255, 0) 260px),
@@ -874,8 +876,10 @@
   margin-bottom: 26px;
   padding: 20px 22px;
   overflow: hidden;
-  border-radius: 8px;
-  background: linear-gradient(135deg, #1f3fb6 0%, #102777 100%);
+  border-radius: 13px;
+  background:
+    radial-gradient(circle at 92% 8%, rgba(100, 155, 255, 0.42), transparent 270px),
+    linear-gradient(135deg, #115ee8 0%, #0b43bd 52%, #082c91 100%);
   border: 0;
   color: #ffffff;
 }
@@ -913,6 +917,330 @@
 
 .profile-details {
   grid-template-columns: minmax(140px, 0.55fr) minmax(220px, 1fr) minmax(220px, 1fr);
+}
+
+.schedule-page {
+  display: grid;
+  gap: 18px;
+}
+
+.schedule-page h1 {
+  margin: 0;
+  color: #101b37;
+  font-size: 30px;
+  line-height: 1.15;
+}
+
+.schedule-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.schedule-date-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: #526079;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.schedule-date-nav button,
+.schedule-tabs button,
+.schedule-day-strip button,
+.schedule-calendar-head button,
+.schedule-calendar button {
+  font: inherit;
+  cursor: pointer;
+}
+
+.schedule-date-nav button,
+.schedule-calendar-head button {
+  width: 32px;
+  height: 32px;
+  border: 1px solid #dbe4f7;
+  border-radius: 10px;
+  background: #ffffff;
+  color: var(--sib-blue);
+  font-size: 20px;
+  font-weight: 850;
+}
+
+.schedule-date-nav button:disabled,
+.schedule-calendar-head button:disabled,
+.schedule-calendar button:disabled {
+  opacity: 0.32;
+  cursor: not-allowed;
+}
+
+.schedule-tabs {
+  display: flex;
+  gap: 10px;
+  width: min(520px, 100%);
+  padding: 5px;
+  border: 1px solid #e1e7f5;
+  border-radius: 14px;
+  background: #ffffff;
+}
+
+.schedule-tabs button {
+  min-height: 36px;
+  flex: 1;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: #526079;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.schedule-tabs button.is-active {
+  background: #edf3ff;
+  color: var(--sib-blue);
+  box-shadow: 0 10px 22px rgba(31, 63, 182, 0.08);
+}
+
+.schedule-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 18px;
+  align-items: start;
+}
+
+.schedule-day-card,
+.schedule-side-card {
+  min-width: 0;
+  border: 1px solid #e1e7f5;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 16px 40px rgba(38, 60, 112, 0.06);
+}
+
+.schedule-day-card {
+  padding: 18px;
+}
+
+.schedule-side-card {
+  padding: 20px;
+}
+
+.schedule-day-strip {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(54px, 1fr));
+  gap: 6px;
+  margin-bottom: 18px;
+  padding: 6px;
+  border-radius: 13px;
+  background: #f8faff;
+}
+
+.schedule-day-strip button {
+  min-height: 52px;
+  display: grid;
+  align-content: center;
+  gap: 2px;
+  border: 0;
+  border-radius: 11px;
+  background: transparent;
+  color: #6d7891;
+  text-align: center;
+}
+
+.schedule-day-strip button.is-active {
+  background: #ffffff;
+  color: var(--sib-blue);
+  box-shadow: 0 10px 20px rgba(31, 63, 182, 0.08);
+}
+
+.schedule-day-strip span {
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.schedule-day-strip strong {
+  font-size: 17px;
+}
+
+.schedule-list {
+  display: grid;
+  gap: 0;
+}
+
+.schedule-row {
+  display: grid;
+  grid-template-columns: 116px 4px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 18px;
+  min-height: 88px;
+  padding: 14px 8px;
+  border-bottom: 1px solid #e9eef9;
+}
+
+.schedule-row:last-child {
+  border-bottom: 0;
+}
+
+.schedule-row time {
+  color: #263756;
+  font-size: 15px;
+  font-weight: 850;
+}
+
+.schedule-row-line {
+  align-self: stretch;
+  border-radius: 999px;
+  background: #45c486;
+}
+
+.schedule-row-main {
+  min-width: 0;
+}
+
+.schedule-row-main h2 {
+  margin: 0;
+  color: #101b37;
+  font-size: 17px;
+  line-height: 1.2;
+}
+
+.schedule-row-main p,
+.schedule-row-main span {
+  display: block;
+  margin: 5px 0 0;
+  color: #6d7891;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.schedule-row > strong {
+  justify-self: end;
+  padding: 7px 12px;
+  border-radius: 10px;
+  background: #eefaf4;
+  color: #258f61;
+  font-size: 12px;
+  font-weight: 850;
+  white-space: nowrap;
+}
+
+.schedule-list--list .schedule-row {
+  min-height: 76px;
+}
+
+.schedule-list--week .schedule-row > strong {
+  background: #edf3ff;
+  color: var(--sib-blue);
+}
+
+.schedule-message {
+  min-height: 240px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 8px;
+  border: 1px dashed #cfdaef;
+  border-radius: 13px;
+  color: #6d7891;
+  text-align: center;
+}
+
+.schedule-message strong {
+  color: #101b37;
+  font-size: 18px;
+}
+
+.schedule-message span {
+  font-size: 14px;
+}
+
+.schedule-message--error {
+  border-color: #ffd2d2;
+  background: #fff7f7;
+  color: #a3212b;
+}
+
+.schedule-calendar-head {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) 32px;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.schedule-calendar-head strong {
+  color: #101b37;
+  font-size: 16px;
+  text-align: center;
+}
+
+.schedule-calendar {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.schedule-calendar-weekday {
+  padding: 6px 0;
+  color: #6d7891;
+  font-size: 12px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.schedule-calendar button {
+  aspect-ratio: 1;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: #263756;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.schedule-calendar button.is-muted {
+  color: #b8c2d5;
+}
+
+.schedule-calendar button.is-active {
+  background: linear-gradient(135deg, #115ee8, #0b43bd);
+  color: #ffffff;
+  box-shadow: 0 10px 20px rgba(17, 94, 232, 0.24);
+}
+
+.schedule-filters {
+  display: grid;
+  gap: 10px;
+  margin-top: 22px;
+}
+
+.schedule-filters label {
+  display: grid;
+  gap: 8px;
+  color: #526079;
+  font-size: 13px;
+  font-weight: 850;
+}
+
+.schedule-filters select {
+  min-height: 44px;
+  width: 100%;
+  padding: 0 12px;
+  border: 1px solid #dbe4f7;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #6d7891;
+  font: inherit;
+}
+
+.schedule-empty-role {
+  padding: 22px;
+  border: 1px solid #e1e7f5;
+  border-radius: 14px;
+  background: #ffffff;
+  color: #6d7891;
 }
 
 @media (max-width: 1024px) {
@@ -988,6 +1316,10 @@
     height: 142px;
   }
 
+  .schedule-grid {
+    grid-template-columns: minmax(0, 1fr) 300px;
+  }
+
 }
 
 @media (max-width: 760px) {
@@ -1006,6 +1338,78 @@
   .profile-metrics,
   .profile-details {
     grid-template-columns: 1fr;
+  }
+
+  .schedule-page {
+    width: min(100%, 430px);
+    margin: 0 auto;
+    justify-items: center;
+  }
+
+  .schedule-toolbar {
+    align-items: flex-start;
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .schedule-date-nav {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .schedule-tabs {
+    width: 100%;
+  }
+
+  .schedule-grid {
+    width: 100%;
+    grid-template-columns: 1fr;
+    justify-items: center;
+  }
+
+  .schedule-side-card {
+    order: 0;
+    max-width: 420px;
+  }
+
+  .schedule-day-card,
+  .schedule-side-card {
+    width: 100%;
+    padding: 18px;
+  }
+
+  .schedule-day-strip {
+    grid-template-columns: repeat(7, 52px);
+    overflow-x: auto;
+  }
+
+  .schedule-row {
+    grid-template-columns: 4px minmax(0, 1fr);
+    gap: 8px 12px;
+    padding: 16px 4px;
+  }
+
+  .schedule-row time {
+    grid-column: 1 / -1;
+  }
+
+  .schedule-row-line {
+    grid-column: 1;
+    grid-row: 2 / 4;
+    width: 100%;
+    min-height: 58px;
+  }
+
+  .schedule-row-main {
+    grid-column: 2;
+    grid-row: 2;
+    padding-left: 0;
+  }
+
+  .schedule-row > strong {
+    grid-column: 2;
+    grid-row: 3;
+    justify-self: start;
   }
 
   .security-status-card {
@@ -1032,5 +1436,16 @@
   .security-status-card p {
     margin-top: 4px;
     font-size: 13px;
+  }
+}
+
+@media (max-width: 520px) {
+  .ui-main {
+    padding-left: 18px;
+    padding-right: 18px;
+  }
+
+  .schedule-page {
+    width: 100%;
   }
 }
