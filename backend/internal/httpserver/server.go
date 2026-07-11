@@ -1,6 +1,7 @@
 package httpserver
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
@@ -79,6 +80,7 @@ func (s *Server) Start() {
 	fiberApp.Post("/api/teacher/student/performance/radar", s.teacherStudentPerformanceRadarHandler)
 	fiberApp.Static("/uploads", s.cfg.UploadDir)
 	fiberApp.Get("/swagger/*", swagger.HandlerDefault)
+	fiberApp.Get("/healthz", s.healthzHandler)
 
 	addr := fmt.Sprintf(":%s", s.cfg.AppPort)
 	log.Printf("Starting HTTP server on %s", addr)
@@ -1319,4 +1321,20 @@ func (s *Server) updateEmailHandler(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(resp)
+}
+
+func (s *Server) healthzHandler(c *fiber.Ctx) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	if err := s.svc.Ping(ctx); err != nil {
+		return c.Status(fiber.StatusServiceUnavailable).JSON(app.Response{
+			OK:    false,
+			Error: "database connection issues: " + err.Error(),
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(app.Response{
+		OK: true,
+	})
 }

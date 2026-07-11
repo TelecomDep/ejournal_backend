@@ -1,0 +1,60 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: ejournal-migrate
+  namespace: ejournal
+spec:
+  template:
+    metadata:
+      name: ejournal-migrate
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: migrate
+        image: golang:1.26.1-alpine
+        workingDir: /app
+        env:
+        - name: POSTGRES_DB
+          valueFrom:
+            configMapKeyRef:
+              name: ejournal-config
+              key: POSTGRES_DB
+        - name: POSTGRES_USER
+          valueFrom:
+            configMapKeyRef:
+              name: ejournal-config
+              key: POSTGRES_USER
+        - name: DB_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: ejournal-config
+              key: DB_HOST
+        - name: DB_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: ejournal-config
+              key: DB_PORT
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: ejournal-secret
+              key: postgres-password
+        # Construct DB_DSN dynamically from credentials
+        - name: DB_DSN
+          value: postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@$(DB_HOST):$(DB_PORT)/$(POSTGRES_DB)?sslmode=disable
+        command:
+        - sh
+        - -c
+        - |
+          go install github.com/pressly/goose/v3/cmd/goose@latest
+          goose -dir migrations postgres "$DB_DSN" up
+        volumeMounts:
+        - name: migrations-volume
+          mountPath: /app/migrations
+      volumes:
+      - name: migrations-volume
+        hostPath:
+          # For local cluster development (e.g. minikube, kind). 
+          # In production, package migrations inside your build image or mount via ConfigMap.
+          path: /migrations
+          type: Directory
