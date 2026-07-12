@@ -15,10 +15,12 @@ import (
 	_ "github.com/TelecomDep/ejournal_backend/docs"
 	"github.com/TelecomDep/ejournal_backend/internal/app"
 	"github.com/TelecomDep/ejournal_backend/internal/config"
+	"github.com/ansrivas/fiberprometheus/v2"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	swagger "github.com/gofiber/swagger"
 )
+
 
 type Server struct {
 	cfg            config.AppConfig
@@ -36,6 +38,10 @@ func New(cfg config.AppConfig, svc *app.Service) *Server {
 
 func (s *Server) Start() {
 	fiberApp := fiber.New()
+
+	prometheus := fiberprometheus.NewWithDefaultRegistry("ejournal-backend")
+	prometheus.RegisterAt(fiberApp, "/metrics")
+	fiberApp.Use(prometheus.Middleware)
 
 	fiberApp.Use(cors.New(cors.Config{
 		AllowOrigins: s.cfg.CORSAllowOrigins,

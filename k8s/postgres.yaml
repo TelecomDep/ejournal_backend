@@ -13,6 +13,10 @@ spec:
     metadata:
       labels:
         app: postgres
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9187"
+        prometheus.io/path: "/metrics"
     spec:
       containers:
       - name: postgres
@@ -62,6 +66,36 @@ spec:
             - postgres
           initialDelaySeconds: 5
           timeoutSeconds: 5
+      - name: postgres-exporter
+        image: postgres-exporter:local
+        ports:
+        - containerPort: 9187
+          name: http-metrics
+        env:
+        - name: POSTGRES_USER
+          valueFrom:
+            configMapKeyRef:
+              name: ejournal-config
+              key: POSTGRES_USER
+        - name: POSTGRES_DB
+          valueFrom:
+            configMapKeyRef:
+              name: ejournal-config
+              key: POSTGRES_DB
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: ejournal-secret
+              key: postgres-password
+        - name: DATA_SOURCE_NAME
+          value: postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@localhost:5432/$(POSTGRES_DB)?sslmode=disable
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 100m
+            memory: 128Mi
       volumes:
       - name: pgdata
         emptyDir: {}
