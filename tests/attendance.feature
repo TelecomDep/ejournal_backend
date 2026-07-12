@@ -1,0 +1,82 @@
+Feature: Attendance Management Scenarios
+
+Background:
+  * url baseUrl
+
+Scenario: Teacher can retrieve their assigned subjects
+  Given path 'login'
+  And request { login: 'teacher_test', password: '123456' }
+  When method post
+  Then status 200
+  * def teacherToken = response.result.token
+
+  Given path 'api/teacher/subjects'
+  And header Authorization = 'Bearer ' + teacherToken
+  When method get
+  Then status 200
+  And match response.ok == true
+  And match response.result.subjects != []
+  And match response.result.subjects[0].subject_id == '#number'
+
+Scenario: Teacher can create an attendance link
+  Given path 'login'
+  And request { login: 'teacher_test', password: '123456' }
+  When method post
+  Then status 200
+  * def teacherToken = response.result.token
+
+  Given path 'api/teacher/subjects'
+  And header Authorization = 'Bearer ' + teacherToken
+  When method get
+  Then status 200
+  * def subject = response.result.subjects[0]
+  * def subjectId = subject.subject_id
+  * def groupIds = subject.group_ids
+
+  Given path 'api/teacher/attendance-link'
+  And header Authorization = 'Bearer ' + teacherToken
+  And request { subject_id: '#(subjectId)', group_ids: '#(groupIds)', expires_minutes: 15 }
+  When method post
+  Then status 200
+  And match response.ok == true
+  And match response.result.invite_token == '#string'
+  And match response.result.lesson_id == '#string'
+
+Scenario: Student can confirm attendance with a valid invite token
+  # --- SETUP: Teacher creates the session ---
+  Given path 'login'
+  And request { login: 'teacher_test', password: '123456' }
+  When method post
+  Then status 200
+  * def teacherToken = response.result.token
+
+  Given path 'api/teacher/subjects'
+  And header Authorization = 'Bearer ' + teacherToken
+  When method get
+  Then status 200
+  * def subject = response.result.subjects[0]
+  * def subjectId = subject.subject_id
+  * def groupIds = subject.group_ids
+
+  Given path 'api/teacher/attendance-link'
+  And header Authorization = 'Bearer ' + teacherToken
+  And request { subject_id: '#(subjectId)', group_ids: '#(groupIds)', expires_minutes: 15 }
+  When method post
+  Then status 200
+  * def inviteToken = response.result.invite_token
+
+  # --- ACTION: Student confirms attendance ---
+  Given path 'login'
+  And request { login: 'student_test', password: '123456' }
+  When method post
+  Then status 200
+  * def studentToken = response.result.token
+
+  Given path 'api/student/attendance/confirm'
+  And header Authorization = 'Bearer ' + studentToken
+  And request { invite_token: '#(inviteToken)' }
+  When method post
+  Then status 200
+  And match response.ok == true
+  And match response.result.attendance == 'confirmed'
+  And match response.result.subject_id == subjectId

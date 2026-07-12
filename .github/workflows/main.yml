@@ -44,6 +44,17 @@ jobs:
             schemathesis/schemathesis:3.39.4 run /docs/swagger.json \
             --base-url http://localhost:8888
 
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Run Karate Backend API Tests
+        run: |
+          chmod +x tests/run-tests.sh
+          ./tests/run-tests.sh tests/
+
   # ==========================================
   # ДЖОБА 2: ДЕПЛОЙ НА СЕРВЕР
   # ==========================================
