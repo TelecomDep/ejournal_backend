@@ -161,6 +161,17 @@ type Service struct {
 	requestQueue         chan requestJob
 }
 
+type RuntimeStats struct {
+	QueueLength        int                 `json:"queue_length"`
+	QueueCapacity      int                 `json:"queue_capacity"`
+	DBMaxConnections   int32               `json:"db_max_connections"`
+	DBTotalConnections int32               `json:"db_total_connections"`
+	DBAcquired         int32               `json:"db_acquired_connections"`
+	DBIdle             int32               `json:"db_idle_connections"`
+	DBEmptyAcquires    int64               `json:"db_empty_acquires"`
+	DBQueries          db.QueryTimingStats `json:"db_queries"`
+}
+
 var appTimeLocation = loadAppTimeLocation()
 
 func normalizeInviteTTL(expiresMinutes int) int {
@@ -308,6 +319,25 @@ func (s *Service) DispatchRequest(raw string, timeout time.Duration) (Response, 
 
 func (s *Service) Ping(ctx context.Context) error {
 	return s.store.Ping(ctx)
+}
+
+func (s *Service) RuntimeStats() RuntimeStats {
+	stats := RuntimeStats{}
+	if s.requestQueue != nil {
+		stats.QueueLength = len(s.requestQueue)
+		stats.QueueCapacity = cap(s.requestQueue)
+	}
+	if s.store == nil || s.store.Pool() == nil {
+		return stats
+	}
+	poolStats := s.store.Pool().Stat()
+	stats.DBMaxConnections = poolStats.MaxConns()
+	stats.DBTotalConnections = poolStats.TotalConns()
+	stats.DBAcquired = poolStats.AcquiredConns()
+	stats.DBIdle = poolStats.IdleConns()
+	stats.DBEmptyAcquires = poolStats.EmptyAcquireCount()
+	stats.DBQueries = s.store.QueryTimingStats()
+	return stats
 }
 
 // User roles, in increasing order of visibility scope.
@@ -1992,6 +2022,38 @@ func (s *Service) handleRequest(raw string) Response {
 		resp := s.upsertGradeByTeacher(req.Token, data)
 		resp.ID = req.ID
 		return resp
+	case "teacher_delete_grade":
+		var data GradeDeleteData
+		if err := json.Unmarshal(req.Data, &data); err != nil {
+			return Response{ID: req.ID, OK: false, Error: "invalid teacher_delete_grade payload"}
+		}
+		resp := s.deleteGradeByTeacher(req.Token, data)
+		resp.ID = req.ID
+		return resp
+	case "teacher_restore_grade":
+		var data GradeRestoreData
+		if err := json.Unmarshal(req.Data, &data); err != nil {
+			return Response{ID: req.ID, OK: false, Error: "invalid teacher_restore_grade payload"}
+		}
+		resp := s.restoreGradeByTeacher(req.Token, data)
+		resp.ID = req.ID
+		return resp
+	case "teacher_delete_grade_item":
+		var data GradeItemDeleteData
+		if err := json.Unmarshal(req.Data, &data); err != nil {
+			return Response{ID: req.ID, OK: false, Error: "invalid teacher_delete_grade_item payload"}
+		}
+		resp := s.deleteGradeItemByTeacher(req.Token, data)
+		resp.ID = req.ID
+		return resp
+	case "teacher_restore_grade_item":
+		var data GradeItemRestoreData
+		if err := json.Unmarshal(req.Data, &data); err != nil {
+			return Response{ID: req.ID, OK: false, Error: "invalid teacher_restore_grade_item payload"}
+		}
+		resp := s.restoreGradeItemByTeacher(req.Token, data)
+		resp.ID = req.ID
+		return resp
 	case "teacher_student_grades_by_subject":
 		var data TeacherStudentGradesData
 		if err := json.Unmarshal(req.Data, &data); err != nil {
@@ -2026,6 +2088,14 @@ func (s *Service) handleRequest(raw string) Response {
 		return resp
 	case "staff_overview":
 		resp := s.staffOverview(req.Token)
+		resp.ID = req.ID
+		return resp
+	case "staff_students_page":
+		var data StaffStudentsPageData
+		if err := json.Unmarshal(req.Data, &data); err != nil {
+			return Response{ID: req.ID, OK: false, Error: "invalid staff_students_page payload"}
+		}
+		resp := s.staffStudentsPage(req.Token, data)
 		resp.ID = req.ID
 		return resp
 	default:

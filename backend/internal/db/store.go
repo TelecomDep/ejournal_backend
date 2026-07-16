@@ -10,7 +10,8 @@ import (
 )
 
 type Store struct {
-	pool *pgxpool.Pool
+	pool         *pgxpool.Pool
+	queryMetrics *queryTimingMetrics
 
 	Users           *UserRepository
 	Lecterns        *LecternRepository
@@ -32,13 +33,20 @@ func NewStore(ctx context.Context, dsn string) (*Store, error) {
 		return nil, fmt.Errorf("empty database dsn")
 	}
 
-	pool, err := pgxpool.New(ctx, dsn)
+	poolConfig, err := pgxpool.ParseConfig(dsn)
+	if err != nil {
+		return nil, fmt.Errorf("parse pgx pool config: %w", err)
+	}
+	queryMetrics := newQueryTimingMetrics()
+	poolConfig.ConnConfig.Tracer = &queryTimingTracer{metrics: queryMetrics}
+	pool, err := pgxpool.NewWithConfig(ctx, poolConfig)
 	if err != nil {
 		return nil, fmt.Errorf("create pgx pool: %w", err)
 	}
 
 	store := &Store{
 		pool:            pool,
+		queryMetrics:    queryMetrics,
 		Users:           NewUserRepository(pool),
 		Lecterns:        NewLecternRepository(pool),
 		ControlTypes:    NewControlTypeRepository(pool),
@@ -82,4 +90,11 @@ func (s *Store) Pool() *pgxpool.Pool {
 		return nil
 	}
 	return s.pool
+}
+
+func (s *Store) QueryTimingStats() QueryTimingStats {
+	if s == nil || s.queryMetrics == nil {
+		return QueryTimingStats{}
+	}
+	return s.queryMetrics.snapshot()
 }

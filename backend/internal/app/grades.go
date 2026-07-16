@@ -40,6 +40,25 @@ type TeacherStudentRadarData struct {
 	StudentID int32 `json:"student_id"`
 }
 
+type GradeDeleteData struct {
+	GradeID int32  `json:"grade_id"`
+	Reason  string `json:"reason,omitempty"`
+}
+
+type GradeItemDeleteData struct {
+	ItemID  int32  `json:"item_id"`
+	Cascade bool   `json:"cascade,omitempty"`
+	Reason  string `json:"reason,omitempty"`
+}
+
+type GradeRestoreData struct {
+	GradeID int32 `json:"grade_id"`
+}
+
+type GradeItemRestoreData struct {
+	ItemID int32 `json:"item_id"`
+}
+
 func (s *Service) studentProfileByUser(user User) (db.Student, error) {
 	ctx, cancel := s.dbContext()
 	defer cancel()
@@ -134,12 +153,13 @@ func (s *Service) createGradeItemByTeacher(sessionToken string, data GradeItemCr
 	}
 
 	item, err := s.store.Grades.CreateGradeItem(ctx, db.GradeItem{
-		SubjectID: data.SubjectID,
-		Title:     data.Title,
-		MaxScore:  data.MaxScore,
-		ItemType:  data.ItemType,
-		Deadline:  data.Deadline,
-	})
+		SubjectID:          data.SubjectID,
+		CreatedByTeacherID: &teacherProfile.ID,
+		Title:              data.Title,
+		MaxScore:           data.MaxScore,
+		ItemType:           data.ItemType,
+		Deadline:           data.Deadline,
+	}, teacherUser.ID)
 	if err != nil {
 		return Response{OK: false, Error: "failed to create grade item"}
 	}
@@ -256,12 +276,200 @@ func (s *Service) upsertGradeByTeacher(sessionToken string, data GradeUpsertData
 		Score:     data.Score,
 		SessionID: data.SessionID,
 		Comment:   comment,
-	})
+	}, teacherUser.ID)
 	if err != nil {
 		return Response{OK: false, Error: "failed to save grade"}
 	}
 
 	return Response{OK: true, Result: grade}
+}
+
+func (s *Service) ensureGradeItemOwnerAccess(ctx context.Context, user User, item db.GradeItem) Response {
+	if user.Role == RoleAdmin {
+		return Response{OK: true}
+	}
+	if user.Role != RoleTeacher {
+		return Response{OK: false, Error: "forbidden: teacher or admin role required"}
+	}
+	if item.CreatedByTeacherID == nil {
+		return Response{OK: false, Error: "forbidden: grade item has no recorded owner"}
+	}
+
+	teacher, err := s.teacherProfileByUser(user)
+	if err != nil {
+		return Response{OK: false, Error: err.Error()}
+	}
+	if *item.CreatedByTeacherID != teacher.ID {
+		return Response{OK: false, Error: "forbidden: only the grade item owner can modify it"}
+	}
+	return s.ensureTeacherSubjectAccess(ctx, teacher.ID, item.SubjectID)
+}
+
+func (s *Service) deleteGradeByTeacher(sessionToken string, data GradeDeleteData) Response {
+	if data.GradeID <= 0 {
+		return Response{OK: false, Error: "grade_id is required"}
+	}
+	user, err := s.userBySessionToken(sessionToken)
+	if err != nil {
+		return Response{OK: false, Error: err.Error()}
+	}
+	ctx, cancel := s.dbContext()
+	defer cancel()
+
+	grade, found, err := s.store.Grades.GetGradeByID(ctx, data.GradeID)
+	if err != nil {
+		return Response{OK: false, Error: "failed to load grade"}
+	}
+	if !found {
+		return Response{OK: false, Error: "grade not found"}
+	}
+	item, found, err := s.store.Grades.GetGradeItemByIDIncludingDeleted(ctx, grade.ItemID)
+	if err != nil {
+		return Response{OK: false, Error: "failed to load grade item"}
+	}
+	if !found {
+		return Response{OK: false, Error: "grade item not found"}
+	}
+	if resp := s.ensureGradeItemOwnerAccess(ctx, user, item); !resp.OK {
+		return resp
+	}
+	if grade.DeletedAt != nil {
+		return Response{OK: false, Error: "grade is already deleted"}
+	}
+
+	deleted, ok, err := s.store.Grades.SoftDeleteGrade(ctx, grade.ID, user.ID, data.Reason)
+	if err != nil {
+		return Response{OK: false, Error: "failed to delete grade"}
+	}
+	if !ok {
+		return Response{OK: false, Error: "grade is already deleted"}
+	}
+	return Response{OK: true, Result: deleted}
+}
+
+func (s *Service) restoreGradeByTeacher(sessionToken string, data GradeRestoreData) Response {
+	if data.GradeID <= 0 {
+		return Response{OK: false, Error: "grade_id is required"}
+	}
+	user, err := s.userBySessionToken(sessionToken)
+	if err != nil {
+		return Response{OK: false, Error: err.Error()}
+	}
+	ctx, cancel := s.dbContext()
+	defer cancel()
+
+	grade, found, err := s.store.Grades.GetGradeByID(ctx, data.GradeID)
+	if err != nil {
+		return Response{OK: false, Error: "failed to load grade"}
+	}
+	if !found {
+		return Response{OK: false, Error: "grade not found"}
+	}
+	item, found, err := s.store.Grades.GetGradeItemByIDIncludingDeleted(ctx, grade.ItemID)
+	if err != nil {
+		return Response{OK: false, Error: "failed to load grade item"}
+	}
+	if !found {
+		return Response{OK: false, Error: "grade item not found"}
+	}
+	if resp := s.ensureGradeItemOwnerAccess(ctx, user, item); !resp.OK {
+		return resp
+	}
+	if item.DeletedAt != nil {
+		return Response{OK: false, Error: "grade item is deleted; restore it first"}
+	}
+	if grade.DeletedAt == nil {
+		return Response{OK: false, Error: "grade is not deleted"}
+	}
+
+	restored, ok, err := s.store.Grades.RestoreGrade(ctx, grade.ID, user.ID)
+	if err != nil {
+		return Response{OK: false, Error: "failed to restore grade"}
+	}
+	if !ok {
+		return Response{OK: false, Error: "grade is not deleted"}
+	}
+	return Response{OK: true, Result: restored}
+}
+
+func (s *Service) deleteGradeItemByTeacher(sessionToken string, data GradeItemDeleteData) Response {
+	if data.ItemID <= 0 {
+		return Response{OK: false, Error: "item_id is required"}
+	}
+	user, err := s.userBySessionToken(sessionToken)
+	if err != nil {
+		return Response{OK: false, Error: err.Error()}
+	}
+	ctx, cancel := s.dbContext()
+	defer cancel()
+
+	item, found, err := s.store.Grades.GetGradeItemByIDIncludingDeleted(ctx, data.ItemID)
+	if err != nil {
+		return Response{OK: false, Error: "failed to load grade item"}
+	}
+	if !found {
+		return Response{OK: false, Error: "grade item not found"}
+	}
+	if resp := s.ensureGradeItemOwnerAccess(ctx, user, item); !resp.OK {
+		return resp
+	}
+	if item.DeletedAt != nil {
+		return Response{OK: false, Error: "grade item is already deleted"}
+	}
+	activeGrades, err := s.store.Grades.CountActiveGradesByItem(ctx, item.ID)
+	if err != nil {
+		return Response{OK: false, Error: "failed to count grades"}
+	}
+	if activeGrades > 0 && !data.Cascade {
+		return Response{OK: false, Error: "grade item has active grades; set cascade=true to delete"}
+	}
+
+	deleted, ok, err := s.store.Grades.SoftDeleteGradeItem(ctx, item.ID, user.ID, data.Reason)
+	if err != nil {
+		return Response{OK: false, Error: "failed to delete grade item"}
+	}
+	if !ok {
+		return Response{OK: false, Error: "grade item is already deleted"}
+	}
+	return Response{OK: true, Result: map[string]any{
+		"item":            deleted.Item,
+		"affected_grades": deleted.AffectedGrades,
+	}}
+}
+
+func (s *Service) restoreGradeItemByTeacher(sessionToken string, data GradeItemRestoreData) Response {
+	if data.ItemID <= 0 {
+		return Response{OK: false, Error: "item_id is required"}
+	}
+	user, err := s.userBySessionToken(sessionToken)
+	if err != nil {
+		return Response{OK: false, Error: err.Error()}
+	}
+	ctx, cancel := s.dbContext()
+	defer cancel()
+
+	item, found, err := s.store.Grades.GetGradeItemByIDIncludingDeleted(ctx, data.ItemID)
+	if err != nil {
+		return Response{OK: false, Error: "failed to load grade item"}
+	}
+	if !found {
+		return Response{OK: false, Error: "grade item not found"}
+	}
+	if resp := s.ensureGradeItemOwnerAccess(ctx, user, item); !resp.OK {
+		return resp
+	}
+	if item.DeletedAt == nil {
+		return Response{OK: false, Error: "grade item is not deleted"}
+	}
+
+	restored, ok, err := s.store.Grades.RestoreGradeItem(ctx, item.ID, user.ID)
+	if err != nil {
+		return Response{OK: false, Error: "failed to restore grade item"}
+	}
+	if !ok {
+		return Response{OK: false, Error: "grade item is not deleted"}
+	}
+	return Response{OK: true, Result: restored}
 }
 
 func (s *Service) gradesBySubjectForStudent(sessionToken string, data GradeSubjectData) Response {
@@ -433,42 +641,37 @@ func (s *Service) studentAllGrades(sessionToken string) Response {
 	ctx, cancel := s.dbContext()
 	defer cancel()
 
-	radar, err := s.store.Grades.GetStudentPerformanceRadar(ctx, studentProfile.ID)
+	allSubjects, err := s.store.Grades.GetStudentAllSubjectGrades(ctx, studentProfile.ID)
 	if err != nil {
 		return Response{OK: false, Error: "failed to load subjects"}
 	}
 
-	subjects := make([]map[string]any, 0, len(radar))
+	subjects := make([]map[string]any, 0, len(allSubjects))
 	var totalScore, totalMax, totalPassed, gradedWorks, totalWorks int32
-	for _, point := range radar {
-		grades, gradesErr := s.store.Grades.GetStudentGradesBySubject(ctx, studentProfile.ID, point.SubjectID)
-		if gradesErr != nil {
-			return Response{OK: false, Error: "failed to load grades"}
-		}
-		stats, statsErr := s.store.Grades.GetSubjectStatsForPrediction(ctx, studentProfile.ID, point.SubjectID)
-		if statsErr != nil {
-			return Response{OK: false, Error: "failed to load grade summary"}
-		}
-
-		for _, g := range grades {
+	for _, subject := range allSubjects {
+		for _, g := range subject.Grades {
 			totalWorks++
 			if g.GradedAt != nil {
 				gradedWorks++
 			}
 		}
 
-		totalScore += stats.CurrentScore
-		totalMax += stats.TotalMax
-		totalPassed += stats.PassedMax
+		totalScore += subject.CurrentScore
+		totalMax += subject.TotalMax
+		totalPassed += subject.PassedMax
+		percent := int32(0)
+		if subject.PassedMax > 0 {
+			percent = int32((float64(subject.PassedScore) / float64(subject.PassedMax)) * 100)
+		}
 
 		subjects = append(subjects, map[string]any{
-			"subject_id":    point.SubjectID,
-			"subject_name":  point.SubjectName,
-			"percent":       point.Percent,
-			"current_score": stats.CurrentScore,
-			"total_max":     stats.TotalMax,
-			"passed_max":    stats.PassedMax,
-			"grades":        grades,
+			"subject_id":    subject.SubjectID,
+			"subject_name":  subject.SubjectName,
+			"percent":       percent,
+			"current_score": subject.CurrentScore,
+			"total_max":     subject.TotalMax,
+			"passed_max":    subject.PassedMax,
+			"grades":        subject.Grades,
 		})
 	}
 
@@ -544,6 +747,9 @@ func GradeHTTPStatus(resp Response) int {
 		return 401
 	}
 	if resp.Error == "forbidden: teacher role required" ||
+		resp.Error == "forbidden: teacher or admin role required" ||
+		resp.Error == "forbidden: grade item has no recorded owner" ||
+		resp.Error == "forbidden: only the grade item owner can modify it" ||
 		resp.Error == "forbidden: student role required" ||
 		resp.Error == "forbidden: teacher is not assigned to subject" ||
 		resp.Error == "forbidden: teacher does not teach this student" {
@@ -551,9 +757,17 @@ func GradeHTTPStatus(resp Response) int {
 	}
 	if resp.Error == "student not found" ||
 		resp.Error == "subject not found" ||
+		resp.Error == "grade not found" ||
 		resp.Error == "grade item not found" ||
 		resp.Error == "attendance session not found" {
 		return 404
+	}
+	if resp.Error == "grade item has active grades; set cascade=true to delete" ||
+		resp.Error == "grade is already deleted" ||
+		resp.Error == "grade item is already deleted" ||
+		resp.Error == "grade is not deleted" ||
+		resp.Error == "grade item is not deleted" {
+		return 409
 	}
 	return 400
 }

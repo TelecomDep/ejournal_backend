@@ -217,7 +217,11 @@ Swagger UI: `/swagger/index.html` (там же, где фронтенд — ngin
 |---|---|---|
 | `POST /api/teacher/grades/items` | teacher | создать контрольную точку по предмету |
 | `POST /api/teacher/grades/items/list` | teacher | список контрольных точек по предмету |
+| `DELETE /api/teacher/grades/items/:item_id` | owner/admin | мягко удалить контрольную точку; при оценках нужен `cascade=true` |
+| `POST /api/teacher/grades/items/:item_id/restore` | owner/admin | восстановить контрольную точку |
 | `POST /api/teacher/grades` | teacher | выставить/обновить балл студенту |
+| `DELETE /api/teacher/grades/:grade_id` | owner/admin | мягко удалить ошибочный балл |
+| `POST /api/teacher/grades/:grade_id/restore` | owner/admin | восстановить удаленный балл |
 | `POST /api/teacher/grades/student` | teacher | оценочный лист одного студента |
 | `POST /api/teacher/student/performance/radar` | teacher | radar-диаграмма успеваемости конкретного студента |
 | `POST /api/student/grades` | student | свои оценки по предмету |
@@ -229,6 +233,7 @@ Swagger UI: `/swagger/index.html` (там же, где фронтенд — ngin
 | Метод и путь | Описание |
 |---|---|
 | `GET /api/staff/overview` | обзор оргструктуры, объём зависит от роли (teacher/head/dean/admin) |
+| `GET /api/staff/overview/students` | постраничный список студентов в зоне видимости: `page`, `page_size`, `group_id`, `search`, `sort`, `order` |
 | `GET /api/staff/reports/performance.xlsx` | скачать Excel-отчёт успеваемости (только head/dean/admin): лист «Поток» по всему охвату + лист на каждую группу, студенты отсортированы по итоговому рейтингу, колонки — % по предметам, рейтинг, посещаемость, внизу средние значения |
 
 ### Прочее
@@ -237,6 +242,8 @@ Swagger UI: `/swagger/index.html` (там же, где фронтенд — ngin
 |---|---|
 | `GET /uploads/*` | статика (аватары и другие загруженные файлы) |
 | `GET /swagger/*` | Swagger UI |
+| `GET /healthz` | liveness-проверка backend |
+| `GET /internal/metrics` | защищенные runtime/HTTP/SQL-метрики; требует `METRICS_TOKEN` и заголовок `X-Metrics-Token` |
 
 ### Примеры запросов
 

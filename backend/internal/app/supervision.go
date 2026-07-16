@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -197,6 +198,23 @@ type staffOverviewResult struct {
 	Students []staffStudentRow `json:"students"`
 }
 
+type StaffStudentsPageData struct {
+	Page     int32  `json:"page"`
+	PageSize int32  `json:"page_size"`
+	GroupID  *int32 `json:"group_id,omitempty"`
+	Search   string `json:"search,omitempty"`
+	Sort     string `json:"sort,omitempty"`
+	Order    string `json:"order,omitempty"`
+}
+
+type staffStudentsPageResult struct {
+	Students   []staffStudentRow `json:"students"`
+	Page       int32             `json:"page"`
+	PageSize   int32             `json:"page_size"`
+	Total      int32             `json:"total"`
+	TotalPages int32             `json:"total_pages"`
+}
+
 // staffOverview builds the supervisory dashboard payload, scoped to what the
 // caller is allowed to see.
 func (s *Service) staffOverview(token string) Response {
@@ -227,20 +245,28 @@ func (s *Service) staffOverview(token string) Response {
 		CanEdit: user.Role == RoleAdmin,
 	}
 
-	// Groups (with student count + attendance %).
+	// Aggregate each relation before joining it to groups. Joining students and
+	// attendance rows directly would multiply every student by every mark.
 	groupRows, err := s.store.Pool().Query(ctx, `
+		WITH student_counts AS (
+		    SELECT group_id, COUNT(*)::INTEGER AS student_count
+		    FROM students
+		    GROUP BY group_id
+		), attendance_stats AS (
+		    SELECT group_id_snapshot AS group_id,
+		           COUNT(*) FILTER (WHERE status IN ('present', 'late'))::NUMERIC AS attended_count,
+		           COUNT(*) FILTER (WHERE status <> 'excused')::NUMERIC AS counted_count
+		    FROM attendance_session_students
+		    GROUP BY group_id_snapshot
+		)
 		SELECT g.group_id, COALESCE(g.group_name, ''), COALESCE(l.name, ''),
-		       COUNT(DISTINCT st.student_id) AS student_count,
-		       COALESCE(ROUND(
-		           100.0 * COUNT(ass.student_id) FILTER (WHERE ass.status IN ('present','late'))
-		           / NULLIF(COUNT(ass.student_id) FILTER (WHERE ass.status <> 'excused'), 0)
-		       ), 0) AS attendance_pct
+		       COALESCE(sc.student_count, 0) AS student_count,
+		       COALESCE(ROUND(100.0 * ast.attended_count / NULLIF(ast.counted_count, 0)), 0) AS attendance_pct
 		FROM groups g
 		LEFT JOIN lecterns l ON l.lectern_id = g.lectern_id
-		LEFT JOIN students st ON st.group_id = g.group_id
-		LEFT JOIN attendance_session_students ass ON ass.group_id_snapshot = g.group_id
+		LEFT JOIN student_counts sc ON sc.group_id = g.group_id
+		LEFT JOIN attendance_stats ast ON ast.group_id = g.group_id
 		WHERE `+groupPred+`
-		GROUP BY g.group_id, g.group_name, l.name
 		ORDER BY l.name, g.group_name`, groupArgs...)
 	if err != nil {
 		return Response{OK: false, Error: "failed to load groups"}
@@ -312,6 +338,117 @@ func (s *Service) staffOverview(token string) Response {
 	return Response{OK: true, Result: result}
 }
 
+func normalizeStaffStudentsPage(data StaffStudentsPageData) StaffStudentsPageData {
+	if data.Page < 1 {
+		data.Page = 1
+	}
+	if data.PageSize < 1 {
+		data.PageSize = 100
+	}
+	if data.PageSize > 200 {
+		data.PageSize = 200
+	}
+	data.Search = strings.TrimSpace(data.Search)
+	data.Sort = strings.ToLower(strings.TrimSpace(data.Sort))
+	switch data.Sort {
+	case "name", "group", "attendance":
+	default:
+		data.Sort = "name"
+	}
+	data.Order = strings.ToLower(strings.TrimSpace(data.Order))
+	if data.Order != "desc" {
+		data.Order = "asc"
+	}
+	if data.GroupID != nil && *data.GroupID <= 0 {
+		data.GroupID = nil
+	}
+	return data
+}
+
+func (s *Service) staffStudentsPage(token string, data StaffStudentsPageData) Response {
+	user, err := s.userBySessionToken(token)
+	if err != nil {
+		return Response{OK: false, Error: "unauthorized"}
+	}
+	if user.Role == RoleStudent {
+		return Response{OK: false, Error: "forbidden"}
+	}
+	data = normalizeStaffStudentsPage(data)
+
+	ctx, cancel := s.dbContext()
+	defer cancel()
+	scope, err := s.scopeForUser(ctx, user)
+	if err != nil {
+		return Response{OK: false, Error: "failed to resolve scope"}
+	}
+
+	studentPred, args := scopeStudentPredicate(scope, "s")
+	conditions := []string{studentPred}
+	if data.GroupID != nil {
+		conditions = append(conditions, fmt.Sprintf("s.group_id = $%d", len(args)+1))
+		args = append(args, *data.GroupID)
+	}
+	if data.Search != "" {
+		conditions = append(conditions, fmt.Sprintf("s.student_name ILIKE $%d", len(args)+1))
+		args = append(args, "%"+data.Search+"%")
+	}
+	where := strings.Join(conditions, " AND ")
+
+	var total int32
+	if err := s.store.Pool().QueryRow(ctx, `SELECT COUNT(*)::INTEGER FROM students s WHERE `+where, args...).Scan(&total); err != nil {
+		return Response{OK: false, Error: "failed to count students"}
+	}
+
+	sortColumn := map[string]string{
+		"name":       "s.student_name",
+		"group":      "g.group_name",
+		"attendance": "attendance_pct",
+	}[data.Sort]
+	queryArgs := append([]any{}, args...)
+	queryArgs = append(queryArgs, data.PageSize, (data.Page-1)*data.PageSize)
+	limitArg := len(queryArgs) - 1
+	offsetArg := len(queryArgs)
+	rows, err := s.store.Pool().Query(ctx, `
+		WITH attendance_stats AS (
+		    SELECT student_id,
+		           COALESCE(ROUND(
+		               100.0 * COUNT(*) FILTER (WHERE status IN ('present', 'late'))
+		               / NULLIF(COUNT(*) FILTER (WHERE status <> 'excused'), 0)
+		           ), 0)::INTEGER AS attendance_pct
+		    FROM attendance_session_students
+		    GROUP BY student_id
+		)
+		SELECT s.student_id, COALESCE(s.student_name, ''), COALESCE(g.group_name, ''), COALESCE(l.name, ''),
+		       COALESCE(ast.attendance_pct, 0)
+		FROM students s
+		LEFT JOIN groups g ON g.group_id = s.group_id
+		LEFT JOIN lecterns l ON l.lectern_id = g.lectern_id
+		LEFT JOIN attendance_stats ast ON ast.student_id = s.student_id
+		WHERE `+where+`
+		ORDER BY `+sortColumn+` `+data.Order+`, s.student_id
+		LIMIT $`+fmt.Sprint(limitArg)+` OFFSET $`+fmt.Sprint(offsetArg), queryArgs...)
+	if err != nil {
+		return Response{OK: false, Error: "failed to load students"}
+	}
+	defer rows.Close()
+
+	result := staffStudentsPageResult{Students: make([]staffStudentRow, 0, data.PageSize), Page: data.Page, PageSize: data.PageSize, Total: total}
+	if total > 0 {
+		result.TotalPages = (total + data.PageSize - 1) / data.PageSize
+	}
+	for rows.Next() {
+		var student staffStudentRow
+		if err := rows.Scan(&student.StudentID, &student.Name, &student.GroupName, &student.LecternName, &student.AttendancePct); err != nil {
+			return Response{OK: false, Error: "failed to scan students"}
+		}
+		result.Students = append(result.Students, student)
+	}
+	if err := rows.Err(); err != nil {
+		return Response{OK: false, Error: "failed to iterate students"}
+	}
+	return Response{OK: true, Result: result}
+}
+
 // scopeGroupPredicate builds a WHERE fragment + args restricting groups
 // (aliased `alias`) to the given scope.
 func scopeGroupPredicate(scope VisibilityScope, alias string) (string, []any) {
@@ -332,7 +469,7 @@ func scopeTeacherPredicate(scope VisibilityScope, alias string) (string, []any) 
 	case scope.Role == RoleTeacher:
 		// A teacher only sees themselves in the teacher list.
 		return fmt.Sprintf("%s.user_id IS NOT NULL AND %s.teacher_id IN "+
-			"(SELECT teacher_id FROM schedules WHERE group_id = ANY($1))", alias, alias),
+				"(SELECT teacher_id FROM schedules WHERE group_id = ANY($1))", alias, alias),
 			[]any{nonNil(scope.GroupIDs)}
 	default: // head/dean
 		return fmt.Sprintf("%s.lectern_id = ANY($1)", alias), []any{nonNil(scope.LecternIDs)}

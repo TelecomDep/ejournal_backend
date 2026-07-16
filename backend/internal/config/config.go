@@ -24,6 +24,7 @@ type AppConfig struct {
 	SMTPUser             string
 	SMTPPassword         string
 	SMTPFrom             string
+	MetricsToken         string
 }
 
 func Load() AppConfig {
@@ -45,6 +46,7 @@ func Load() AppConfig {
 		SMTPUser:             getEnv("SMTP_USER", ""),
 		SMTPPassword:         getEnv("SMTP_PASSWORD", ""),
 		SMTPFrom:             getEnv("SMTP_FROM", ""),
+		MetricsToken:         strings.TrimSpace(os.Getenv("METRICS_TOKEN")),
 	}
 
 	if cfg.JWTSecret == "" {

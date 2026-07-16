@@ -9,6 +9,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -26,6 +27,7 @@ type Server struct {
 	cfg            config.AppConfig
 	svc            *app.Service
 	requestTimeout time.Duration
+	metrics        *httpMetrics
 }
 
 func New(cfg config.AppConfig, svc *app.Service) *Server {
@@ -33,11 +35,13 @@ func New(cfg config.AppConfig, svc *app.Service) *Server {
 		cfg:            cfg,
 		svc:            svc,
 		requestTimeout: 3 * time.Second,
+		metrics:        newHTTPMetrics(),
 	}
 }
 
 func (s *Server) Start() {
 	fiberApp := fiber.New()
+	fiberApp.Use(s.metricsMiddleware)
 
 	prometheus := fiberprometheus.NewWithDefaultRegistry("ejournal-backend")
 	prometheus.RegisterAt(fiberApp, "/metrics")
@@ -45,11 +49,13 @@ func (s *Server) Start() {
 
 	fiberApp.Use(cors.New(cors.Config{
 		AllowOrigins: s.cfg.CORSAllowOrigins,
-		AllowMethods: "GET,POST,OPTIONS",
+		AllowMethods: "GET,POST,DELETE,OPTIONS",
 		AllowHeaders: "Origin, Content-Type, Accept, Authorization",
 	}))
 
 	fiberApp.Post("/register", s.registerHandler)
+	fiberApp.Get("/healthz", s.healthHandler)
+	fiberApp.Get("/internal/metrics", s.internalMetricsHandler)
 	fiberApp.Post("/register/by-invite", s.registerByInviteHandler)
 	fiberApp.Post("/login", s.loginHandler)
 	fiberApp.Get("/profile", s.profileHandler)
@@ -72,13 +78,18 @@ func (s *Server) Start() {
 	fiberApp.Post("/api/student/mark-attendance", s.androidStudentAttendanceMarkHandler)
 	fiberApp.Get("/api/student/attendance/history", s.studentAttendanceHistoryHandler)
 	fiberApp.Get("/api/staff/overview", s.staffOverviewHandler)
+	fiberApp.Get("/api/staff/overview/students", s.staffStudentsPageHandler)
 	fiberApp.Get("/api/staff/reports/performance.xlsx", s.staffPerformanceReportHandler)
 	fiberApp.Get("/api/staff/reports/performance.pdf", s.staffPerformanceReportPDFHandler)
 	fiberApp.Get("/api/student/schedule/day", s.studentScheduleDayHandler)
 	fiberApp.Post("/api/user/upload-avatar", s.uploadAvatarHandler)
 	fiberApp.Post("/api/teacher/grades/items", s.teacherCreateGradeItemHandler)
 	fiberApp.Post("/api/teacher/grades/items/list", s.teacherGradeItemsBySubjectHandler)
+	fiberApp.Delete("/api/teacher/grades/items/:item_id", s.teacherDeleteGradeItemHandler)
+	fiberApp.Post("/api/teacher/grades/items/:item_id/restore", s.teacherRestoreGradeItemHandler)
 	fiberApp.Post("/api/teacher/grades", s.teacherUpsertGradeHandler)
+	fiberApp.Delete("/api/teacher/grades/:grade_id", s.teacherDeleteGradeHandler)
+	fiberApp.Post("/api/teacher/grades/:grade_id/restore", s.teacherRestoreGradeHandler)
 	fiberApp.Post("/api/teacher/grades/student", s.teacherStudentGradesBySubjectHandler)
 	fiberApp.Post("/api/student/grades", s.studentGradesBySubjectHandler)
 	fiberApp.Get("/api/student/performance/radar", s.studentPerformanceRadarHandler)
@@ -428,6 +439,52 @@ func (s *Server) staffOverviewHandler(c *fiber.Ctx) error {
 		return c.Status(status).JSON(resp)
 	}
 
+	return c.JSON(resp)
+}
+
+func (s *Server) staffStudentsPageHandler(c *fiber.Ctx) error {
+	token := c.Get("Authorization")
+	if token == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(app.Response{OK: false, Error: "missing Authorization header"})
+	}
+	data := app.StaffStudentsPageData{
+		Page:     int32(c.QueryInt("page", 1)),
+		PageSize: int32(c.QueryInt("page_size", 100)),
+		Search:   c.Query("search"),
+		Sort:     c.Query("sort"),
+		Order:    c.Query("order"),
+	}
+	if rawGroupID := strings.TrimSpace(c.Query("group_id")); rawGroupID != "" {
+		groupID, err := strconv.ParseInt(rawGroupID, 10, 32)
+		if err != nil || groupID <= 0 {
+			return c.Status(fiber.StatusBadRequest).JSON(app.Response{OK: false, Error: "invalid group_id"})
+		}
+		parsed := int32(groupID)
+		data.GroupID = &parsed
+	}
+
+	payload, err := json.Marshal(data)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(app.Response{OK: false, Error: "Error marshalling query"})
+	}
+	raw, err := json.Marshal(app.Request{ID: "http-staff-students-page", Action: "staff_students_page", Token: token, Data: payload})
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(app.Response{OK: false, Error: "Error marshalling envelope"})
+	}
+
+	resp, err := s.svc.DispatchRequest(string(raw), s.requestTimeout)
+	if err != nil {
+		return c.Status(fiber.StatusServiceUnavailable).JSON(app.Response{OK: false, Error: err.Error()})
+	}
+	if !resp.OK {
+		status := fiber.StatusBadRequest
+		if resp.Error == "unauthorized" {
+			status = fiber.StatusUnauthorized
+		} else if resp.Error == "forbidden" {
+			status = fiber.StatusForbidden
+		}
+		return c.Status(status).JSON(resp)
+	}
 	return c.JSON(resp)
 }
 
@@ -1043,6 +1100,42 @@ func (s *Server) teacherUpsertGradeHandler(c *fiber.Ctx) error {
 	return s.gradeActionHandler(c, "http-teacher-upsert-grade", "teacher_upsert_grade", &body)
 }
 
+func (s *Server) teacherDeleteGradeHandler(c *fiber.Ctx) error {
+	gradeID, err := c.ParamsInt("grade_id")
+	if err != nil || gradeID <= 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(app.Response{OK: false, Error: "invalid grade_id"})
+	}
+	body := app.GradeDeleteData{GradeID: int32(gradeID)}
+	return s.gradeDeleteActionHandler(c, "http-teacher-delete-grade", "teacher_delete_grade", &body, int32(gradeID))
+}
+
+func (s *Server) teacherRestoreGradeHandler(c *fiber.Ctx) error {
+	gradeID, err := c.ParamsInt("grade_id")
+	if err != nil || gradeID <= 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(app.Response{OK: false, Error: "invalid grade_id"})
+	}
+	body := app.GradeRestoreData{GradeID: int32(gradeID)}
+	return s.gradeDeleteActionHandler(c, "http-teacher-restore-grade", "teacher_restore_grade", &body, int32(gradeID))
+}
+
+func (s *Server) teacherDeleteGradeItemHandler(c *fiber.Ctx) error {
+	itemID, err := c.ParamsInt("item_id")
+	if err != nil || itemID <= 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(app.Response{OK: false, Error: "invalid item_id"})
+	}
+	body := app.GradeItemDeleteData{ItemID: int32(itemID)}
+	return s.gradeDeleteActionHandler(c, "http-teacher-delete-grade-item", "teacher_delete_grade_item", &body, int32(itemID))
+}
+
+func (s *Server) teacherRestoreGradeItemHandler(c *fiber.Ctx) error {
+	itemID, err := c.ParamsInt("item_id")
+	if err != nil || itemID <= 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(app.Response{OK: false, Error: "invalid item_id"})
+	}
+	body := app.GradeItemRestoreData{ItemID: int32(itemID)}
+	return s.gradeDeleteActionHandler(c, "http-teacher-restore-grade-item", "teacher_restore_grade_item", &body, int32(itemID))
+}
+
 // teacherStudentGradesBySubjectHandler godoc
 // @Summary Get student grades by subject
 // @Description Teacher gets a student's grade sheet for an assigned subject.
@@ -1196,6 +1289,46 @@ func (s *Server) gradeActionHandler(c *fiber.Ctx, requestID, action string, body
 		return c.Status(app.GradeHTTPStatus(resp)).JSON(resp)
 	}
 
+	return c.JSON(resp)
+}
+
+func (s *Server) gradeDeleteActionHandler(c *fiber.Ctx, requestID, action string, body any, pathID int32) error {
+	token := c.Get("Authorization")
+	if token == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(app.Response{OK: false, Error: "missing Authorization header"})
+	}
+	if len(c.Body()) > 0 {
+		if err := c.BodyParser(body); err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(app.Response{OK: false, Error: "Error parsing body"})
+		}
+	}
+	switch target := body.(type) {
+	case *app.GradeDeleteData:
+		target.GradeID = pathID
+	case *app.GradeRestoreData:
+		target.GradeID = pathID
+	case *app.GradeItemDeleteData:
+		target.ItemID = pathID
+	case *app.GradeItemRestoreData:
+		target.ItemID = pathID
+	}
+
+	data, err := json.Marshal(body)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(app.Response{OK: false, Error: "Error marshalling request"})
+	}
+	raw, err := json.Marshal(app.Request{ID: requestID, Action: action, Token: token, Data: data})
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(app.Response{OK: false, Error: "Error marshalling envelope"})
+	}
+
+	resp, err := s.svc.DispatchRequest(string(raw), s.requestTimeout)
+	if err != nil {
+		return c.Status(fiber.StatusServiceUnavailable).JSON(app.Response{OK: false, Error: err.Error()})
+	}
+	if !resp.OK {
+		return c.Status(app.GradeHTTPStatus(resp)).JSON(resp)
+	}
 	return c.JSON(resp)
 }
 
