@@ -306,6 +306,10 @@ func (s *Service) DispatchRequest(raw string, timeout time.Duration) (Response, 
 	}
 }
 
+func (s *Service) Ping(ctx context.Context) error {
+	return s.store.Ping(ctx)
+}
+
 // User roles, in increasing order of visibility scope.
 const (
 	RoleStudent = "student" // sees only self

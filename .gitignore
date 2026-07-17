@@ -56,3 +56,4 @@ parser
 parsers/
 ssl/
 certbot/
+tests/karate.jar

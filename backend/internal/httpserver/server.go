@@ -1,6 +1,7 @@
 package httpserver
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
@@ -14,10 +15,12 @@ import (
 	_ "github.com/TelecomDep/ejournal_backend/docs"
 	"github.com/TelecomDep/ejournal_backend/internal/app"
 	"github.com/TelecomDep/ejournal_backend/internal/config"
+	"github.com/ansrivas/fiberprometheus/v2"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	swagger "github.com/gofiber/swagger"
 )
+
 
 type Server struct {
 	cfg            config.AppConfig
@@ -35,6 +38,10 @@ func New(cfg config.AppConfig, svc *app.Service) *Server {
 
 func (s *Server) Start() {
 	fiberApp := fiber.New()
+
+	prometheus := fiberprometheus.NewWithDefaultRegistry("ejournal-backend")
+	prometheus.RegisterAt(fiberApp, "/metrics")
+	fiberApp.Use(prometheus.Middleware)
 
 	fiberApp.Use(cors.New(cors.Config{
 		AllowOrigins: s.cfg.CORSAllowOrigins,
@@ -79,6 +86,7 @@ func (s *Server) Start() {
 	fiberApp.Post("/api/teacher/student/performance/radar", s.teacherStudentPerformanceRadarHandler)
 	fiberApp.Static("/uploads", s.cfg.UploadDir)
 	fiberApp.Get("/swagger/*", swagger.HandlerDefault)
+	fiberApp.Get("/healthz", s.healthzHandler)
 
 	addr := fmt.Sprintf(":%s", s.cfg.AppPort)
 	log.Printf("Starting HTTP server on %s", addr)
@@ -1319,4 +1327,20 @@ func (s *Server) updateEmailHandler(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(resp)
+}
+
+func (s *Server) healthzHandler(c *fiber.Ctx) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	if err := s.svc.Ping(ctx); err != nil {
+		return c.Status(fiber.StatusServiceUnavailable).JSON(app.Response{
+			OK:    false,
+			Error: "database connection issues: " + err.Error(),
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(app.Response{
+		OK: true,
+	})
 }

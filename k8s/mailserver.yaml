@@ -1,0 +1,76 @@
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mailserver
+  namespace: ejournal
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mailserver
+  template:
+    metadata:
+      labels:
+        app: mailserver
+    spec:
+      hostname: signal
+      containers:
+      - name: mailserver
+        image: mailserver/docker-mailserver:14.0.0
+        env:
+        - name: OVERRIDE_HOSTNAME
+          value: "signal.qlabs.pro"
+        - name: ONE_DIR
+          value: "1"
+        - name: ENABLE_SPAMASSASSIN
+          value: "0"
+        - name: ENABLE_CLAMAV
+          value: "0"
+        - name: ENABLE_AMAVIS
+          value: "0"
+        - name: ENABLE_FAIL2BAN
+          value: "1"
+        - name: SSL_TYPE
+          value: ""
+        ports:
+        - containerPort: 25
+          name: smtp
+        - containerPort: 587
+          name: smtp-submission
+        - containerPort: 465
+          name: smtp-ssl
+        volumeMounts:
+        - name: mail-data
+          mountPath: /var/mail
+        - name: mail-state
+          mountPath: /var/mail-state
+        - name: mail-config
+          mountPath: /tmp/docker-mailserver
+      volumes:
+      - name: mail-data
+        emptyDir: {}
+      - name: mail-state
+        emptyDir: {}
+      - name: mail-config
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mailserver
+  namespace: ejournal
+spec:
+  ports:
+  - name: smtp
+    port: 25
+    targetPort: 25
+  - name: smtp-submission
+    port: 587
+    targetPort: 587
+  - name: smtp-ssl
+    port: 465
+    targetPort: 465
+  selector:
+    app: mailserver
+  type: ClusterIP

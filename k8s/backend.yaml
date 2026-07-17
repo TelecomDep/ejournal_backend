@@ -1,0 +1,178 @@
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ejournal-backend
+  namespace: ejournal
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: ejournal-backend
+  template:
+    metadata:
+      labels:
+        app: ejournal-backend
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8888"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+      - name: backend
+        image: ejournal-backend:monitoring  # Replace with actual registry tag in CI/CD (e.g. registry.company.com/ejournal-backend:v1)
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8888
+          name: http
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: 8888
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 3
+          failureThreshold: 3
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8888
+          initialDelaySeconds: 15
+          periodSeconds: 20
+          timeoutSeconds: 3
+          failureThreshold: 3
+        env:
+        # DB details from config/secret to build DSN dynamically
+        - name: POSTGRES_DB
+          valueFrom:
+            configMapKeyRef:
+              name: ejournal-config
+              key: POSTGRES_DB
+        - name: POSTGRES_USER
+          valueFrom:
+            configMapKeyRef:
+              name: ejournal-config
+              key: POSTGRES_USER
+        - name: DB_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: ejournal-config
+              key: DB_HOST
+        - name: DB_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: ejournal-config
+              key: DB_PORT
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: ejournal-secret
+              key: postgres-password
+        - name: DB_DSN
+          value: postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@$(DB_HOST):$(DB_PORT)/$(POSTGRES_DB)?sslmode=disable
+
+        # Standard environment variables
+        - name: APP_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: ejournal-config
+              key: APP_PORT
+        - name: SITE_BASE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: ejournal-config
+              key: SITE_BASE_URL
+        - name: CORS_ALLOW_ORIGINS
+          valueFrom:
+            configMapKeyRef:
+              name: ejournal-config
+              key: CORS_ALLOW_ORIGINS
+        - name: DEFAULT_STUDENT_GROUP_ID
+          valueFrom:
+            configMapKeyRef:
+              name: ejournal-config
+              key: DEFAULT_STUDENT_GROUP_ID
+        - name: ALLOW_EARLY_ATTENDANCE
+          valueFrom:
+            configMapKeyRef:
+              name: ejournal-config
+              key: ALLOW_EARLY_ATTENDANCE
+        - name: UPLOAD_DIR
+          valueFrom:
+            configMapKeyRef:
+              name: ejournal-config
+              key: UPLOAD_DIR
+        - name: SMTP_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: ejournal-config
+              key: SMTP_HOST
+        - name: SMTP_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: ejournal-config
+              key: SMTP_PORT
+        - name: SMTP_USER
+          valueFrom:
+            configMapKeyRef:
+              name: ejournal-config
+              key: SMTP_USER
+        - name: SMTP_FROM
+          valueFrom:
+            configMapKeyRef:
+              name: ejournal-config
+              key: SMTP_FROM
+
+        # Sensitive application secrets
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: ejournal-secret
+              key: jwt-secret
+        - name: ROLE_HASH_TEACHER
+          valueFrom:
+            secretKeyRef:
+              name: ejournal-secret
+              key: role-hash-teacher
+        - name: ROLE_HASH_STUDENT
+          valueFrom:
+            secretKeyRef:
+              name: ejournal-secret
+              key: role-hash-student
+        - name: SMTP_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: ejournal-secret
+              key: smtp-password
+        volumeMounts:
+        - name: uploads-volume
+          mountPath: /app/uploads
+      volumes:
+      - name: uploads-volume
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ejournal-backend
+  namespace: ejournal
+spec:
+  ports:
+  - port: 8888
+    targetPort: 8888
+    name: http
+  selector:
+    app: ejournal-backend
+  type: ClusterIP
