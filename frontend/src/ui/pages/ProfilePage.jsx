@@ -15,20 +15,37 @@ const getInitials = (name = '') =>
     .join('')
     .toUpperCase() || 'П';
 
-const profileRows = (user) => [
-  { label: 'ID студента', value: user?.student_id, compact: true },
-  { label: 'ID преподавателя', value: user?.teacher_id, compact: true },
-  { label: 'Email', value: user?.email || 'Не привязан', wide: true },
-  { label: 'Должность', value: user?.job_title },
-  { label: 'Кафедра', value: user?.lectern_id ? `ID ${user.lectern_id}` : '' },
-  { label: 'NFC-метка', value: user?.nfc_tag }
-].filter((row) => row.value !== undefined && row.value !== null && row.value !== '');
+const profileRows = (user) => {
+  const rows = [
+    { label: 'ID студента', value: user?.student_id, compact: true },
+    { label: 'ID преподавателя', value: user?.teacher_id, compact: true },
+    { label: 'Email', value: user?.email || 'Не привязан', wide: true },
+    { label: 'Должность', value: user?.job_title },
+    { label: 'NFC-метка', value: user?.nfc_tag }
+  ];
 
-const metricCards = (user) => [
-  { label: 'Группа', value: user?.group_name || user?.group || '—' },
-  { label: 'Статус', value: getRoleLabel(user?.role) },
-  { label: 'Логин', value: user?.login || '—' }
-];
+  if (user?.role !== 'teacher') {
+    rows.splice(4, 0, { label: 'Кафедра', value: user?.lectern_id ? `ID ${user.lectern_id}` : '' });
+  }
+
+  return rows.filter((row) => row.value !== undefined && row.value !== null && row.value !== '');
+};
+
+const metricCards = (user) => {
+  if (user?.role === 'teacher') {
+    return [
+      { label: 'Статус', value: getRoleLabel(user?.role) },
+      { label: 'Логин', value: user?.login || '—' },
+      { label: 'Кафедра', value: user?.lectern_id ? `ID ${user.lectern_id}` : 'Не указана' }
+    ];
+  }
+
+  return [
+    { label: 'Группа', value: user?.group_name || user?.group || '—' },
+    { label: 'Статус', value: getRoleLabel(user?.role) },
+    { label: 'Логин', value: user?.login || '—' }
+  ];
+};
 
 const DefaultAvatar = () => (
   <svg className="profile-default-avatar" viewBox="0 0 160 160" role="img" aria-label="Фото профиля">
