@@ -5,7 +5,7 @@ function fn() {
   }
   
   var config = {
-    baseUrl: 'http://127.0.0.1:9999'
+    baseUrl: 'http://127.0.0.1:8888'
   };
   
   karate.configure('connectTimeout', 5000);

@@ -359,7 +359,7 @@ const StudentGradesPanel = ({ token }) => {
                               onChange={(e) => {
                                 let val = e.target.value;
                                 if (val !== '') {
-                                  val = Math.max(0, Math.min(Number(val), row.maxScore));
+                                  val = String(Math.max(0, Math.min(Number(val), row.maxScore)));
                                 }
                                 setWhatIfGrades({...whatIfGrades, [row.key]: val});
                               }}
