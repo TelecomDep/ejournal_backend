@@ -59,6 +59,8 @@ const StudentGradesPanel = ({ token }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [subjectFilter, setSubjectFilter] = useState('all');
+  const [whatIfMode, setWhatIfMode] = useState(false);
+  const [whatIfGrades, setWhatIfGrades] = useState({});
 
   useEffect(() => {
     let cancelled = false;
@@ -88,53 +90,99 @@ const StudentGradesPanel = ({ token }) => {
   const subjects = data?.subjects || [];
   const summary = data?.summary || {};
 
+  const computedSubjects = useMemo(() => {
+    return subjects.map(s => {
+      let currentScore = Number(s.current_score || 0);
+      let maxScore = Number(s.total_max || 0);
+
+      if (whatIfMode) {
+        let extra = 0;
+        (s.grades || []).forEach(g => {
+          const key = `${s.subject_id}-${g.item_id}`;
+          if (whatIfGrades[key] !== undefined && whatIfGrades[key] !== '') {
+             extra += Number(whatIfGrades[key]);
+          }
+        });
+
+        currentScore += extra;
+      }
+
+      return {
+        ...s,
+        computed_score: currentScore,
+        computed_percent: maxScore > 0 ? clampPct((currentScore / maxScore) * 100) : 0
+      };
+    });
+  }, [subjects, whatIfMode, whatIfGrades]);
+
   const radarData = useMemo(
-    () => subjects.map((s) => ({
+    () => computedSubjects.map((s) => ({
       subject_id: s.subject_id,
       subject_name: s.subject_name,
-      score: s.current_score,
+      score: s.computed_score,
       max_score: s.total_max,
-      percent: s.percent
+      percent: s.computed_percent
     })),
-    [subjects]
+    [computedSubjects]
   );
 
   const overallPct = useMemo(() => {
+    let currentScore = Number(summary.current_score || 0);
+    if (whatIfMode) {
+      let extraScore = 0;
+      Object.keys(whatIfGrades).forEach(key => {
+        extraScore += Number(whatIfGrades[key] || 0);
+      });
+      currentScore += extraScore;
+    }
     const max = Number(summary.total_max || 0);
-    return max > 0 ? clampPct((Number(summary.current_score || 0) / max) * 100) : 0;
-  }, [summary]);
+    return max > 0 ? clampPct((currentScore / max) * 100) : 0;
+  }, [summary, whatIfMode, whatIfGrades]);
 
   const subjectBars = useMemo(
-    () => [...subjects]
-      .sort((a, b) => clampPct(b.percent) - clampPct(a.percent))
-      .map((s) => ({ key: s.subject_id, name: s.subject_name || `Предмет ${s.subject_id}`, value: clampPct(s.percent) })),
-    [subjects]
+    () => [...computedSubjects]
+      .sort((a, b) => clampPct(b.computed_percent) - clampPct(a.computed_percent))
+      .map((s) => ({ key: s.subject_id, name: s.subject_name || `Предмет ${s.subject_id}`, value: clampPct(s.computed_percent) })),
+    [computedSubjects]
   );
 
   // Flatten all grade items into a single table (with subject column).
   const allRows = useMemo(() => {
     const rows = [];
-    subjects.forEach((s) => {
+    computedSubjects.forEach((s) => {
       (s.grades || []).forEach((g) => {
+        const key = `${s.subject_id}-${g.item_id}`;
+        let currentScore = g.score;
+        let isHypothetical = false;
+
+        if (whatIfMode && whatIfGrades[key] !== undefined) {
+          currentScore = whatIfGrades[key] !== '' ? Number(whatIfGrades[key]) : 0;
+          isHypothetical = true;
+        }
+
         rows.push({
-          key: `${s.subject_id}-${g.item_id}`,
+          key,
           subjectId: s.subject_id,
           subjectName: s.subject_name || `Предмет ${s.subject_id}`,
           title: g.title,
           itemType: g.item_type,
-          score: g.score,
+          score: currentScore,
+          originalScore: g.score,
           maxScore: g.max_score,
           gradedAt: g.graded_at,
-          percent: g.max_score > 0 ? clampPct((g.score / g.max_score) * 100) : 0
+          percent: g.max_score > 0 ? clampPct((currentScore / g.max_score) * 100) : 0,
+          isHypothetical
         });
       });
     });
     return rows;
-  }, [subjects]);
+  }, [computedSubjects, whatIfMode, whatIfGrades]);
 
   const visibleRows = subjectFilter === 'all'
     ? allRows
     : allRows.filter((r) => String(r.subjectId) === String(subjectFilter));
+
+  const [showTooltip, setShowTooltip] = useState(false);
 
   if (loading) {
     return <div className="sg-loading">Загрузка оценок…</div>;
@@ -154,6 +202,33 @@ const StudentGradesPanel = ({ token }) => {
           <h2 className="sg-title">Мои оценки</h2>
           <p className="sg-sub">Все предметы учебного плана, баллы и прогресс за семестр.</p>
         </div>
+        <div className="sg-actions">
+          <button 
+            className={`sg-btn ${whatIfMode ? 'sg-btn-active' : ''}`}
+            onClick={() => {
+              setWhatIfMode(!whatIfMode);
+              if (whatIfMode) setWhatIfGrades({});
+            }}
+          >
+            {whatIfMode ? 'Сбросить прогноз' : 'Прогноз оценок'}
+          </button>
+          
+          <div 
+            className="tooltip-container" 
+            onMouseEnter={() => setShowTooltip(true)}
+            onMouseLeave={() => setShowTooltip(false)}
+          >
+            <span className="sg-tooltip-icon">
+              ?
+            </span>
+            {showTooltip && (
+              <div className="tooltip-text">
+                <strong>Прогноз оценок ("Что-Если")</strong>
+                Позволяет вводить гипотетические баллы в поля оценок, чтобы рассчитать ваш будущий средневзвешенный балл успеваемости.
+              </div>
+            )}
+          </div>
+        </div>
       </header>
 
       <div className="sg-bento">
@@ -163,9 +238,9 @@ const StudentGradesPanel = ({ token }) => {
         <div className="sg-stats">
           <StatCard
             accent="indigo"
-            value={`${summary.current_score || 0}`}
+            value={`${(Number(summary.current_score || 0) + (whatIfMode ? Object.values(whatIfGrades).reduce((a, b) => a + (Number(b) || 0), 0) : 0))}`}
             label="Набрано баллов"
-            sub={`из ${summary.total_max || 0} по плану`}
+            sub={`из ${summary.total_max || 0} по плану${whatIfMode ? ' (с учетом прогноза)' : ''}`}
           />
           <StatCard
             accent="violet"
@@ -218,8 +293,8 @@ const StudentGradesPanel = ({ token }) => {
       </div>
 
       <div className="sg-subject-cards">
-        {subjects.map((s) => {
-          const pct = clampPct(s.percent);
+        {computedSubjects.map((s) => {
+          const pct = clampPct(s.computed_percent);
           return (
             <div className="sg-subject-card" key={s.subject_id}>
               <div className="sg-subject-top">
@@ -229,7 +304,7 @@ const StudentGradesPanel = ({ token }) => {
               <div className="sg-subject-track">
                 <div className={`sg-subject-fill sg-${pctTone(pct)}`} style={{ width: `${pct}%` }} />
               </div>
-              <span className="sg-subject-foot">{s.current_score} / {s.total_max} баллов</span>
+              <span className="sg-subject-foot">{s.computed_score} / {s.total_max} баллов</span>
             </div>
           );
         })}
@@ -273,13 +348,36 @@ const StudentGradesPanel = ({ token }) => {
                         <div className="sg-cell-track">
                           <div className={`sg-cell-fill sg-${pctTone(row.percent)}`} style={{ width: `${row.percent}%` }} />
                         </div>
-                        <span>{row.score} / {row.maxScore}</span>
+                        {whatIfMode && (!row.gradedAt || row.isHypothetical) ? (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <input 
+                              type="number" 
+                              max={row.maxScore} 
+                              min="0"
+                              value={whatIfGrades[row.key] !== undefined ? whatIfGrades[row.key] : ''}
+                              placeholder={row.originalScore}
+                              onChange={(e) => {
+                                let val = e.target.value;
+                                if (val !== '') {
+                                  val = Math.max(0, Math.min(Number(val), row.maxScore));
+                                }
+                                setWhatIfGrades({...whatIfGrades, [row.key]: val});
+                              }}
+                              style={{ width: '50px', padding: '2px', border: '1px solid var(--line)', borderRadius: '4px', background: 'var(--surface)', color: 'var(--ink)' }}
+                            />
+                            <span>/ {row.maxScore}</span>
+                          </div>
+                        ) : (
+                          <span>{row.score} / {row.maxScore}</span>
+                        )}
                       </div>
                     </td>
                     <td>
                       {row.gradedAt
                         ? <span className="sg-status sg-status-done">Оценено</span>
-                        : <span className="sg-status sg-status-pending">Ожидает</span>}
+                        : row.isHypothetical 
+                          ? <span className="sg-status sg-status-pending" style={{background: '#ffeb3b', color: '#000'}}>Прогноз</span>
+                          : <span className="sg-status sg-status-pending">Ожидает</span>}
                     </td>
                     <td>{formatDate(row.gradedAt)}</td>
                   </tr>

@@ -63,6 +63,12 @@ func (s *Server) Start() {
 	fiberApp.Post("/api/auth/forgot-password", s.forgotPasswordHandler)
 	fiberApp.Post("/api/auth/reset-password", s.resetPasswordHandler)
 	fiberApp.Post("/api/user/email", s.updateEmailHandler)
+	
+	fiberApp.Post("/api/user/email/bind/request", s.requestEmailBindHandler)
+	fiberApp.Post("/api/user/email/bind/confirm", s.confirmEmailBindHandler)
+	fiberApp.Get("/api/user/2fa/generate", s.generate2faHandler)
+	fiberApp.Post("/api/user/2fa/verify", s.verify2faHandler)
+	fiberApp.Post("/api/user/2fa/disable", s.disable2faHandler)
 
 	fiberApp.Post("/api/teacher/attendance-link", s.teacherAttendanceLinkHandler)
 	fiberApp.Post("/api/teacher/attendance/session", s.teacherAttendanceLinkHandler)

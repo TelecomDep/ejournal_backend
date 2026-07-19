@@ -18,6 +18,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/pquerna/otp/totp"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -36,8 +37,9 @@ type Response struct {
 }
 
 type LoginData struct {
-	Login    string `json:"login"`
-	Password string `json:"password"`
+	Login     string `json:"login"`
+	Password  string `json:"password"`
+	TwoFaCode string `json:"two_fa_code,omitempty"`
 }
 
 type RegisterData struct {
@@ -919,6 +921,22 @@ func (s *Service) login(data LoginData) Response {
 		return Response{OK: false, Error: "wrong password"}
 	}
 
+	var is2faEnabled bool
+	var totpSecret string
+	_ = s.store.Pool().QueryRow(ctx, "SELECT is_2fa_enabled, COALESCE(totp_secret, '') FROM users WHERE id = $1", storedUser.ID).Scan(&is2faEnabled, &totpSecret)
+
+	if is2faEnabled {
+		if data.TwoFaCode == "" {
+			return Response{
+				OK: false, 
+				Error: "requires_2fa",
+			}
+		}
+		if !totp.Validate(data.TwoFaCode, totpSecret) {
+			return Response{OK: false, Error: "invalid 2fa code"}
+		}
+	}
+
 	userID := strconv.FormatInt(int64(storedUser.ID), 10)
 	token, err := s.generateJWT(userID)
 	if err != nil {
@@ -1133,6 +1151,9 @@ func (s *Service) confirmAttendanceByStudent(sessionToken string, data Attendanc
 	if markResult == "already" {
 		return Response{OK: false, Error: "attendance already confirmed"}
 	}
+
+	// Recalculate auto attendance grades
+	_ = s.updateAutoAttendanceGrades(ctx, session.SubjectID, &studentProfile.ID, session.TeacherID)
 
 	return Response{
 		OK: true,
@@ -1485,6 +1506,9 @@ func (s *Service) attendanceManualMarkByTeacher(sessionToken string, data Teache
 	if result == "not_found" {
 		return Response{OK: false, Error: "student not found in this session's roster"}
 	}
+
+	// Recalculate auto attendance grades
+	_ = s.updateAutoAttendanceGrades(ctx, session.SubjectID, &data.StudentID, session.TeacherID)
 
 	return Response{
 		OK: true,
@@ -1892,6 +1916,38 @@ func (s *Service) handleRequest(raw string) Response {
 			return Response{ID: req.ID, OK: false, Error: "invalid update_email payload"}
 		}
 		resp := s.updateEmail(req.Token, data)
+		resp.ID = req.ID
+		return resp
+	case "generate_2fa":
+		resp := s.generate2fa(req.Token)
+		resp.ID = req.ID
+		return resp
+	case "verify_2fa":
+		var data TwoFaCodeData
+		if err := json.Unmarshal(req.Data, &data); err != nil {
+			return Response{ID: req.ID, OK: false, Error: "invalid verify_2fa payload"}
+		}
+		resp := s.verify2fa(req.Token, data)
+		resp.ID = req.ID
+		return resp
+	case "disable_2fa":
+		resp := s.disable2fa(req.Token)
+		resp.ID = req.ID
+		return resp
+	case "request_email_bind":
+		var data RequestEmailData
+		if err := json.Unmarshal(req.Data, &data); err != nil {
+			return Response{ID: req.ID, OK: false, Error: "invalid request_email_bind payload"}
+		}
+		resp := s.requestEmailBind(req.Token, data)
+		resp.ID = req.ID
+		return resp
+	case "confirm_email_bind":
+		var data ConfirmEmailData
+		if err := json.Unmarshal(req.Data, &data); err != nil {
+			return Response{ID: req.ID, OK: false, Error: "invalid confirm_email_bind payload"}
+		}
+		resp := s.confirmEmailBind(req.Token, data)
 		resp.ID = req.ID
 		return resp
 	case "create_attendance_link":

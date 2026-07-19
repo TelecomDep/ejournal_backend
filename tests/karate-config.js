@@ -5,7 +5,7 @@ function fn() {
   }
   
   var config = {
-    baseUrl: 'http://lms.signal.qlabs.pro:9000'
+    baseUrl: 'http://127.0.0.1:9999'
   };
   
   karate.configure('connectTimeout', 5000);

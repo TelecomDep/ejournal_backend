@@ -88,8 +88,17 @@ const TeacherAccount = ({ userData, token, section = 'attendance' }) => {
   const [expandedStudentId, setExpandedStudentId] = useState(0);
   const [expandedRadar, setExpandedRadar] = useState([]);
   const [expandedRadarLoading, setExpandedRadarLoading] = useState(false);
+  const [attendanceAutoMaxScore, setAttendanceAutoMaxScore] = useState('');
 
   const gradeItems = gradeItemsResult?.items || [];
+  const attendanceAutoItem = useMemo(
+    () => gradeItems.find((item) => item.item_type === 'attendance_auto'),
+    [gradeItems]
+  );
+
+  useEffect(() => {
+    setAttendanceAutoMaxScore(attendanceAutoItem ? attendanceAutoItem.max_score : '');
+  }, [attendanceAutoItem]);
   const selectedSessionSubject = useMemo(
     () => teacherSubjects.find((subject) => Number(subject.subject_id) === Number(sessionForm.subjectId)),
     [teacherSubjects, sessionForm.subjectId]
@@ -495,6 +504,59 @@ const TeacherAccount = ({ userData, token, section = 'attendance' }) => {
       setError(api.getErrorMessage(err, 'Не удалось добавить контрольную точку'));
     } finally {
       setGradesLoading(false);
+    }
+  };
+
+  const handleSaveAttendanceAuto = async (event) => {
+    event.preventDefault();
+    clearFeedback();
+  
+    if (!gradeSelection.subjectId) {
+      setError('Сначала выберите предмет.');
+      return;
+    }
+  
+    const newMaxScore = parseNumber(attendanceAutoMaxScore);
+  
+    if (newMaxScore <= 0 && attendanceAutoItem) {
+        const confirmText = `Отключить автоматический учет посещаемости?`;
+        if (!window.confirm(confirmText)) return;
+        setGradesLoading(true);
+        try {
+            await api.deleteGradeItem(token, { item_id: attendanceAutoItem.item_id, reason: 'Disabled auto attendance' });
+            setMessage('Автоматический учет посещаемости отключен.');
+            await handleLoadGradeItems(gradeSelection.subjectId, true);
+        } catch(err) {
+            setError(api.getErrorMessage(err, 'Не удалось отключить'));
+        } finally {
+            setGradesLoading(false);
+        }
+        return;
+    }
+    
+    if (newMaxScore <= 0) {
+        setError('Введите балл больше 0 или оставьте пустым для отключения (если уже включено).');
+        return;
+    }
+  
+    setGradesLoading(true);
+    try {
+        if (attendanceAutoItem) {
+            await api.deleteGradeItem(token, { item_id: attendanceAutoItem.item_id, reason: 'Updating auto attendance max score' });
+        }
+        await api.createGradeItem(token, {
+            subject_id: parseNumber(gradeSelection.subjectId),
+            title: 'Автоматическая оценка за посещаемость',
+            max_score: newMaxScore,
+            item_type: 'attendance_auto',
+            deadline: null
+        });
+        setMessage('Настройки автоматической оценки за посещаемость сохранены.');
+        await handleLoadGradeItems(gradeSelection.subjectId, true);
+    } catch (err) {
+        setError(api.getErrorMessage(err, 'Не удалось сохранить настройки посещаемости'));
+    } finally {
+        setGradesLoading(false);
     }
   };
 
@@ -917,36 +979,63 @@ const TeacherAccount = ({ userData, token, section = 'attendance' }) => {
           )}
 
           <div className="grades-layout">
-            <form onSubmit={handleCreateGradeItem} className="tool-panel">
-              <h3>Новая контрольная точка</h3>
-              <p className="helper-text">
-                Предмет: {gradeSubject ? gradeSubject.subject_name : 'не выбран'}
-              </p>
-              <label className="form-group" htmlFor="gradeTitle">
-                Название
-                <input id="gradeTitle" type="text" name="title" value={itemForm.title} onChange={handleItemInputChange} required />
-              </label>
-              <label className="form-group" htmlFor="gradeMaxScore">
-                Максимум баллов
-                <input id="gradeMaxScore" type="number" name="maxScore" min="1" max="100" value={itemForm.maxScore} onChange={handleItemInputChange} required />
-              </label>
-              <label className="form-group" htmlFor="gradeItemType">
-                Тип работы
-                <select id="gradeItemType" name="itemType" value={itemForm.itemType} onChange={handleItemInputChange}>
-                  {gradeTypes.map((type) => (
-                    <option key={type.value} value={type.value}>{type.label}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="form-group" htmlFor="gradeDeadline">
-                Срок сдачи
-                <input id="gradeDeadline" type="date" name="deadline" value={itemForm.deadline} onChange={handleItemInputChange} />
-              </label>
-              <div className="form-actions">
-                <button type="submit" className="submit-btn" disabled={gradesLoading || !gradeSelection.subjectId}>Добавить</button>
-                <button type="button" className="secondary-btn" onClick={() => handleLoadGradeItems()} disabled={gradesLoading}>Обновить список</button>
-              </div>
-            </form>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', flex: 1 }}>
+              <form onSubmit={handleCreateGradeItem} className="tool-panel">
+                <h3>Новая контрольная точка</h3>
+                <p className="helper-text">
+                  Предмет: {gradeSubject ? gradeSubject.subject_name : 'не выбран'}
+                </p>
+                <label className="form-group" htmlFor="gradeTitle">
+                  Название
+                  <input id="gradeTitle" type="text" name="title" value={itemForm.title} onChange={handleItemInputChange} required />
+                </label>
+                <label className="form-group" htmlFor="gradeMaxScore">
+                  Максимум баллов
+                  <input id="gradeMaxScore" type="number" name="maxScore" min="1" max="100" value={itemForm.maxScore} onChange={handleItemInputChange} required />
+                </label>
+                <label className="form-group" htmlFor="gradeItemType">
+                  Тип работы
+                  <select id="gradeItemType" name="itemType" value={itemForm.itemType} onChange={handleItemInputChange}>
+                    {gradeTypes.map((type) => (
+                      <option key={type.value} value={type.value}>{type.label}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="form-group" htmlFor="gradeDeadline">
+                  Срок сдачи
+                  <input id="gradeDeadline" type="date" name="deadline" value={itemForm.deadline} onChange={handleItemInputChange} />
+                </label>
+                <div className="form-actions">
+                  <button type="submit" className="submit-btn" disabled={gradesLoading || !gradeSelection.subjectId}>Добавить</button>
+                  <button type="button" className="secondary-btn" onClick={() => handleLoadGradeItems()} disabled={gradesLoading}>Обновить список</button>
+                </div>
+              </form>
+
+              <form onSubmit={handleSaveAttendanceAuto} className="tool-panel">
+                <h3>Автоматический учет посещаемости</h3>
+                <p className="helper-text">
+                  Балл за 100% посещаемость (округляется в пользу студента). Установите 0 для отключения.
+                </p>
+                <div className="form-row">
+                  <label className="form-group" htmlFor="attendanceAutoMaxScore">
+                    Максимальный балл
+                    <input
+                      id="attendanceAutoMaxScore"
+                      type="number"
+                      name="attendanceAutoMaxScore"
+                      value={attendanceAutoMaxScore}
+                      onChange={(e) => setAttendanceAutoMaxScore(e.target.value)}
+                      min="0"
+                      max="100"
+                      placeholder={attendanceAutoItem ? attendanceAutoItem.max_score : 'Отключено'}
+                    />
+                  </label>
+                </div>
+                <div className="form-actions">
+                  <button type="submit" className="submit-btn" disabled={gradesLoading || !gradeSelection.subjectId}>Сохранить</button>
+                </div>
+              </form>
+            </div>
 
             <form onSubmit={handleSaveGrade} className="tool-panel">
               <h3>Выставить баллы</h3>

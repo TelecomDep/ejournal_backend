@@ -8,6 +8,10 @@ const LoginPage = ({ onLogin, onRegister, loading, error }) => {
   const [login, setLogin] = useState('');
   const [password, setPassword] = useState('');
   const [registrationCode, setRegistrationCode] = useState('');
+  
+  // 2FA login fields
+  const [requiresTwoFa, setRequiresTwoFa] = useState(false);
+  const [twoFaCode, setTwoFaCode] = useState('');
 
   // Password reset fields
   const [identity, setIdentity] = useState('');
@@ -47,7 +51,7 @@ const LoginPage = ({ onLogin, onRegister, loading, error }) => {
     if (view === 'register') {
       onRegister(login.trim(), password, registrationCode.trim());
     } else if (view === 'login') {
-      onLogin(login.trim(), password);
+      onLogin(login.trim(), password, twoFaCode.trim());
     } else if (view === 'forgot') {
       if (!identity.trim()) {
         setLocalError('Пожалуйста, введите логин или email');
@@ -155,6 +159,19 @@ const LoginPage = ({ onLogin, onRegister, loading, error }) => {
                   required
                 />
               </label>
+
+              {error === 'requires_2fa' && (
+                <label>
+                  Код 2FA
+                  <input
+                    type="text"
+                    value={twoFaCode}
+                    onChange={(e) => setTwoFaCode(e.target.value)}
+                    placeholder="Код из приложения"
+                    required
+                  />
+                </label>
+              )}
             </>
           )}
 
@@ -240,7 +257,7 @@ const LoginPage = ({ onLogin, onRegister, loading, error }) => {
             </>
           )}
 
-          {(error || localError) && <div className="login-error">{error || localError}</div>}
+          {(error && error !== 'requires_2fa' || localError) && <div className="login-error">{error === 'requires_2fa' ? '' : error || localError}</div>}
           {localMessage && <div className="login-success">{localMessage}</div>}
 
           <button type="submit" disabled={loading || localLoading}>

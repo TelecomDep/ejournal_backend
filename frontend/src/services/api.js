@@ -40,11 +40,12 @@ function resolveAssetUrl(url) {
 
 const api = {
   // Login endpoint
-  async login(login, password) {
+  async login(login, password, twoFaCode = '') {
     try {
       const response = await axios.post(`${BACKEND_URL}/login`, {
         login,
-        password
+        password,
+        two_fa_code: twoFaCode
       }, {
         headers: {
           'Content-Type': 'application/json'
@@ -259,6 +260,20 @@ const api = {
     }
   },
 
+  async deleteGradeItem(token, payload) {
+    try {
+      const response = await axios.post(
+        `${BACKEND_URL}/api/teacher/grades/items/delete`,
+        payload,
+        { headers: authHeaders(token) }
+      );
+      return unwrapApiResponse(response.data);
+    } catch (error) {
+      console.error('Ошибка удаления контрольной точки:', error);
+      throw error;
+    }
+  },
+
   async getTeacherGradeItems(token, subjectId) {
     try {
       const response = await axios.post(
@@ -384,6 +399,56 @@ const api = {
       return unwrapApiResponse(response.data);
     } catch (error) {
       console.error('Ошибка обновления email:', error);
+      throw error;
+    }
+  },
+
+  async requestEmailBind(token, email) {
+    try {
+      const response = await axios.post(`${BACKEND_URL}/api/user/email/bind/request`, { email }, { headers: authHeaders(token) });
+      return unwrapApiResponse(response.data);
+    } catch (error) {
+      console.error('Ошибка запроса привязки email:', error);
+      throw error;
+    }
+  },
+
+  async confirmEmailBind(token, code) {
+    try {
+      const response = await axios.post(`${BACKEND_URL}/api/user/email/bind/confirm`, { code }, { headers: authHeaders(token) });
+      return unwrapApiResponse(response.data);
+    } catch (error) {
+      console.error('Ошибка подтверждения email:', error);
+      throw error;
+    }
+  },
+
+  async generate2FA(token) {
+    try {
+      const response = await axios.get(`${BACKEND_URL}/api/user/2fa/generate`, { headers: authHeaders(token) });
+      return unwrapApiResponse(response.data);
+    } catch (error) {
+      console.error('Ошибка генерации 2FA:', error);
+      throw error;
+    }
+  },
+
+  async verify2FA(token, code) {
+    try {
+      const response = await axios.post(`${BACKEND_URL}/api/user/2fa/verify`, { code }, { headers: authHeaders(token) });
+      return unwrapApiResponse(response.data);
+    } catch (error) {
+      console.error('Ошибка подтверждения 2FA:', error);
+      throw error;
+    }
+  },
+
+  async disable2FA(token) {
+    try {
+      const response = await axios.post(`${BACKEND_URL}/api/user/2fa/disable`, {}, { headers: authHeaders(token) });
+      return unwrapApiResponse(response.data);
+    } catch (error) {
+      console.error('Ошибка отключения 2FA:', error);
       throw error;
     }
   },

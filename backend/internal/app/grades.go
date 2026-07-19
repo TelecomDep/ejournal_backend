@@ -164,6 +164,10 @@ func (s *Service) createGradeItemByTeacher(sessionToken string, data GradeItemCr
 		return Response{OK: false, Error: "failed to create grade item"}
 	}
 
+	if item.ItemType == "attendance_auto" {
+		_ = s.updateAutoAttendanceGrades(ctx, item.SubjectID, nil, teacherProfile.ID)
+	}
+
 	return Response{OK: true, Result: item}
 }
 
@@ -469,6 +473,13 @@ func (s *Service) restoreGradeItemByTeacher(sessionToken string, data GradeItemR
 	if !ok {
 		return Response{OK: false, Error: "grade item is not deleted"}
 	}
+
+	if item.ItemType == "attendance_auto" {
+		if teacher, err := s.teacherProfileByUser(user); err == nil {
+			_ = s.updateAutoAttendanceGrades(ctx, item.SubjectID, nil, teacher.ID)
+		}
+	}
+
 	return Response{OK: true, Result: restored}
 }
 
