@@ -3,6 +3,7 @@ import SibLogo from '../components/SibLogo';
 import { getNavigationForRole, getRoleLabel } from './navigation';
 import ProfilePage from './pages/ProfilePage';
 import SchedulePage from './pages/SchedulePage';
+import GradesPage from './pages/GradesPage';
 import TeacherPage from './pages/TeacherPage';
 import './ui.css';
 
@@ -98,6 +99,9 @@ const renderPage = (activeItem, user, token) => {
   }
   if (activeItem.key === 'schedule') {
     return <SchedulePage user={user} token={token} />;
+  }
+  if (activeItem.key === 'grades' && user?.role === 'student') {
+    return <GradesPage user={user} token={token} />;
   }
   if (user?.role === 'teacher' && ['attendance', 'stats', 'grades'].includes(activeItem.key)) {
     const section = activeItem.key === 'stats' ? 'statistics' : activeItem.key;
