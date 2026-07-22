@@ -4,6 +4,7 @@ import { getNavigationForRole, getRoleLabel } from './navigation';
 import ProfilePage from './pages/ProfilePage';
 import SchedulePage from './pages/SchedulePage';
 import GradesPage from './pages/GradesPage';
+import AttendancePage from './pages/AttendancePage';
 import TeacherPage from './pages/TeacherPage';
 import './ui.css';
 
@@ -102,6 +103,9 @@ const renderPage = (activeItem, user, token) => {
   }
   if (activeItem.key === 'grades' && user?.role === 'student') {
     return <GradesPage user={user} token={token} />;
+  }
+  if (activeItem.key === 'attendance' && user?.role === 'student') {
+    return <AttendancePage user={user} token={token} />;
   }
   if (user?.role === 'teacher' && ['attendance', 'stats', 'grades'].includes(activeItem.key)) {
     const section = activeItem.key === 'stats' ? 'statistics' : activeItem.key;
