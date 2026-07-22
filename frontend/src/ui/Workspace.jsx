@@ -5,6 +5,8 @@ import ProfilePage from './pages/ProfilePage';
 import SchedulePage from './pages/SchedulePage';
 import GradesPage from './pages/GradesPage';
 import AttendancePage from './pages/AttendancePage';
+import DashboardPage from './pages/DashboardPage';
+import StaffOverviewPage from './pages/StaffOverviewPage';
 import TeacherPage from './pages/TeacherPage';
 import './ui.css';
 
@@ -94,7 +96,13 @@ const NavIcon = ({ name }) => (
   </svg>
 );
 
-const renderPage = (activeItem, user, token) => {
+const renderPage = (activeItem, user, token, navigate) => {
+  if (activeItem.key === 'dashboard') {
+    return <DashboardPage user={user} token={token} navigate={navigate} />;
+  }
+  if (activeItem.key === 'overview' && ['admin', 'head', 'dean'].includes(user?.role)) {
+    return <StaffOverviewPage token={token} />;
+  }
   if (activeItem.key === 'profile') {
     return <ProfilePage user={user} token={token} />;
   }
@@ -201,7 +209,7 @@ const Workspace = ({ user, token, route, navigate, onLogout }) => {
         </header>
 
         <main className="ui-main">
-          {renderPage(activeItem, user, token)}
+          {renderPage(activeItem, user, token, navigate)}
         </main>
       </div>
     </div>

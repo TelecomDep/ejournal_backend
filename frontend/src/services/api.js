@@ -40,11 +40,12 @@ function resolveAssetUrl(url) {
 
 const api = {
   // Login endpoint
-  async login(login, password) {
+  async login(login, password, twoFaCode = '') {
     try {
       const response = await axios.post(`${BACKEND_URL}/login`, {
         login,
-        password
+        password,
+        two_fa_code: twoFaCode
       }, {
         headers: {
           'Content-Type': 'application/json'

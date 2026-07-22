@@ -8,6 +8,7 @@ const LoginPage = ({ onLogin, onRegister, loading, error }) => {
   const [login, setLogin] = useState('');
   const [password, setPassword] = useState('');
   const [registrationCode, setRegistrationCode] = useState('');
+  const [twoFaCode, setTwoFaCode] = useState('');
 
   // Password reset fields
   const [identity, setIdentity] = useState('');
@@ -47,7 +48,7 @@ const LoginPage = ({ onLogin, onRegister, loading, error }) => {
     if (view === 'register') {
       onRegister(login.trim(), password, registrationCode.trim());
     } else if (view === 'login') {
-      onLogin(login.trim(), password);
+      onLogin(login.trim(), password, twoFaCode.trim());
     } else if (view === 'forgot') {
       if (!identity.trim()) {
         setLocalError('Пожалуйста, введите логин или email');
@@ -161,15 +162,30 @@ const LoginPage = ({ onLogin, onRegister, loading, error }) => {
             )}
 
             {view === 'login' && (
-              <div className="forgot-password-link">
-                <button
-                  type="button"
-                  className="forgot-password-button"
-                  onClick={() => { setView('forgot'); setLocalError(''); setLocalMessage(''); }}
-                >
-                  Забыли пароль?
-                </button>
-              </div>
+              <>
+                {error === 'requires_2fa' && (
+                  <label>
+                    Код 2FA
+                    <input
+                      type="text"
+                      value={twoFaCode}
+                      onChange={(e) => setTwoFaCode(e.target.value)}
+                      placeholder="Код из приложения"
+                      required
+                    />
+                  </label>
+                )}
+
+                <div className="forgot-password-link">
+                  <button
+                    type="button"
+                    className="forgot-password-button"
+                    onClick={() => { setView('forgot'); setLocalError(''); setLocalMessage(''); }}
+                  >
+                    Забыли пароль?
+                  </button>
+                </div>
+              </>
             )}
 
             {view === 'register' && (
@@ -236,7 +252,7 @@ const LoginPage = ({ onLogin, onRegister, loading, error }) => {
             )}
           </div>
 
-          {(error || localError) && <div className="login-error">{error || localError}</div>}
+          {(error || localError) && error !== 'requires_2fa' && <div className="login-error">{error || localError}</div>}
           {localMessage && <div className="login-success">{localMessage}</div>}
 
           <button type="submit" disabled={loading || localLoading}>

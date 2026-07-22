@@ -108,11 +108,11 @@ function App() {
     };
   }, [token, userData, pendingInvite]);
 
-  const handleLogin = async (login, password) => {
+  const handleLogin = async (login, password, twoFaCode = '') => {
     setLoading(true);
     setError('');
     try {
-      const result = await api.login(login, password);
+      const result = await api.login(login, password, twoFaCode);
       localStorage.setItem('ejournal_token', result.token);
       setToken(result.token);
     } catch (err) {

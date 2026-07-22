@@ -27,6 +27,7 @@ const TEACHER_NAV = [
 const STAFF_NAV = [
   { key: 'dashboard', label: 'Главная', title: 'Главная', route: '/dashboard', icon: '⌂' },
   { key: 'overview', label: 'Сводка', title: 'Сводка по охвату', route: '/staff/overview', icon: '▥' },
+  { key: 'analytics', label: 'Аналитика', title: 'Аналитика', route: '/staff/analytics', icon: '▥' },
   { key: 'profile', label: 'Профиль', title: 'Профиль', route: '/profile', icon: '○' }
 ];
 
