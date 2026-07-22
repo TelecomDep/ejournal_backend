@@ -38,7 +38,7 @@ const pctTone = (value) => {
   return 'bad';
 };
 
-const StatCard = ({ label, value, hint }) => (
+const StatCard = ({ label, value, hint = '' }) => (
   <div className="teacher-stat-card">
     <span>{label}</span>
     <strong>{value}</strong>

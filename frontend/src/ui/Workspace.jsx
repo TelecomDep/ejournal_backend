@@ -117,7 +117,7 @@ const renderPage = (activeItem, user, token, navigate) => {
   }
   if (user?.role === 'teacher' && ['attendance', 'stats', 'grades'].includes(activeItem.key)) {
     const section = activeItem.key === 'stats' ? 'statistics' : activeItem.key;
-    return <TeacherPage user={user} token={token} section={section} />;
+    return <TeacherPage token={token} section={section} />;
   }
 
   return (

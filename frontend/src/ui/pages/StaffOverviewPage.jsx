@@ -233,7 +233,7 @@ const StaffOverviewPage = ({ token }) => {
                   <td><PercentBar value={group.attendance_pct} /></td>
                 </tr>
               ))}
-              {!groups.length && <tr><td colSpan="4">Ничего не найдено.</td></tr>}
+              {!groups.length && <tr><td colSpan={4}>Ничего не найдено.</td></tr>}
             </tbody>
           </table>
         </div>
@@ -270,7 +270,7 @@ const StaffOverviewPage = ({ token }) => {
                   <td><PercentBar value={student.attendance_pct} /></td>
                 </tr>
               ))}
-              {!students.length && <tr><td colSpan="4">Ничего не найдено.</td></tr>}
+              {!students.length && <tr><td colSpan={4}>Ничего не найдено.</td></tr>}
             </tbody>
           </table>
         </div>

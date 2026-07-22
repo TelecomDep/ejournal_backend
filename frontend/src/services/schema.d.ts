@@ -54,6 +54,71 @@ export interface paths {
       };
     };
   };
+  "/api/staff/overview": {
+    /** Returns groups, teachers and students scoped to the caller's role: teacher -> own groups, head -> own lectern, dean -> own faculty, admin -> everything. */
+    get: {
+      responses: {
+        /** OK */
+        200: {
+          schema: definitions["app.Response"];
+        };
+        /** Unauthorized */
+        401: {
+          schema: definitions["app.Response"];
+        };
+        /** Forbidden */
+        403: {
+          schema: definitions["app.Response"];
+        };
+      };
+    };
+  };
+  "/api/staff/reports/performance.pdf": {
+    /** Head, dean, or admin downloads a PDF performance rating report: one page (or more) for the whole scope plus one section per group, colour-coded by percent, matching the xlsx report. */
+    get: {
+      responses: {
+        /** PDF document */
+        200: {
+          schema: unknown;
+        };
+        /** Unauthorized */
+        401: {
+          schema: definitions["app.Response"];
+        };
+        /** Forbidden */
+        403: {
+          schema: definitions["app.Response"];
+        };
+        /** Internal Server Error */
+        500: {
+          schema: definitions["app.Response"];
+        };
+      };
+    };
+  };
+  "/api/staff/reports/performance.xlsx": {
+    /** Head, dean, or admin downloads an xlsx performance rating report: one sheet for the whole scope plus one sheet per group. Rows are students ranked by overall rating with per-subject percents and attendance. */
+    get: {
+      responses: {
+        /** Excel workbook */
+        200: {
+          schema: unknown;
+        };
+        /** Unauthorized */
+        401: {
+          schema: definitions["app.Response"];
+        };
+        /** Forbidden */
+        403: {
+          schema: definitions["app.Response"];
+        };
+        /** Internal Server Error */
+        500: {
+          schema: definitions["app.Response"];
+        };
+      };
+    };
+  };
   "/api/student/attendance/confirm": {
     /** Student confirms attendance for active session. */
     post: {
@@ -157,6 +222,25 @@ export interface paths {
       };
     };
   };
+  "/api/student/grades/all": {
+    /** Returns every plan subject with its grade items and per-subject totals, plus an aggregate summary, in one request. */
+    get: {
+      responses: {
+        /** OK */
+        200: {
+          schema: definitions["app.Response"];
+        };
+        /** Unauthorized */
+        401: {
+          schema: definitions["app.Response"];
+        };
+        /** Forbidden */
+        403: {
+          schema: definitions["app.Response"];
+        };
+      };
+    };
+  };
   "/api/student/mark-attendance": {
     /** Student marks attendance with lesson ID, device ID, and current location. */
     post: {
@@ -208,6 +292,35 @@ export interface paths {
         };
         /** Internal Server Error */
         500: {
+          schema: definitions["app.Response"];
+        };
+      };
+    };
+  };
+  "/api/student/schedule/day": {
+    /** Returns the current student's lessons for a given date, restricted to the current or next calendar week. Defaults to today if date is omitted. */
+    get: {
+      parameters: {
+        query: {
+          /** Date in YYYY-MM-DD format (defaults to today) */
+          date?: string;
+        };
+      };
+      responses: {
+        /** OK */
+        200: {
+          schema: definitions["app.Response"];
+        };
+        /** Bad Request */
+        400: {
+          schema: definitions["app.Response"];
+        };
+        /** Unauthorized */
+        401: {
+          schema: definitions["app.Response"];
+        };
+        /** Forbidden */
+        403: {
           schema: definitions["app.Response"];
         };
       };
@@ -274,6 +387,39 @@ export interface paths {
         };
         /** Internal Server Error */
         500: {
+          schema: definitions["app.Response"];
+        };
+      };
+    };
+  };
+  "/api/teacher/attendance/mark": {
+    /** Teacher sets a student's attendance status (present/absent/late/excused) for a session they own, overriding self/device check-in. */
+    post: {
+      parameters: {
+        body: {
+          /** Lesson, student and new status */
+          request: definitions["app.TeacherAttendanceMarkData"];
+        };
+      };
+      responses: {
+        /** OK */
+        200: {
+          schema: definitions["app.Response"];
+        };
+        /** Bad Request */
+        400: {
+          schema: definitions["app.Response"];
+        };
+        /** Unauthorized */
+        401: {
+          schema: definitions["app.Response"];
+        };
+        /** Forbidden */
+        403: {
+          schema: definitions["app.Response"];
+        };
+        /** Not Found */
+        404: {
           schema: definitions["app.Response"];
         };
       };
@@ -906,6 +1052,11 @@ export interface definitions {
     ok?: boolean;
     result?: unknown;
   };
+  "app.TeacherAttendanceMarkData": {
+    lesson_id?: number;
+    status?: string;
+    student_id?: number;
+  };
   "app.TeacherAttendanceStudentHistoryData": {
     student_id?: number;
     subject_id?: number;
@@ -1153,6 +1304,8 @@ export interface definitions {
     attendance_percent?: number;
     /** @example 2 */
     attended_sessions?: number;
+    /** @example 0 */
+    excused_sessions?: number;
     /** @example 2026-04-20T20:13:07+07:00 */
     last_marked_at?: string;
     /** @example 4 */
@@ -1318,6 +1471,8 @@ export interface definitions {
     attended_sessions?: number;
     /** @example 13 */
     current_score?: number;
+    /** @example 0 */
+    excused_sessions?: number;
     /** @example 65 */
     grade_percent?: number;
     /** @example 10 */
