@@ -21,13 +21,13 @@ func (r *SubjectControlRepository) Create(ctx context.Context, control SubjectCo
 	var out SubjectControl
 	err := r.pool.QueryRow(
 		ctx,
-		`INSERT INTO subject_controls (subject_id, type_id, semester_num)
+		`INSERT INTO subject_controls (subject_id, type_id, semester_id)
 		 VALUES ($1, $2, $3)
-		 RETURNING control_id, subject_id, type_id, semester_num`,
+		 RETURNING control_id, subject_id, type_id, semester_id`,
 		control.SubjectID,
 		control.TypeID,
-		control.SemesterNum,
-	).Scan(&out.ID, &out.SubjectID, &out.TypeID, &out.SemesterNum)
+		control.SemesterID,
+	).Scan(&out.ID, &out.SubjectID, &out.TypeID, &out.SemesterID)
 	if err != nil {
 		return SubjectControl{}, fmt.Errorf("insert subject control: %w", err)
 	}
@@ -39,11 +39,11 @@ func (r *SubjectControlRepository) GetByID(ctx context.Context, id int32) (Subje
 	var out SubjectControl
 	err := r.pool.QueryRow(
 		ctx,
-		`SELECT control_id, subject_id, type_id, semester_num
+		`SELECT control_id, subject_id, type_id, semester_id
 		 FROM subject_controls
 		 WHERE control_id = $1`,
 		id,
-	).Scan(&out.ID, &out.SubjectID, &out.TypeID, &out.SemesterNum)
+	).Scan(&out.ID, &out.SubjectID, &out.TypeID, &out.SemesterID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return SubjectControl{}, false, nil
 	}
@@ -57,10 +57,10 @@ func (r *SubjectControlRepository) GetByID(ctx context.Context, id int32) (Subje
 func (r *SubjectControlRepository) ListBySubjectID(ctx context.Context, subjectID int32) ([]SubjectControl, error) {
 	rows, err := r.pool.Query(
 		ctx,
-		`SELECT control_id, subject_id, type_id, semester_num
+		`SELECT control_id, subject_id, type_id, semester_id
 		 FROM subject_controls
 		 WHERE subject_id = $1
-		 ORDER BY semester_num, control_id`,
+		 ORDER BY semester_id, control_id`,
 		subjectID,
 	)
 	if err != nil {
@@ -71,7 +71,7 @@ func (r *SubjectControlRepository) ListBySubjectID(ctx context.Context, subjectI
 	result := make([]SubjectControl, 0)
 	for rows.Next() {
 		var item SubjectControl
-		if err := rows.Scan(&item.ID, &item.SubjectID, &item.TypeID, &item.SemesterNum); err != nil {
+		if err := rows.Scan(&item.ID, &item.SubjectID, &item.TypeID, &item.SemesterID); err != nil {
 			return nil, fmt.Errorf("scan subject control: %w", err)
 		}
 		result = append(result, item)

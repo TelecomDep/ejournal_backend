@@ -21,16 +21,16 @@ func NewAttendanceRepository(pool *pgxpool.Pool) *AttendanceRepository {
 
 func (r *AttendanceRepository) CreateSessionWithGroups(
 	ctx context.Context,
-	teacherID, subjectID int32,
+	teacherID, subjectID, semesterID int32,
 	groupIDs []int32,
 	expiresAt time.Time,
 ) (AttendanceSession, int32, error) {
-	return r.CreateSessionWithGroupsAndLocation(ctx, teacherID, subjectID, groupIDs, expiresAt, "", nil, nil)
+	return r.CreateSessionWithGroupsAndLocation(ctx, teacherID, subjectID, semesterID, groupIDs, expiresAt, "", nil, nil)
 }
 
 func (r *AttendanceRepository) CreateSessionWithGroupsAndLocation(
 	ctx context.Context,
-	teacherID, subjectID int32,
+	teacherID, subjectID, semesterID int32,
 	groupIDs []int32,
 	expiresAt time.Time,
 	lessonName string,
@@ -41,6 +41,9 @@ func (r *AttendanceRepository) CreateSessionWithGroupsAndLocation(
 	}
 	if subjectID <= 0 {
 		return AttendanceSession{}, 0, fmt.Errorf("subject id is required")
+	}
+	if semesterID <= 0 {
+		return AttendanceSession{}, 0, fmt.Errorf("semester id is required")
 	}
 	if len(groupIDs) == 0 {
 		return AttendanceSession{}, 0, fmt.Errorf("at least one group id is required")
@@ -60,16 +63,17 @@ func (r *AttendanceRepository) CreateSessionWithGroupsAndLocation(
 	var out AttendanceSession
 	err = tx.QueryRow(
 		ctx,
-		`INSERT INTO attendance_sessions (teacher_id, subject_id, expires_at, lesson_name, lat, lon)
-		 VALUES ($1, $2, $3, NULLIF($4, ''), $5, $6)
-		 RETURNING session_id, teacher_id, subject_id, COALESCE(lesson_name, ''), lat, lon, expires_at, created_at`,
+		`INSERT INTO attendance_sessions (teacher_id, subject_id, semester_id, expires_at, lesson_name, lat, lon)
+		 VALUES ($1, $2, $3, $4, NULLIF($5, ''), $6, $7)
+		 RETURNING session_id, teacher_id, subject_id, semester_id, COALESCE(lesson_name, ''), lat, lon, expires_at, created_at`,
 		teacherID,
 		subjectID,
+		semesterID,
 		expiresAt.UTC(),
 		strings.TrimSpace(lessonName),
 		lat,
 		lon,
-	).Scan(&out.ID, &out.TeacherID, &out.SubjectID, &out.LessonName, &out.Lat, &out.Lon, &out.ExpiresAt, &out.CreatedAt)
+	).Scan(&out.ID, &out.TeacherID, &out.SubjectID, &out.SemesterID, &out.LessonName, &out.Lat, &out.Lon, &out.ExpiresAt, &out.CreatedAt)
 	if err != nil {
 		return AttendanceSession{}, 0, fmt.Errorf("insert attendance session: %w", err)
 	}
@@ -119,11 +123,11 @@ func (r *AttendanceRepository) GetSessionByID(ctx context.Context, sessionID int
 	var out AttendanceSession
 	err := r.pool.QueryRow(
 		ctx,
-		`SELECT session_id, teacher_id, subject_id, COALESCE(lesson_name, ''), lat, lon, expires_at, created_at
+		`SELECT session_id, teacher_id, subject_id, semester_id, COALESCE(lesson_name, ''), lat, lon, expires_at, created_at
 		 FROM attendance_sessions
 		 WHERE session_id = $1`,
 		sessionID,
-	).Scan(&out.ID, &out.TeacherID, &out.SubjectID, &out.LessonName, &out.Lat, &out.Lon, &out.ExpiresAt, &out.CreatedAt)
+	).Scan(&out.ID, &out.TeacherID, &out.SubjectID, &out.SemesterID, &out.LessonName, &out.Lat, &out.Lon, &out.ExpiresAt, &out.CreatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return AttendanceSession{}, false, nil
 	}
@@ -145,7 +149,7 @@ func (r *AttendanceRepository) GetActiveSessionByTeacherID(ctx context.Context, 
 	var out AttendanceSession
 	err := r.pool.QueryRow(
 		ctx,
-		`SELECT session_id, teacher_id, subject_id, COALESCE(lesson_name, ''), lat, lon, expires_at, created_at
+		`SELECT session_id, teacher_id, subject_id, semester_id, COALESCE(lesson_name, ''), lat, lon, expires_at, created_at
 		 FROM attendance_sessions
 		 WHERE teacher_id = $1
 		   AND expires_at > $2
@@ -153,7 +157,7 @@ func (r *AttendanceRepository) GetActiveSessionByTeacherID(ctx context.Context, 
 		 LIMIT 1`,
 		teacherID,
 		now.UTC(),
-	).Scan(&out.ID, &out.TeacherID, &out.SubjectID, &out.LessonName, &out.Lat, &out.Lon, &out.ExpiresAt, &out.CreatedAt)
+	).Scan(&out.ID, &out.TeacherID, &out.SubjectID, &out.SemesterID, &out.LessonName, &out.Lat, &out.Lon, &out.ExpiresAt, &out.CreatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return AttendanceSession{}, false, nil
 	}
@@ -439,13 +443,16 @@ func (r *AttendanceRepository) SetStudentAttendanceStatus(
 
 func (r *AttendanceRepository) GetStudentSubjectAttendanceHistory(
 	ctx context.Context,
-	studentID, subjectID int32,
+	studentID, subjectID, semesterID int32,
 ) ([]AttendanceHistoryItem, error) {
 	if studentID <= 0 {
 		return nil, fmt.Errorf("student id is required")
 	}
 	if subjectID <= 0 {
 		return nil, fmt.Errorf("subject id is required")
+	}
+	if semesterID <= 0 {
+		return nil, fmt.Errorf("semester id is required")
 	}
 
 	rows, err := r.pool.Query(
@@ -457,9 +464,11 @@ func (r *AttendanceRepository) GetStudentSubjectAttendanceHistory(
 		 INNER JOIN attendance_sessions s ON s.session_id = ass.session_id
 		 WHERE ass.student_id = $1
 		   AND s.subject_id = $2
+		   AND s.semester_id = $3
 		 ORDER BY s.created_at`,
 		studentID,
 		subjectID,
+		semesterID,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("list student subject attendance history: %w", err)
@@ -486,12 +495,16 @@ func (r *AttendanceRepository) GetTeacherGroupAttendanceStats(
 	teacherID int32,
 	groupID int32,
 	subjectID *int32,
+	semesterID int32,
 ) ([]AttendanceGroupStat, error) {
 	if teacherID <= 0 {
 		return nil, fmt.Errorf("teacher id is required")
 	}
 	if groupID <= 0 {
 		return nil, fmt.Errorf("group id is required")
+	}
+	if semesterID <= 0 {
+		return nil, fmt.Errorf("semester id is required")
 	}
 
 	var subjectArg any
@@ -508,7 +521,8 @@ func (r *AttendanceRepository) GetTeacherGroupAttendanceStats(
 		             ON sg.session_id = s.session_id
 		     WHERE s.teacher_id = $1
 		       AND sg.group_id = $2
-		       AND ($3::INTEGER IS NULL OR s.subject_id = $3::INTEGER)
+		       AND s.semester_id = $3
+		       AND ($4::INTEGER IS NULL OR s.subject_id = $4::INTEGER)
 		   ),
 		   agg AS (
 		     SELECT ass.student_id,
@@ -534,6 +548,7 @@ func (r *AttendanceRepository) GetTeacherGroupAttendanceStats(
 		   ORDER BY st.student_name, st.student_id`,
 		teacherID,
 		groupID,
+		semesterID,
 		subjectArg,
 	)
 	if err != nil {
@@ -571,6 +586,7 @@ func (r *AttendanceRepository) GetGroupSubjectPerformance(
 	teacherID int32,
 	groupID int32,
 	subjectID int32,
+	semesterID int32,
 ) ([]GroupSubjectPerformanceRow, error) {
 	if teacherID <= 0 {
 		return nil, fmt.Errorf("teacher id is required")
@@ -580,6 +596,9 @@ func (r *AttendanceRepository) GetGroupSubjectPerformance(
 	}
 	if subjectID <= 0 {
 		return nil, fmt.Errorf("subject id is required")
+	}
+	if semesterID <= 0 {
+		return nil, fmt.Errorf("semester id is required")
 	}
 
 	rows, err := r.pool.Query(
@@ -592,6 +611,7 @@ func (r *AttendanceRepository) GetGroupSubjectPerformance(
 		     WHERE s.teacher_id = $1
 		       AND sg.group_id = $2
 		       AND s.subject_id = $3
+		       AND s.semester_id = $4
 		   ),
 		   att AS (
 		     SELECT ass.student_id,
@@ -610,8 +630,8 @@ func (r *AttendanceRepository) GetGroupSubjectPerformance(
 		            COALESCE(SUM(CASE WHEN gi.deadline < now() THEN gi.max_score ELSE 0 END), 0)::INTEGER AS passed_max,
 		            COALESCE(SUM(g.score), 0)::INTEGER AS current_score
 		     FROM students st
-		     LEFT JOIN grade_items gi ON gi.subject_id = $3
-		     LEFT JOIN grades g ON g.item_id = gi.item_id AND g.student_id = st.student_id
+		     LEFT JOIN grade_items gi ON gi.subject_id = $3 AND gi.semester_id = $4 AND gi.deleted_at IS NULL
+		     LEFT JOIN grades g ON g.item_id = gi.item_id AND g.student_id = st.student_id AND g.deleted_at IS NULL
 		     WHERE st.group_id = $2
 		     GROUP BY st.student_id
 		   )
@@ -631,6 +651,7 @@ func (r *AttendanceRepository) GetGroupSubjectPerformance(
 		teacherID,
 		groupID,
 		subjectID,
+		semesterID,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("list group subject performance: %w", err)

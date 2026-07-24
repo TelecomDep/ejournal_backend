@@ -81,6 +81,7 @@ type User struct {
 type AttendanceCreateData struct {
 	LessonID       int32   `json:"lesson_id,omitempty"`
 	SubjectID      int32   `json:"subject_id,omitempty"`
+	SemesterID     *int32  `json:"semester_id,omitempty"`
 	GroupIDs       []int32 `json:"group_ids,omitempty"`
 	LessonName     string  `json:"lesson_name,omitempty"`
 	ExpiresMinutes int     `json:"expires_minutes,omitempty"`
@@ -91,13 +92,15 @@ type AttendanceConfirmData struct {
 }
 
 type AttendanceGroupStatsData struct {
-	GroupID   int32  `json:"group_id"`
-	SubjectID *int32 `json:"subject_id,omitempty"`
+	GroupID    int32  `json:"group_id"`
+	SubjectID  *int32 `json:"subject_id,omitempty"`
+	SemesterID *int32 `json:"semester_id,omitempty"`
 }
 
 type GroupPerformanceData struct {
-	GroupID   int32 `json:"group_id"`
-	SubjectID int32 `json:"subject_id"`
+	GroupID    int32  `json:"group_id"`
+	SubjectID  int32  `json:"subject_id"`
+	SemesterID *int32 `json:"semester_id,omitempty"`
 }
 
 type AttendanceSessionData struct {
@@ -115,8 +118,9 @@ type AttendanceHistoryData struct {
 }
 
 type TeacherAttendanceStudentHistoryData struct {
-	StudentID int32 `json:"student_id"`
-	SubjectID int32 `json:"subject_id"`
+	StudentID  int32  `json:"student_id"`
+	SubjectID  int32  `json:"subject_id"`
+	SemesterID *int32 `json:"semester_id,omitempty"`
 }
 
 type TeacherSubjectsResultItem struct {
@@ -224,6 +228,17 @@ func loadAppTimeLocation() *time.Location {
 
 func formatAPITime(ts time.Time) string {
 	return ts.In(appTimeLocation).Format(time.RFC3339)
+}
+
+func parseAPITime(value string) (time.Time, error) {
+	if strings.TrimSpace(value) == "" {
+		return time.Time{}, fmt.Errorf("empty time value")
+	}
+	ts, err := time.Parse(time.RFC3339, value)
+	if err != nil {
+		return time.Time{}, err
+	}
+	return ts, nil
 }
 
 func weekdayToDayIdx(weekday time.Weekday) int32 {
@@ -928,7 +943,7 @@ func (s *Service) login(data LoginData) Response {
 	if is2faEnabled {
 		if data.TwoFaCode == "" {
 			return Response{
-				OK: false, 
+				OK:    false,
 				Error: "requires_2fa",
 			}
 		}
@@ -1048,9 +1063,14 @@ func (s *Service) createAttendanceLinkByTeacher(sessionToken string, data Attend
 		}
 	}
 
+	semester, err := s.semesterForOptionalID(ctx, data.SemesterID)
+	if err != nil {
+		return Response{OK: false, Error: err.Error()}
+	}
+
 	effectiveTTL := normalizeInviteTTL(data.ExpiresMinutes)
 	expiresAt := time.Now().Add(time.Duration(effectiveTTL) * time.Minute)
-	session, rosterSize, err := s.store.Attendance.CreateSessionWithGroups(ctx, teacherProfile.ID, subject.ID, groupIDs, expiresAt)
+	session, rosterSize, err := s.store.Attendance.CreateSessionWithGroups(ctx, teacherProfile.ID, subject.ID, semester.ID, groupIDs, expiresAt)
 	if err != nil {
 		return Response{OK: false, Error: "failed to create attendance session"}
 	}
@@ -1079,6 +1099,8 @@ func (s *Service) createAttendanceLinkByTeacher(sessionToken string, data Attend
 		Result: map[string]any{
 			"lesson_id":       lessonID,
 			"subject_id":      subject.ID,
+			"semester_id":     semester.ID,
+			"semester":        semesterToMap(semester),
 			"lesson_name":     lessonName,
 			"invite_token":    inviteToken,
 			"url":             joinURL,
@@ -1195,7 +1217,12 @@ func (s *Service) attendanceByGroupForTeacher(sessionToken string, data Attendan
 		return Response{OK: false, Error: "group not found"}
 	}
 
-	stats, err := s.store.Attendance.GetTeacherGroupAttendanceStats(ctx, teacherProfile.ID, data.GroupID, data.SubjectID)
+	semester, err := s.semesterForOptionalID(ctx, data.SemesterID)
+	if err != nil {
+		return Response{OK: false, Error: err.Error()}
+	}
+
+	stats, err := s.store.Attendance.GetTeacherGroupAttendanceStats(ctx, teacherProfile.ID, data.GroupID, data.SubjectID, semester.ID)
 	if err != nil {
 		return Response{OK: false, Error: "failed to load attendance stats"}
 	}
@@ -1228,9 +1255,11 @@ func (s *Service) attendanceByGroupForTeacher(sessionToken string, data Attendan
 	}
 
 	result := map[string]any{
-		"group_id": data.GroupID,
-		"timezone": "Asia/Novosibirsk",
-		"students": students,
+		"group_id":    data.GroupID,
+		"semester_id": semester.ID,
+		"semester":    semesterToMap(semester),
+		"timezone":    "Asia/Novosibirsk",
+		"students":    students,
 		"summary": map[string]any{
 			"students_count": len(students),
 			"sessions_count": sessionsCount,
@@ -1289,7 +1318,12 @@ func (s *Service) groupPerformanceForTeacher(sessionToken string, data GroupPerf
 		return Response{OK: false, Error: "subject not found"}
 	}
 
-	rows, err := s.store.Attendance.GetGroupSubjectPerformance(ctx, teacherProfile.ID, data.GroupID, data.SubjectID)
+	semester, err := s.semesterForOptionalID(ctx, data.SemesterID)
+	if err != nil {
+		return Response{OK: false, Error: err.Error()}
+	}
+
+	rows, err := s.store.Attendance.GetGroupSubjectPerformance(ctx, teacherProfile.ID, data.GroupID, data.SubjectID, semester.ID)
 	if err != nil {
 		return Response{OK: false, Error: "failed to load group performance"}
 	}
@@ -1346,6 +1380,8 @@ func (s *Service) groupPerformanceForTeacher(sessionToken string, data GroupPerf
 			"group_name":   group.GroupName,
 			"subject_id":   subject.ID,
 			"subject_name": subject.Name,
+			"semester_id":  semester.ID,
+			"semester":     semesterToMap(semester),
 			"timezone":     "Asia/Novosibirsk",
 			"students":     students,
 			"summary": map[string]any{
@@ -1408,6 +1444,7 @@ func (s *Service) attendanceProgressResult(ctx context.Context, session db.Atten
 		"lesson_id":          session.ID,
 		"teacher_id":         session.TeacherID,
 		"subject_id":         session.SubjectID,
+		"semester_id":        session.SemesterID,
 		"lesson_name":        session.LessonName,
 		"created_at":         formatAPITime(session.CreatedAt),
 		"expires_at":         formatAPITime(session.ExpiresAt),
@@ -1681,7 +1718,12 @@ func (s *Service) attendanceHistoryForTeacherStudent(sessionToken string, data T
 		return Response{OK: false, Error: "student not found"}
 	}
 
-	rows, err := s.store.Attendance.GetStudentSubjectAttendanceHistory(ctx, data.StudentID, data.SubjectID)
+	semester, err := s.semesterForOptionalID(ctx, data.SemesterID)
+	if err != nil {
+		return Response{OK: false, Error: err.Error()}
+	}
+
+	rows, err := s.store.Attendance.GetStudentSubjectAttendanceHistory(ctx, data.StudentID, data.SubjectID, semester.ID)
 	if err != nil {
 		return Response{OK: false, Error: "failed to load attendance history"}
 	}
@@ -1698,7 +1740,9 @@ func (s *Service) attendanceHistoryForTeacherStudent(sessionToken string, data T
 	return Response{
 		OK: true,
 		Result: map[string]any{
-			"items": items,
+			"semester_id": semester.ID,
+			"semester":    semesterToMap(semester),
+			"items":       items,
 		},
 	}
 }
@@ -1948,6 +1992,30 @@ func (s *Service) handleRequest(raw string) Response {
 			return Response{ID: req.ID, OK: false, Error: "invalid confirm_email_bind payload"}
 		}
 		resp := s.confirmEmailBind(req.Token, data)
+		resp.ID = req.ID
+		return resp
+	case "semesters_list":
+		resp := s.semestersList()
+		resp.ID = req.ID
+		return resp
+	case "current_semester":
+		resp := s.currentSemesterInfo()
+		resp.ID = req.ID
+		return resp
+	case "create_semester":
+		var data SemesterCreateData
+		if err := json.Unmarshal(req.Data, &data); err != nil {
+			return Response{ID: req.ID, OK: false, Error: "invalid create_semester payload"}
+		}
+		resp := s.createSemester(req.Token, data)
+		resp.ID = req.ID
+		return resp
+	case "activate_semester":
+		var data SemesterIDData
+		if err := json.Unmarshal(req.Data, &data); err != nil {
+			return Response{ID: req.ID, OK: false, Error: "invalid activate_semester payload"}
+		}
+		resp := s.activateSemester(req.Token, data)
 		resp.ID = req.ID
 		return resp
 	case "create_attendance_link":

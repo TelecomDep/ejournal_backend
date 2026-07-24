@@ -29,11 +29,13 @@ type PerformanceReportRow struct {
 }
 
 type PerformanceReport struct {
-	Label       string
-	GeneratedAt time.Time
-	Subjects    []PerformanceReportSubject
-	Rows        []PerformanceReportRow
-	GroupNames  []string
+	Label        string
+	SemesterID   int32
+	SemesterName string
+	GeneratedAt  time.Time
+	Subjects     []PerformanceReportSubject
+	Rows         []PerformanceReportRow
+	GroupNames   []string
 }
 
 func (s *Service) StaffPerformanceReport(sessionToken string) (*PerformanceReport, Response) {
@@ -53,11 +55,19 @@ func (s *Service) StaffPerformanceReport(sessionToken string) (*PerformanceRepor
 		return nil, Response{OK: false, Error: "failed to resolve scope"}
 	}
 
+	semester, err := s.currentSemester(ctx)
+	if err != nil {
+		return nil, Response{OK: false, Error: "failed to resolve current semester"}
+	}
+
 	studentPred, studentArgs := scopeStudentPredicate(scope, "st")
+	studentPredSemester := strings.ReplaceAll(studentPred, "$1", "$2")
 
 	report := &PerformanceReport{
-		Label:       scope.Label,
-		GeneratedAt: time.Now().In(appTimeLocation),
+		Label:        scope.Label,
+		SemesterID:   semester.ID,
+		SemesterName: semester.Name,
+		GeneratedAt:  time.Now().In(appTimeLocation),
 	}
 
 	rowByStudent := map[int32]*PerformanceReportRow{}
@@ -67,13 +77,14 @@ func (s *Service) StaffPerformanceReport(sessionToken string) (*PerformanceRepor
 		       COALESCE(st.student_name, ''),
 		       COALESCE(g.group_id, 0),
 		       COALESCE(g.group_name, ''),
-		       COALESCE(100.0 * COUNT(ass.student_id) FILTER (WHERE ass.status IN ('present','late'))
-		           / NULLIF(COUNT(ass.student_id) FILTER (WHERE ass.status <> 'excused'), 0), 0)::float8
+		       COALESCE(100.0 * COUNT(ass.student_id) FILTER (WHERE s.semester_id = $1 AND ass.status IN ('present','late'))
+		           / NULLIF(COUNT(ass.student_id) FILTER (WHERE s.semester_id = $1 AND ass.status <> 'excused'), 0), 0)::float8
 		FROM students st
 		LEFT JOIN groups g ON g.group_id = st.group_id
 		LEFT JOIN attendance_session_students ass ON ass.student_id = st.student_id
-		WHERE `+studentPred+`
-		GROUP BY st.student_id, st.student_name, g.group_id, g.group_name`, studentArgs...)
+		LEFT JOIN attendance_sessions s ON s.session_id = ass.session_id
+		WHERE `+studentPredSemester+`
+		GROUP BY st.student_id, st.student_name, g.group_id, g.group_name`, append([]any{semester.ID}, studentArgs...)...)
 	if err != nil {
 		return nil, Response{OK: false, Error: "failed to load students"}
 	}
@@ -93,7 +104,7 @@ func (s *Service) StaffPerformanceReport(sessionToken string) (*PerformanceRepor
 		WITH scoped_students AS (
 		    SELECT st.student_id, st.group_id
 		    FROM students st
-		    WHERE `+studentPred+`
+		    WHERE `+studentPredSemester+`
 		),
 		student_subjects AS (
 		    SELECT DISTINCT ss.student_id, sch.subject_id
@@ -107,9 +118,9 @@ func (s *Service) StaffPerformanceReport(sessionToken string) (*PerformanceRepor
 		       COALESCE(SUM(gi.max_score) FILTER (WHERE gi.deadline < now()), 0)::float8
 		FROM student_subjects stsub
 		JOIN subjects sub ON sub.subject_id = stsub.subject_id
-		LEFT JOIN grade_items gi ON gi.subject_id = sub.subject_id
-		LEFT JOIN grades g ON g.item_id = gi.item_id AND g.student_id = stsub.student_id
-		GROUP BY stsub.student_id, sub.subject_id, sub.name`, studentArgs...)
+		LEFT JOIN grade_items gi ON gi.subject_id = sub.subject_id AND gi.semester_id = $1
+		LEFT JOIN grades g ON g.item_id = gi.item_id AND g.student_id = stsub.student_id AND g.deleted_at IS NULL
+		GROUP BY stsub.student_id, sub.subject_id, sub.name`, append([]any{semester.ID}, studentArgs...)...)
 	if err != nil {
 		return nil, Response{OK: false, Error: "failed to load grades"}
 	}

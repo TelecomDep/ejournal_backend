@@ -171,10 +171,15 @@ func (s *Service) createLessonForAndroid(sessionToken string, data AndroidLesson
 	if lessonName == "" {
 		lessonName = strings.TrimSpace(data.Subject)
 	}
+	semester, err := s.semesterForOptionalID(ctx, nil)
+	if err != nil {
+		return Response{OK: false, Error: err.Error()}
+	}
 	session, rosterSize, err := s.store.Attendance.CreateSessionWithGroupsAndLocation(
 		ctx,
 		teacherProfile.ID,
 		subjectID,
+		semester.ID,
 		groupIDs,
 		time.Now().Add(time.Duration(expiresMinutes)*time.Minute),
 		lessonName,
@@ -192,6 +197,7 @@ func (s *Service) createLessonForAndroid(sessionToken string, data AndroidLesson
 			"lesson_id":       session.ID,
 			"teacher_id":      teacherProfile.ID,
 			"subject_id":      subjectID,
+			"semester_id":     semester.ID,
 			"group_ids":       groupIDs,
 			"roster_size":     rosterSize,
 			"expires_at":      formatAPITime(session.ExpiresAt),

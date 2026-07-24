@@ -10,8 +10,13 @@ import (
 
 // updateAutoAttendanceGrades recalculates the attendance_auto grade for a specific student or all students in a subject.
 func (s *Service) updateAutoAttendanceGrades(ctx context.Context, subjectID int32, studentID *int32, teacherID int32) error {
+	semester, err := s.currentSemester(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to resolve current semester: %w", err)
+	}
+
 	// 1. Find the attendance_auto grade item for this subject
-	items, err := s.store.Grades.GetGradeItemsBySubject(ctx, subjectID)
+	items, err := s.store.Grades.GetGradeItemsBySubject(ctx, subjectID, semester.ID)
 	if err != nil {
 		return fmt.Errorf("failed to get grade items: %w", err)
 	}
@@ -62,7 +67,7 @@ func (s *Service) updateAutoAttendanceGrades(ctx context.Context, subjectID int3
 
 	// 3. For each student, calculate attendance and upsert the grade
 	for _, sid := range targetStudentIDs {
-		history, err := s.store.Attendance.GetStudentSubjectAttendanceHistory(ctx, sid, subjectID)
+		history, err := s.store.Attendance.GetStudentSubjectAttendanceHistory(ctx, sid, subjectID, semester.ID)
 		if err != nil {
 			continue // Skip on error
 		}

@@ -22,6 +22,17 @@ type ControlType struct {
 	Name string `json:"type_name"`
 }
 
+type Semester struct {
+	ID           int32     `json:"semester_id"`
+	AcademicYear string    `json:"academic_year"`
+	TermNum      int32     `json:"term_num"`
+	Name         string    `json:"name"`
+	StartsAt     time.Time `json:"starts_at"`
+	EndsAt       time.Time `json:"ends_at"`
+	IsCurrent    bool      `json:"is_current"`
+	CreatedAt    time.Time `json:"created_at"`
+}
+
 type Subject struct {
 	ID           int32  `json:"subject_id"`
 	SubjectIndex string `json:"subject_index"`
@@ -44,17 +55,17 @@ type SubjectMetric struct {
 }
 
 type SemesterLoad struct {
-	ID          int32    `json:"load_id"`
-	SubjectID   int32    `json:"subject_id"`
-	SemesterNum int32    `json:"semester_num"`
-	ZetValue    *float64 `json:"zet_value,omitempty"`
+	ID         int32    `json:"load_id"`
+	SubjectID  int32    `json:"subject_id"`
+	SemesterID int32    `json:"semester_id"`
+	ZetValue   *float64 `json:"zet_value,omitempty"`
 }
 
 type SubjectControl struct {
-	ID          int32 `json:"control_id"`
-	SubjectID   int32 `json:"subject_id"`
-	TypeID      int32 `json:"type_id"`
-	SemesterNum int32 `json:"semester_num"`
+	ID         int32 `json:"control_id"`
+	SubjectID  int32 `json:"subject_id"`
+	TypeID     int32 `json:"type_id"`
+	SemesterID int32 `json:"semester_id"`
 }
 
 type Teacher struct {
@@ -81,6 +92,7 @@ type AttendanceSession struct {
 	ID         int32     `json:"session_id"`
 	TeacherID  int32     `json:"teacher_id"`
 	SubjectID  int32     `json:"subject_id"`
+	SemesterID int32     `json:"semester_id"`
 	LessonName string    `json:"lesson_name,omitempty"`
 	Lat        *float64  `json:"lat,omitempty"`
 	Lon        *float64  `json:"lon,omitempty"`
@@ -130,6 +142,7 @@ type GroupSubjectPerformanceRow struct {
 type GradeItem struct {
 	ID                 int32      `json:"item_id"`
 	SubjectID          int32      `json:"subject_id"`
+	SemesterID         int32      `json:"semester_id"`
 	CreatedByTeacherID *int32     `json:"created_by_teacher_id,omitempty"`
 	Title              string     `json:"title"`
 	MaxScore           int32      `json:"max_score"`

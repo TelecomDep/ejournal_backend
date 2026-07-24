@@ -21,13 +21,13 @@ func (r *SemesterLoadRepository) Create(ctx context.Context, load SemesterLoad) 
 	var out SemesterLoad
 	err := r.pool.QueryRow(
 		ctx,
-		`INSERT INTO semester_load (subject_id, semester_num, zet_value)
+		`INSERT INTO semester_load (subject_id, semester_id, zet_value)
 		 VALUES ($1, $2, $3)
-		 RETURNING load_id, subject_id, semester_num, zet_value`,
+		 RETURNING load_id, subject_id, semester_id, zet_value`,
 		load.SubjectID,
-		load.SemesterNum,
+		load.SemesterID,
 		load.ZetValue,
-	).Scan(&out.ID, &out.SubjectID, &out.SemesterNum, &out.ZetValue)
+	).Scan(&out.ID, &out.SubjectID, &out.SemesterID, &out.ZetValue)
 	if err != nil {
 		return SemesterLoad{}, fmt.Errorf("insert semester load: %w", err)
 	}
@@ -39,11 +39,11 @@ func (r *SemesterLoadRepository) GetByID(ctx context.Context, id int32) (Semeste
 	var out SemesterLoad
 	err := r.pool.QueryRow(
 		ctx,
-		`SELECT load_id, subject_id, semester_num, zet_value
+		`SELECT load_id, subject_id, semester_id, zet_value
 		 FROM semester_load
 		 WHERE load_id = $1`,
 		id,
-	).Scan(&out.ID, &out.SubjectID, &out.SemesterNum, &out.ZetValue)
+	).Scan(&out.ID, &out.SubjectID, &out.SemesterID, &out.ZetValue)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return SemesterLoad{}, false, nil
 	}
@@ -57,10 +57,10 @@ func (r *SemesterLoadRepository) GetByID(ctx context.Context, id int32) (Semeste
 func (r *SemesterLoadRepository) ListBySubjectID(ctx context.Context, subjectID int32) ([]SemesterLoad, error) {
 	rows, err := r.pool.Query(
 		ctx,
-		`SELECT load_id, subject_id, semester_num, zet_value
+		`SELECT load_id, subject_id, semester_id, zet_value
 		 FROM semester_load
 		 WHERE subject_id = $1
-		 ORDER BY semester_num, load_id`,
+		 ORDER BY semester_id, load_id`,
 		subjectID,
 	)
 	if err != nil {
@@ -71,7 +71,7 @@ func (r *SemesterLoadRepository) ListBySubjectID(ctx context.Context, subjectID 
 	result := make([]SemesterLoad, 0)
 	for rows.Next() {
 		var item SemesterLoad
-		if err := rows.Scan(&item.ID, &item.SubjectID, &item.SemesterNum, &item.ZetValue); err != nil {
+		if err := rows.Scan(&item.ID, &item.SubjectID, &item.SemesterID, &item.ZetValue); err != nil {
 			return nil, fmt.Errorf("scan semester load: %w", err)
 		}
 		result = append(result, item)

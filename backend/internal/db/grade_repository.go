@@ -27,11 +27,12 @@ func NewGradeRepository(pool *pgxpool.Pool) *GradeRepository {
 func scanGradeItem(row pgx.Row) (GradeItem, error) {
 	var out GradeItem
 	var deadline, deletedAt sql.NullTime
-	var createdBy, deletedBy sql.NullInt32
+	var createdBy, deletedBy, semesterID sql.NullInt32
 	var deleteReason sql.NullString
 	err := row.Scan(
 		&out.ID,
 		&out.SubjectID,
+		&semesterID,
 		&createdBy,
 		&out.Title,
 		&out.MaxScore,
@@ -44,6 +45,9 @@ func scanGradeItem(row pgx.Row) (GradeItem, error) {
 	)
 	if err != nil {
 		return GradeItem{}, err
+	}
+	if semesterID.Valid {
+		out.SemesterID = semesterID.Int32
 	}
 	if createdBy.Valid {
 		out.CreatedByTeacherID = &createdBy.Int32
@@ -103,6 +107,9 @@ func (r *GradeRepository) CreateGradeItem(ctx context.Context, item GradeItem, a
 	if item.SubjectID <= 0 {
 		return GradeItem{}, fmt.Errorf("subject id is required")
 	}
+	if item.SemesterID <= 0 {
+		return GradeItem{}, fmt.Errorf("semester id is required")
+	}
 	if item.CreatedByTeacherID == nil || *item.CreatedByTeacherID <= 0 {
 		return GradeItem{}, fmt.Errorf("grade item owner is required")
 	}
@@ -127,11 +134,12 @@ func (r *GradeRepository) CreateGradeItem(ctx context.Context, item GradeItem, a
 
 	out, err := scanGradeItem(tx.QueryRow(
 		ctx,
-		`INSERT INTO grade_items (subject_id, created_by_teacher_id, title, max_score, item_type, deadline)
-		 VALUES ($1, $2, $3, $4, $5, $6)
-		 RETURNING item_id, subject_id, created_by_teacher_id, title, max_score, item_type, deadline,
+		`INSERT INTO grade_items (subject_id, semester_id, created_by_teacher_id, title, max_score, item_type, deadline)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7)
+		 RETURNING item_id, subject_id, semester_id, created_by_teacher_id, title, max_score, item_type, deadline,
 		           created_at, deleted_at, deleted_by_user_id, delete_reason`,
 		item.SubjectID,
+		item.SemesterID,
 		*item.CreatedByTeacherID,
 		item.Title,
 		item.MaxScore,
@@ -163,7 +171,7 @@ func (r *GradeRepository) getGradeItemByID(ctx context.Context, itemID int32, in
 		return GradeItem{}, false, fmt.Errorf("grade item id is required")
 	}
 
-	query := `SELECT item_id, subject_id, created_by_teacher_id, title, max_score, item_type, deadline,
+	query := `SELECT item_id, subject_id, semester_id, created_by_teacher_id, title, max_score, item_type, deadline,
 	                 created_at, deleted_at, deleted_by_user_id, delete_reason
 	          FROM grade_items WHERE item_id = $1`
 	if !includeDeleted {
@@ -179,18 +187,22 @@ func (r *GradeRepository) getGradeItemByID(ctx context.Context, itemID int32, in
 	return out, true, nil
 }
 
-func (r *GradeRepository) GetGradeItemsBySubject(ctx context.Context, subjectID int32) ([]GradeItem, error) {
+func (r *GradeRepository) GetGradeItemsBySubject(ctx context.Context, subjectID, semesterID int32) ([]GradeItem, error) {
 	if subjectID <= 0 {
 		return nil, fmt.Errorf("subject id is required")
 	}
+	if semesterID <= 0 {
+		return nil, fmt.Errorf("semester id is required")
+	}
 	rows, err := r.pool.Query(
 		ctx,
-		`SELECT item_id, subject_id, created_by_teacher_id, title, max_score, item_type, deadline,
+		`SELECT item_id, subject_id, semester_id, created_by_teacher_id, title, max_score, item_type, deadline,
 		        created_at, deleted_at, deleted_by_user_id, delete_reason
 		 FROM grade_items
-		 WHERE subject_id = $1 AND deleted_at IS NULL
+		 WHERE subject_id = $1 AND semester_id = $2 AND deleted_at IS NULL
 		 ORDER BY deadline NULLS LAST, created_at, item_id`,
 		subjectID,
+		semesterID,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("query grade items: %w", err)
@@ -416,7 +428,7 @@ func (r *GradeRepository) SoftDeleteGradeItem(ctx context.Context, itemID, actor
 		`UPDATE grade_items
 		 SET deleted_at = now(), deleted_by_user_id = $2, delete_reason = NULLIF($3, '')
 		 WHERE item_id = $1 AND deleted_at IS NULL
-		 RETURNING item_id, subject_id, created_by_teacher_id, title, max_score, item_type, deadline,
+		 RETURNING item_id, subject_id, semester_id, created_by_teacher_id, title, max_score, item_type, deadline,
 		          created_at, deleted_at, deleted_by_user_id, delete_reason`,
 		itemID,
 		actorUserID,
@@ -490,7 +502,7 @@ func (r *GradeRepository) RestoreGradeItem(ctx context.Context, itemID, actorUse
 		`UPDATE grade_items
 		 SET deleted_at = NULL, deleted_by_user_id = NULL, delete_reason = NULL
 		 WHERE item_id = $1 AND deleted_at IS NOT NULL
-		 RETURNING item_id, subject_id, created_by_teacher_id, title, max_score, item_type, deadline,
+		 RETURNING item_id, subject_id, semester_id, created_by_teacher_id, title, max_score, item_type, deadline,
 		          created_at, deleted_at, deleted_by_user_id, delete_reason`,
 		itemID,
 	))
@@ -529,9 +541,12 @@ func insertGradeEvent(ctx context.Context, tx pgx.Tx, gradeID *int32, itemID int
 	return nil
 }
 
-func (r *GradeRepository) GetStudentGradesBySubject(ctx context.Context, studentID, subjectID int32) ([]StudentGradePoint, error) {
+func (r *GradeRepository) GetStudentGradesBySubject(ctx context.Context, studentID, subjectID, semesterID int32) ([]StudentGradePoint, error) {
 	if studentID <= 0 || subjectID <= 0 {
 		return nil, fmt.Errorf("student id and subject id are required")
+	}
+	if semesterID <= 0 {
+		return nil, fmt.Errorf("semester id is required")
 	}
 	rows, err := r.pool.Query(
 		ctx,
@@ -539,10 +554,11 @@ func (r *GradeRepository) GetStudentGradesBySubject(ctx context.Context, student
 		        COALESCE(g.score, 0) AS score, g.updated_at AS graded_at
 		 FROM grade_items gi
 		 LEFT JOIN grades g ON g.item_id = gi.item_id AND g.student_id = $1 AND g.deleted_at IS NULL
-		 WHERE gi.subject_id = $2 AND gi.deleted_at IS NULL
+		 WHERE gi.subject_id = $2 AND gi.semester_id = $3 AND gi.deleted_at IS NULL
 		 ORDER BY gi.deadline NULLS LAST, gi.created_at, gi.item_id`,
 		studentID,
 		subjectID,
+		semesterID,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("get student grades: %w", err)
@@ -579,9 +595,12 @@ func scanStudentGradePoint(row pgx.Row) (StudentGradePoint, error) {
 	return point, nil
 }
 
-func (r *GradeRepository) GetSubjectStatsForPrediction(ctx context.Context, studentID, subjectID int32) (PredictionStats, error) {
+func (r *GradeRepository) GetSubjectStatsForPrediction(ctx context.Context, studentID, subjectID, semesterID int32) (PredictionStats, error) {
 	if studentID <= 0 || subjectID <= 0 {
 		return PredictionStats{}, fmt.Errorf("student id and subject id are required")
+	}
+	if semesterID <= 0 {
+		return PredictionStats{}, fmt.Errorf("semester id is required")
 	}
 	var stats PredictionStats
 	err := r.pool.QueryRow(
@@ -591,9 +610,10 @@ func (r *GradeRepository) GetSubjectStatsForPrediction(ctx context.Context, stud
 		        COALESCE(SUM(g.score), 0)::INTEGER
 		 FROM grade_items gi
 		 LEFT JOIN grades g ON g.item_id = gi.item_id AND g.student_id = $1 AND g.deleted_at IS NULL
-		 WHERE gi.subject_id = $2 AND gi.deleted_at IS NULL`,
+		 WHERE gi.subject_id = $2 AND gi.semester_id = $3 AND gi.deleted_at IS NULL`,
 		studentID,
 		subjectID,
+		semesterID,
 	).Scan(&stats.TotalMax, &stats.PassedMax, &stats.CurrentScore)
 	if err != nil {
 		return PredictionStats{}, fmt.Errorf("get prediction stats: %w", err)
@@ -601,9 +621,12 @@ func (r *GradeRepository) GetSubjectStatsForPrediction(ctx context.Context, stud
 	return stats, nil
 }
 
-func (r *GradeRepository) GetStudentPerformanceRadar(ctx context.Context, studentID int32) ([]SubjectPerformancePoint, error) {
+func (r *GradeRepository) GetStudentPerformanceRadar(ctx context.Context, studentID, semesterID int32) ([]SubjectPerformancePoint, error) {
 	if studentID <= 0 {
 		return nil, fmt.Errorf("student id is required")
+	}
+	if semesterID <= 0 {
+		return nil, fmt.Errorf("semester id is required")
 	}
 	rows, err := r.pool.Query(
 		ctx,
@@ -618,11 +641,12 @@ func (r *GradeRepository) GetStudentPerformanceRadar(ctx context.Context, studen
 		        COALESCE(SUM(gi.max_score) FILTER (WHERE gi.deadline < now()), 0)::INTEGER
 		 FROM student_subjects ss
 		 JOIN subjects sub ON sub.subject_id = ss.subject_id
-		 LEFT JOIN grade_items gi ON gi.subject_id = sub.subject_id AND gi.deleted_at IS NULL
+		 LEFT JOIN grade_items gi ON gi.subject_id = sub.subject_id AND gi.semester_id = $2 AND gi.deleted_at IS NULL
 		 LEFT JOIN grades g ON g.item_id = gi.item_id AND g.student_id = $1 AND g.deleted_at IS NULL
 		 GROUP BY sub.subject_id, sub.name
 		 ORDER BY sub.name, sub.subject_id`,
 		studentID,
+		semesterID,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("get student performance radar: %w", err)
@@ -646,9 +670,12 @@ func (r *GradeRepository) GetStudentPerformanceRadar(ctx context.Context, studen
 	return result, nil
 }
 
-func (r *GradeRepository) GetStudentAllSubjectGrades(ctx context.Context, studentID int32) ([]StudentSubjectGrades, error) {
+func (r *GradeRepository) GetStudentAllSubjectGrades(ctx context.Context, studentID, semesterID int32) ([]StudentSubjectGrades, error) {
 	if studentID <= 0 {
 		return nil, fmt.Errorf("student id is required")
+	}
+	if semesterID <= 0 {
+		return nil, fmt.Errorf("semester id is required")
 	}
 	rows, err := r.pool.Query(
 		ctx,
@@ -673,10 +700,11 @@ func (r *GradeRepository) GetStudentAllSubjectGrades(ctx context.Context, studen
 		        g.updated_at
 		 FROM student_subjects ss
 		 JOIN subjects sub ON sub.subject_id = ss.subject_id
-		 LEFT JOIN grade_items gi ON gi.subject_id = sub.subject_id AND gi.deleted_at IS NULL
+		 LEFT JOIN grade_items gi ON gi.subject_id = sub.subject_id AND gi.semester_id = $2 AND gi.deleted_at IS NULL
 		 LEFT JOIN grades g ON g.item_id = gi.item_id AND g.student_id = $1 AND g.deleted_at IS NULL
 		 ORDER BY sub.name, sub.subject_id, gi.deadline NULLS LAST, gi.created_at, gi.item_id`,
 		studentID,
+		semesterID,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("get all student subject grades: %w", err)

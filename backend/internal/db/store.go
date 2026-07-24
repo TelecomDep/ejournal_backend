@@ -16,6 +16,7 @@ type Store struct {
 	Users           *UserRepository
 	Lecterns        *LecternRepository
 	ControlTypes    *ControlTypeRepository
+	Semesters       *SemesterRepository
 	Subjects        *SubjectRepository
 	SubjectMetrics  *SubjectMetricRepository
 	SemesterLoads   *SemesterLoadRepository
@@ -50,6 +51,7 @@ func NewStore(ctx context.Context, dsn string) (*Store, error) {
 		Users:           NewUserRepository(pool),
 		Lecterns:        NewLecternRepository(pool),
 		ControlTypes:    NewControlTypeRepository(pool),
+		Semesters:       NewSemesterRepository(pool),
 		Subjects:        NewSubjectRepository(pool),
 		SubjectMetrics:  NewSubjectMetricRepository(pool),
 		SemesterLoads:   NewSemesterLoadRepository(pool),

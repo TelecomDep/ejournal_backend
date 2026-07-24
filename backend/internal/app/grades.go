@@ -12,15 +12,17 @@ import (
 )
 
 type GradeItemCreateData struct {
-	SubjectID int32      `json:"subject_id"`
-	Title     string     `json:"title"`
-	MaxScore  int32      `json:"max_score"`
-	ItemType  string     `json:"item_type,omitempty"`
-	Deadline  *time.Time `json:"deadline,omitempty"`
+	SubjectID  int32      `json:"subject_id"`
+	SemesterID *int32     `json:"semester_id,omitempty"`
+	Title      string     `json:"title"`
+	MaxScore   int32      `json:"max_score"`
+	ItemType   string     `json:"item_type,omitempty"`
+	Deadline   *time.Time `json:"deadline,omitempty"`
 }
 
 type GradeSubjectData struct {
-	SubjectID int32 `json:"subject_id"`
+	SubjectID  int32  `json:"subject_id"`
+	SemesterID *int32 `json:"semester_id,omitempty"`
 }
 
 type GradeUpsertData struct {
@@ -32,12 +34,14 @@ type GradeUpsertData struct {
 }
 
 type TeacherStudentGradesData struct {
-	StudentID int32 `json:"student_id"`
-	SubjectID int32 `json:"subject_id"`
+	StudentID  int32  `json:"student_id"`
+	SubjectID  int32  `json:"subject_id"`
+	SemesterID *int32 `json:"semester_id,omitempty"`
 }
 
 type TeacherStudentRadarData struct {
-	StudentID int32 `json:"student_id"`
+	StudentID  int32  `json:"student_id"`
+	SemesterID *int32 `json:"semester_id,omitempty"`
 }
 
 type GradeDeleteData struct {
@@ -152,8 +156,14 @@ func (s *Service) createGradeItemByTeacher(sessionToken string, data GradeItemCr
 		return resp
 	}
 
+	semester, err := s.semesterForOptionalID(ctx, data.SemesterID)
+	if err != nil {
+		return Response{OK: false, Error: err.Error()}
+	}
+
 	item, err := s.store.Grades.CreateGradeItem(ctx, db.GradeItem{
 		SubjectID:          data.SubjectID,
+		SemesterID:         semester.ID,
 		CreatedByTeacherID: &teacherProfile.ID,
 		Title:              data.Title,
 		MaxScore:           data.MaxScore,
@@ -192,7 +202,12 @@ func (s *Service) gradeItemsBySubjectForTeacher(sessionToken string, data GradeS
 		return resp
 	}
 
-	items, err := s.store.Grades.GetGradeItemsBySubject(ctx, data.SubjectID)
+	semester, err := s.semesterForOptionalID(ctx, data.SemesterID)
+	if err != nil {
+		return Response{OK: false, Error: err.Error()}
+	}
+
+	items, err := s.store.Grades.GetGradeItemsBySubject(ctx, data.SubjectID, semester.ID)
 	if err != nil {
 		return Response{OK: false, Error: "failed to load grade items"}
 	}
@@ -200,8 +215,9 @@ func (s *Service) gradeItemsBySubjectForTeacher(sessionToken string, data GradeS
 	return Response{
 		OK: true,
 		Result: map[string]any{
-			"subject_id": data.SubjectID,
-			"items":      items,
+			"subject_id":  data.SubjectID,
+			"semester_id": semester.ID,
+			"items":       items,
 		},
 	}
 }
@@ -548,11 +564,16 @@ func (s *Service) studentGradesResult(studentID, subjectID int32) Response {
 		return Response{OK: false, Error: "subject not found"}
 	}
 
-	points, err := s.store.Grades.GetStudentGradesBySubject(ctx, studentID, subjectID)
+	semester, err := s.currentSemester(ctx)
+	if err != nil {
+		return Response{OK: false, Error: err.Error()}
+	}
+
+	points, err := s.store.Grades.GetStudentGradesBySubject(ctx, studentID, subjectID, semester.ID)
 	if err != nil {
 		return Response{OK: false, Error: "failed to load student grades"}
 	}
-	stats, err := s.store.Grades.GetSubjectStatsForPrediction(ctx, studentID, subjectID)
+	stats, err := s.store.Grades.GetSubjectStatsForPrediction(ctx, studentID, subjectID, semester.ID)
 	if err != nil {
 		return Response{OK: false, Error: "failed to load grade summary"}
 	}
@@ -560,9 +581,11 @@ func (s *Service) studentGradesResult(studentID, subjectID int32) Response {
 	return Response{
 		OK: true,
 		Result: map[string]any{
-			"student_id": studentID,
-			"subject_id": subjectID,
-			"grades":     points,
+			"student_id":  studentID,
+			"subject_id":  subjectID,
+			"semester_id": semester.ID,
+			"semester":    semesterToMap(semester),
+			"grades":      points,
 			"summary": map[string]any{
 				"total_max":     stats.TotalMax,
 				"passed_max":    stats.PassedMax,
@@ -597,11 +620,11 @@ func (s *Service) teacherCanViewStudent(ctx context.Context, teacherID, studentI
 	return allowed, nil
 }
 
-func (s *Service) performanceRadarResult(studentID int32) Response {
+func (s *Service) performanceRadarResult(studentID int32, semester db.Semester) Response {
 	ctx, cancel := s.dbContext()
 	defer cancel()
 
-	points, err := s.store.Grades.GetStudentPerformanceRadar(ctx, studentID)
+	points, err := s.store.Grades.GetStudentPerformanceRadar(ctx, studentID, semester.ID)
 	if err != nil {
 		return Response{OK: false, Error: "failed to load performance radar"}
 	}
@@ -609,8 +632,10 @@ func (s *Service) performanceRadarResult(studentID int32) Response {
 	return Response{
 		OK: true,
 		Result: map[string]any{
-			"student_id": studentID,
-			"subjects":   points,
+			"student_id":  studentID,
+			"semester_id": semester.ID,
+			"semester":    semesterToMap(semester),
+			"subjects":    points,
 		},
 	}
 }
@@ -629,7 +654,15 @@ func (s *Service) studentPerformanceRadar(sessionToken string) Response {
 		return Response{OK: false, Error: err.Error()}
 	}
 
-	return s.performanceRadarResult(studentProfile.ID)
+	ctx, cancel := s.dbContext()
+	defer cancel()
+
+	semester, err := s.currentSemester(ctx)
+	if err != nil {
+		return Response{OK: false, Error: err.Error()}
+	}
+
+	return s.performanceRadarResult(studentProfile.ID, semester)
 }
 
 // studentAllGrades returns every plan subject for the student together with its
@@ -652,7 +685,12 @@ func (s *Service) studentAllGrades(sessionToken string) Response {
 	ctx, cancel := s.dbContext()
 	defer cancel()
 
-	allSubjects, err := s.store.Grades.GetStudentAllSubjectGrades(ctx, studentProfile.ID)
+	semester, err := s.currentSemester(ctx)
+	if err != nil {
+		return Response{OK: false, Error: err.Error()}
+	}
+
+	allSubjects, err := s.store.Grades.GetStudentAllSubjectGrades(ctx, studentProfile.ID, semester.ID)
 	if err != nil {
 		return Response{OK: false, Error: "failed to load subjects"}
 	}
@@ -689,8 +727,10 @@ func (s *Service) studentAllGrades(sessionToken string) Response {
 	return Response{
 		OK: true,
 		Result: map[string]any{
-			"student_id": studentProfile.ID,
-			"subjects":   subjects,
+			"student_id":  studentProfile.ID,
+			"semester_id": semester.ID,
+			"semester":    semesterToMap(semester),
+			"subjects":    subjects,
 			"summary": map[string]any{
 				"current_score": totalScore,
 				"total_max":     totalMax,
@@ -738,7 +778,12 @@ func (s *Service) teacherStudentPerformanceRadar(sessionToken string, data Teach
 		return Response{OK: false, Error: "forbidden: teacher does not teach this student"}
 	}
 
-	return s.performanceRadarResult(data.StudentID)
+	semester, err := s.semesterForOptionalID(ctx, data.SemesterID)
+	if err != nil {
+		return Response{OK: false, Error: err.Error()}
+	}
+
+	return s.performanceRadarResult(data.StudentID, semester)
 }
 
 func isUnauthorizedGradeError(errText string) bool {
