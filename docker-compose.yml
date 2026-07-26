@@ -169,8 +169,35 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
     command: >
-      sh -c "PGPASSWORD=\"$$POSTGRES_PASSWORD\" psql -h postgres -U \"$$POSTGRES_USER\" -d postgres -tc \"SELECT 1 FROM pg_database WHERE datname = 'azimutt_db'\" | grep -q 1 || PGPASSWORD=\"$$POSTGRES_PASSWORD\" psql -h postgres -U \"$$POSTGRES_USER\" -d postgres -c \"CREATE DATABASE azimutt_db;\";
-             PGPASSWORD=\"$$POSTGRES_PASSWORD\" psql -h postgres -U \"$$POSTGRES_USER\" -d azimutt_db -c \"CREATE OR REPLACE FUNCTION set_organization_plan() RETURNS trigger AS \\\$\\\$ BEGIN NEW.plan := 'enterprise'; RETURN NEW; END; \\\$\\\$ LANGUAGE plpgsql; DROP TRIGGER IF EXISTS trg_organization_plan ON organizations; CREATE TRIGGER trg_organization_plan BEFORE INSERT OR UPDATE ON organizations FOR EACH ROW EXECUTE FUNCTION set_organization_plan(); CREATE OR REPLACE FUNCTION auto_join_default_organization() RETURNS trigger AS \\\$\\\$ DECLARE target_org_id uuid; BEGIN SELECT id INTO target_org_id FROM organizations WHERE name = 'Sibsutis' LIMIT 1; IF target_org_id IS NULL THEN SELECT id INTO target_org_id FROM organizations ORDER BY created_at ASC LIMIT 1; END IF; IF target_org_id IS NOT NULL THEN INSERT INTO organization_members (user_id, organization_id, created_by, updated_by, created_at, updated_at, role) VALUES (NEW.id, target_org_id, NEW.id, NEW.id, NOW(), NOW(), 'writer') ON CONFLICT (user_id, organization_id) DO NOTHING; END IF; RETURN NEW; END; \\\$\\\$ LANGUAGE plpgsql; DROP TRIGGER IF EXISTS trg_auto_join_organization ON users; CREATE TRIGGER trg_auto_join_organization AFTER INSERT ON users FOR EACH ROW EXECUTE FUNCTION auto_join_default_organization();\" || true"
+      sh -c "PGPASSWORD=\"$$POSTGRES_PASSWORD\" psql -h postgres -U \"$$POSTGRES_USER\" -d postgres -tc \"SELECT 1 FROM pg_database WHERE datname = 'azimutt_db'\" | grep -q 1 || PGPASSWORD=\"$$POSTGRES_PASSWORD\" psql -h postgres -U \"$$POSTGRES_USER\" -d postgres -c \"CREATE DATABASE azimutt_db;\""
+    restart: "no"
+
+  setup-azimutt-triggers:
+    image: postgres:16-alpine
+    container_name: ejournal-setup-azimutt-triggers
+    depends_on:
+      postgres:
+        condition: service_healthy
+      azimutt:
+        condition: service_started
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    command: >
+      sh -c "until PGPASSWORD=\"$$POSTGRES_PASSWORD\" psql -h postgres -U \"$$POSTGRES_USER\" -d azimutt_db -tc \"SELECT 1 FROM information_schema.tables WHERE table_name = 'users';\" | grep -q 1; do echo 'Waiting for Azimutt tables migration...'; sleep 3; done;
+             PGPASSWORD=\"$$POSTGRES_PASSWORD\" psql -h postgres -U \"$$POSTGRES_USER\" -d azimutt_db -c \"
+             CREATE OR REPLACE FUNCTION set_organization_plan() RETURNS trigger AS \\\$\\\$ BEGIN NEW.plan := 'enterprise'; RETURN NEW; END; \\\$\\\$ LANGUAGE plpgsql;
+             DROP TRIGGER IF EXISTS trg_organization_plan ON organizations;
+             CREATE TRIGGER trg_organization_plan BEFORE INSERT OR UPDATE ON organizations FOR EACH ROW EXECUTE FUNCTION set_organization_plan();
+
+             CREATE OR REPLACE FUNCTION check_user_registration_permission() RETURNS trigger AS \\\$\\\$ BEGIN IF NEW.data IS NULL OR (NEW.data->>'created_by_admin') IS DISTINCT FROM 'true' THEN RAISE EXCEPTION 'Self-registration is disabled. Only administrators can create accounts.'; END IF; RETURN NEW; END; \\\$\\\$ LANGUAGE plpgsql;
+             DROP TRIGGER IF EXISTS trg_block_self_registration ON users;
+             CREATE TRIGGER trg_block_self_registration BEFORE INSERT ON users FOR EACH ROW EXECUTE FUNCTION check_user_registration_permission();
+
+             CREATE OR REPLACE FUNCTION auto_join_default_organization() RETURNS trigger AS \\\$\\\$ DECLARE target_org_id uuid; BEGIN SELECT id INTO target_org_id FROM organizations WHERE name = 'Sibsutis' LIMIT 1; IF target_org_id IS NULL THEN SELECT id INTO target_org_id FROM organizations ORDER BY created_at ASC LIMIT 1; END IF; IF target_org_id IS NOT NULL THEN INSERT INTO organization_members (user_id, organization_id, created_by, updated_by, created_at, updated_at, role) VALUES (NEW.id, target_org_id, NEW.id, NEW.id, NOW(), NOW(), 'writer') ON CONFLICT (user_id, organization_id) DO NOTHING; END IF; RETURN NEW; END; \\\$\\\$ LANGUAGE plpgsql;
+             DROP TRIGGER IF EXISTS trg_auto_join_organization ON users;
+             CREATE TRIGGER trg_auto_join_organization AFTER INSERT ON users FOR EACH ROW EXECUTE FUNCTION auto_join_default_organization();
+             \""
     restart: "no"
 
   azimutt:
