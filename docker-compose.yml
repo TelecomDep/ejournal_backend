@@ -159,6 +159,58 @@ services:
       - grafana-data:/var/lib/grafana
     restart: unless-stopped
 
+  init-azimutt-db:
+    image: postgres:16-alpine
+    container_name: ejournal-init-azimutt-db
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    command: >
+      sh -c "PGPASSWORD=\"$$POSTGRES_PASSWORD\" psql -h postgres -U \"$$POSTGRES_USER\" -d postgres -tc \"SELECT 1 FROM pg_database WHERE datname = 'azimutt_db'\" | grep -q 1 || PGPASSWORD=\"$$POSTGRES_PASSWORD\" psql -h postgres -U \"$$POSTGRES_USER\" -d postgres -c \"CREATE DATABASE azimutt_db;\";
+             PGPASSWORD=\"$$POSTGRES_PASSWORD\" psql -h postgres -U \"$$POSTGRES_USER\" -d azimutt_db -c \"CREATE OR REPLACE FUNCTION set_organization_plan() RETURNS trigger AS \\\$\\\$ BEGIN NEW.plan := 'enterprise'; RETURN NEW; END; \\\$\\\$ LANGUAGE plpgsql; DROP TRIGGER IF EXISTS trg_organization_plan ON organizations; CREATE TRIGGER trg_organization_plan BEFORE INSERT OR UPDATE ON organizations FOR EACH ROW EXECUTE FUNCTION set_organization_plan(); CREATE OR REPLACE FUNCTION auto_join_default_organization() RETURNS trigger AS \\\$\\\$ DECLARE target_org_id uuid; BEGIN SELECT id INTO target_org_id FROM organizations WHERE name = 'Sibsutis' LIMIT 1; IF target_org_id IS NULL THEN SELECT id INTO target_org_id FROM organizations ORDER BY created_at ASC LIMIT 1; END IF; IF target_org_id IS NOT NULL THEN INSERT INTO organization_members (user_id, organization_id, created_by, updated_by, created_at, updated_at, role) VALUES (NEW.id, target_org_id, NEW.id, NEW.id, NOW(), NOW(), 'writer') ON CONFLICT (user_id, organization_id) DO NOTHING; END IF; RETURN NEW; END; \\\$\\\$ LANGUAGE plpgsql; DROP TRIGGER IF EXISTS trg_auto_join_organization ON users; CREATE TRIGGER trg_auto_join_organization AFTER INSERT ON users FOR EACH ROW EXECUTE FUNCTION auto_join_default_organization();\" || true"
+    restart: "no"
+
+  azimutt:
+    image: ghcr.io/azimuttapp/azimutt:main
+    container_name: ejournal-azimutt
+    environment:
+      PORT: ${AZIMUTT_PORT:-4000}
+      PHX_HOST: ${AZIMUTT_HOST:-localhost}
+      PHX_SERVER: "true"
+      SECRET_KEY_BASE: ${AZIMUTT_SECRET_KEY_BASE:-9z6W7qVn3B8m1K4pL0xR2sY5tU8vW1zX4yA7bC0dE3fG6hI9jK2lM5nO8pQ1rS4t}
+      DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/azimutt_db?sslmode=disable
+      FILE_STORAGE_ADAPTER: local
+      AUTH_PASSWORD: "true"
+      PUBLIC_SITE: "false"
+      SKIP_ONBOARDING: "true"
+      GATEWAY_URL: "http://localhost:4177"
+    ports:
+      - "${AZIMUTT_PORT:-4000}:${AZIMUTT_PORT:-4000}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      init-azimutt-db:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  azimutt-gateway:
+    image: node:20-alpine
+    container_name: ejournal-azimutt-gateway
+    working_dir: /app
+    environment:
+      NODE_PATH: "/usr/local/lib/node_modules"
+    command: >
+      sh -c "npm install -g @azimutt/gateway && node -e \"const g = require('/usr/local/lib/node_modules/@azimutt/gateway'); g.startServer(g.buildConfig({ NODE_ENV: 'production', LOG_LEVEL: 'info', API_HOST: '0.0.0.0', API_PORT: '4177', CORS_ALLOW_ORIGIN: '*' }));\""
+    ports:
+      - "4177:4177"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
 volumes:
   pgdata:
   avataruploads:

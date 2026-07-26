@@ -73,16 +73,18 @@ jobs:
           # Делает бекап схемы бд до + после залива кода на production server в папку backup
           script: |
             cd /home/sibsutis-ms/ejournal
-            mkdir -p backups
+            BACKUP_DIR="${DB_BACKUPS_DIR:-./backups}"
+            mkdir -p "${BACKUP_DIR}"
             TIMESTAMP=$(date +'%Y%m%d_%H%M%S')
             
-            docker compose exec -T postgres pg_dump -U postgres -d ejournal > ./backups/prev_${TIMESTAMP}.sql
-            chmod 600 ./backups/prev_${TIMESTAMP}.sql
+            docker compose exec -T postgres pg_dump -U postgres -d ejournal > "${BACKUP_DIR}/prev_${TIMESTAMP}.sql"
+            chmod 600 "${BACKUP_DIR}/prev_${TIMESTAMP}.sql"
             
             git pull origin main
             docker compose up -d --build
             
-            docker compose exec -T postgres pg_dump -U postgres -d ejournal > ./backups/new_${TIMESTAMP}.sql
-            chmod 600 ./backups/new_${TIMESTAMP}.sql
+            docker compose exec -T postgres pg_dump -U postgres -d ejournal > "${BACKUP_DIR}/new_${TIMESTAMP}.sql"
+            chmod 600 "${BACKUP_DIR}/new_${TIMESTAMP}.sql"
             
-            find ./backups/ -name "*.sql" -mtime +14 -delete
+            find "${BACKUP_DIR}" -name "*.sql" -mtime +14 -delete
+
