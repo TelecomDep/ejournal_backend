@@ -23,6 +23,10 @@ function App() {
     setError('');
   };
 
+  const handleUserUpdate = (updates) => {
+    setUserData((current) => (current ? { ...current, ...updates } : current));
+  };
+
   useEffect(() => {
     if (!token) {
       return undefined;
@@ -145,6 +149,7 @@ function App() {
         route={route}
         navigate={navigate}
         onLogout={handleLogout}
+        onUserUpdate={handleUserUpdate}
       />
     );
   }

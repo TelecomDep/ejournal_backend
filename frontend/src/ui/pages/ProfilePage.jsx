@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import api from '../../services/api';
 import { getRoleLabel } from '../navigation';
 
@@ -69,12 +69,130 @@ const DefaultAvatar = () => (
   </svg>
 );
 
+const TwoFaShieldIcon = () => (
+  <svg viewBox="0 0 24 24" aria-hidden="true">
+    <path d="M12 3 5.5 5.7v5.1c0 4.4 2.6 8.2 6.5 10.2 3.9-2 6.5-5.8 6.5-10.2V5.7L12 3Z" />
+    <rect x="9" y="10.5" width="6" height="5" rx="1.2" />
+    <path d="M10.5 10.5V9.2a1.5 1.5 0 0 1 3 0v1.3" />
+  </svg>
+);
+
+const getTwoFaErrorMessage = (error, fallback) => {
+  const message = api.getErrorMessage(error, fallback);
+  const normalized = String(message).toLowerCase();
+
+  if (normalized.includes('invalid totp code') || normalized.includes('invalid 2fa code')) {
+    return 'Неверный код. Дождитесь нового кода в приложении и попробуйте ещё раз.';
+  }
+
+  if (normalized.includes('setup not initiated')) {
+    return 'Сначала создайте новый QR-код для подключения.';
+  }
+
+  return message;
+};
+
+const getAvatarErrorMessage = (error) => {
+  const message = api.getErrorMessage(error, 'Не удалось загрузить фото');
+  const normalized = String(message).toLowerCase();
+
+  if (normalized.includes('file type is not supported')) {
+    return 'Поддерживаются только изображения JPEG, PNG и WebP.';
+  }
+
+  if (normalized.includes('between 1 byte and 5 mib')) {
+    return 'Размер изображения должен быть не больше 5 MiB.';
+  }
+
+  if (normalized.includes('timeout')) {
+    return 'Сервер не ответил на загрузку. Попробуйте выбрать изображение ещё раз.';
+  }
+
+  return message;
+};
+
+const loadAvatarImage = (file) => new Promise((resolve, reject) => {
+  const objectUrl = URL.createObjectURL(file);
+  const image = new Image();
+
+  image.onload = () => {
+    URL.revokeObjectURL(objectUrl);
+    resolve(image);
+  };
+  image.onerror = () => {
+    URL.revokeObjectURL(objectUrl);
+    reject(new Error('Не удалось прочитать выбранное изображение'));
+  };
+  image.src = objectUrl;
+});
+
+const canvasToBlob = (canvas, quality) => new Promise((resolve, reject) => {
+  canvas.toBlob((blob) => {
+    if (blob) {
+      resolve(blob);
+      return;
+    }
+    reject(new Error('Не удалось подготовить изображение'));
+  }, 'image/webp', quality);
+});
+
+const prepareAvatarFile = async (file) => {
+  const image = await loadAvatarImage(file);
+  const sourceSize = Math.min(image.naturalWidth, image.naturalHeight);
+  const sourceX = Math.round((image.naturalWidth - sourceSize) / 2);
+  const sourceY = Math.round((image.naturalHeight - sourceSize) / 2);
+  const canvas = document.createElement('canvas');
+  const context = canvas.getContext('2d');
+  const targetBytes = 11 * 1024;
+  const variants = [
+    [192, 0.82],
+    [192, 0.66],
+    [160, 0.72],
+    [160, 0.56],
+    [128, 0.64],
+    [128, 0.46],
+    [96, 0.5]
+  ];
+  let preparedBlob = null;
+
+  if (!context || sourceSize <= 0) {
+    throw new Error('Не удалось обработать выбранное изображение');
+  }
+
+  for (const [size, quality] of variants) {
+    canvas.width = size;
+    canvas.height = size;
+    context.clearRect(0, 0, size, size);
+    context.drawImage(image, sourceX, sourceY, sourceSize, sourceSize, 0, 0, size, size);
+    preparedBlob = await canvasToBlob(canvas, quality);
+
+    if (preparedBlob.size <= targetBytes) {
+      break;
+    }
+  }
+
+  if (!preparedBlob) {
+    throw new Error('Не удалось подготовить изображение');
+  }
+
+  return new File([preparedBlob], 'avatar.webp', {
+    type: 'image/webp',
+    lastModified: Date.now()
+  });
+};
+
 const SecurityPanel = ({ user, token }) => {
   const [savedEmail, setSavedEmail] = useState(user?.email || '');
   const [email, setEmail] = useState(user?.email || '');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [twoFaEnabled, setTwoFaEnabled] = useState(Boolean(user?.two_fa_enabled));
+  const [twoFaSetup, setTwoFaSetup] = useState(null);
+  const [twoFaCode, setTwoFaCode] = useState('');
+  const [twoFaMessage, setTwoFaMessage] = useState('');
+  const [twoFaError, setTwoFaError] = useState('');
+  const [twoFaAction, setTwoFaAction] = useState('');
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -91,6 +209,84 @@ const SecurityPanel = ({ user, token }) => {
       setError(api.getErrorMessage(err, 'Не удалось сохранить email'));
     } finally {
       setSaving(false);
+    }
+  };
+
+  const startTwoFaSetup = async () => {
+    setTwoFaMessage('');
+    setTwoFaError('');
+
+    try {
+      setTwoFaAction('generate');
+      const setup = await api.generate2FA(token);
+
+      if (!setup?.qr_code || !setup?.secret) {
+        throw new Error('Сервер не вернул данные для подключения 2FA');
+      }
+
+      setTwoFaSetup(setup);
+      setTwoFaCode('');
+    } catch (err) {
+      setTwoFaError(getTwoFaErrorMessage(err, 'Не удалось создать QR-код для 2FA'));
+    } finally {
+      setTwoFaAction('');
+    }
+  };
+
+  const verifyTwoFa = async (event) => {
+    event.preventDefault();
+    setTwoFaMessage('');
+    setTwoFaError('');
+
+    if (!/^\d{6}$/.test(twoFaCode)) {
+      setTwoFaError('Введите шестизначный код из приложения-аутентификатора.');
+      return;
+    }
+
+    try {
+      setTwoFaAction('verify');
+      await api.verify2FA(token, twoFaCode);
+      setTwoFaEnabled(true);
+      setTwoFaSetup(null);
+      setTwoFaCode('');
+      setTwoFaMessage('Двухфакторная аутентификация включена.');
+    } catch (err) {
+      setTwoFaError(getTwoFaErrorMessage(err, 'Не удалось подтвердить код 2FA'));
+    } finally {
+      setTwoFaAction('');
+    }
+  };
+
+  const disableTwoFa = async () => {
+    if (!window.confirm('Отключить двухфакторную аутентификацию?')) {
+      return;
+    }
+
+    setTwoFaMessage('');
+    setTwoFaError('');
+
+    try {
+      setTwoFaAction('disable');
+      await api.disable2FA(token);
+      setTwoFaEnabled(false);
+      setTwoFaSetup(null);
+      setTwoFaCode('');
+      setTwoFaMessage('Двухфакторная аутентификация отключена.');
+    } catch (err) {
+      setTwoFaError(getTwoFaErrorMessage(err, 'Не удалось отключить 2FA'));
+    } finally {
+      setTwoFaAction('');
+    }
+  };
+
+  const copyTwoFaSecret = async () => {
+    try {
+      await navigator.clipboard.writeText(twoFaSetup.secret);
+      setTwoFaError('');
+      setTwoFaMessage('Ключ настройки скопирован.');
+    } catch (err) {
+      setTwoFaMessage('');
+      setTwoFaError('Не удалось скопировать ключ. Выделите и скопируйте его вручную.');
     }
   };
 
@@ -133,6 +329,103 @@ const SecurityPanel = ({ user, token }) => {
           </button>
         </form>
       </div>
+
+      <div className="security-section-divider" />
+
+      <section className={`twofa-section ${twoFaEnabled ? 'is-enabled' : ''}`} aria-labelledby="twofa-title">
+        <div className="twofa-summary">
+          <span className="twofa-icon"><TwoFaShieldIcon /></span>
+
+          <div className="twofa-summary-copy">
+            <span>Дополнительная защита</span>
+            <h3 id="twofa-title">Двухфакторная аутентификация</h3>
+            <p>
+              {twoFaEnabled
+                ? 'При следующем входе потребуется одноразовый код из приложения-аутентификатора.'
+                : 'Защитите аккаунт одноразовым кодом, который меняется каждые 30 секунд.'}
+            </p>
+          </div>
+
+          <div className="twofa-controls">
+            <span className={`twofa-state ${twoFaEnabled ? 'is-enabled' : ''}`}>
+              {twoFaEnabled ? 'Включена' : 'Не включена'}
+            </span>
+
+            {twoFaEnabled ? (
+              <button
+                type="button"
+                className="twofa-button twofa-button--danger"
+                onClick={disableTwoFa}
+                disabled={Boolean(twoFaAction)}
+              >
+                {twoFaAction === 'disable' ? 'Отключаем...' : 'Отключить'}
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="twofa-button twofa-button--primary"
+                onClick={startTwoFaSetup}
+                disabled={Boolean(twoFaAction)}
+              >
+                {twoFaAction === 'generate' ? 'Создаём QR-код...' : twoFaSetup ? 'Обновить QR-код' : 'Подключить'}
+              </button>
+            )}
+          </div>
+        </div>
+
+        {twoFaMessage && <div className="security-message security-message--success">{twoFaMessage}</div>}
+        {twoFaError && <div className="security-message security-message--error">{twoFaError}</div>}
+
+        {!twoFaEnabled && twoFaSetup && (
+          <div className="twofa-setup">
+            <div className="twofa-qr">
+              <img src={twoFaSetup.qr_code} alt="QR-код для подключения двухфакторной аутентификации" />
+              <span>QR-код подключения</span>
+            </div>
+
+            <div className="twofa-setup-content">
+              <h4>Подтверждение подключения</h4>
+              <ol>
+                <li>Отсканируйте QR-код в приложении-аутентификаторе.</li>
+                <li>Введите текущий шестизначный код.</li>
+              </ol>
+
+              <div className="twofa-secret">
+                <span>Ключ для ручной настройки</span>
+                <div>
+                  <code>{twoFaSetup.secret}</code>
+                  <button type="button" onClick={copyTwoFaSecret}>Скопировать</button>
+                </div>
+              </div>
+
+              <form className="twofa-verify-form" onSubmit={verifyTwoFa}>
+                <label htmlFor="twofa-code">Код подтверждения</label>
+                <div>
+                  <input
+                    id="twofa-code"
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    maxLength={6}
+                    value={twoFaCode}
+                    onChange={(event) => setTwoFaCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
+                    placeholder="000000"
+                    aria-describedby="twofa-code-hint"
+                  />
+                  <button
+                    type="submit"
+                    className="twofa-button twofa-button--primary"
+                    disabled={twoFaCode.length !== 6 || Boolean(twoFaAction)}
+                  >
+                    {twoFaAction === 'verify' ? 'Проверяем...' : 'Подтвердить'}
+                  </button>
+                </div>
+                <small id="twofa-code-hint">Код обновляется в приложении каждые 30 секунд.</small>
+              </form>
+            </div>
+          </div>
+        )}
+      </section>
     </section>
   );
 };
@@ -216,52 +509,130 @@ const NotificationsPanel = () => {
   );
 };
 
-const ProfileInfoPanel = ({ user, displayName, rows, metrics }) => (
-  <div className="profile-layout">
-    <aside className="profile-photo-card">
-      <div className="profile-avatar" aria-label={`Фото профиля: ${getInitials(displayName)}`}>
-        {user?.avatar ? (
-          <img src={user.avatar} alt="" />
-        ) : (
-          <DefaultAvatar />
-        )}
-      </div>
+const ProfileInfoPanel = ({ user, token, displayName, rows, metrics, onAvatarChange }) => {
+  const fileInputRef = useRef(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [avatarMessage, setAvatarMessage] = useState('');
+  const [avatarError, setAvatarError] = useState('');
+  const [avatarPreview, setAvatarPreview] = useState('');
 
-      <button type="button" className="profile-photo-button">Изменить фото</button>
-    </aside>
+  const handleAvatarSelect = async (event) => {
+    const input = event.currentTarget;
+    const file = input.files?.[0];
 
-    <section className="profile-card">
-      <div className="profile-card-header">
-        <div>
-          <span>ФИО</span>
-          <h2>{displayName}</h2>
-          <p>{user?.group_name || user?.job_title || getRoleLabel(user?.role)}</p>
+    if (!file) {
+      return;
+    }
+
+    setAvatarMessage('');
+    setAvatarError('');
+
+    const extension = file.name.split('.').pop()?.toLowerCase();
+    const supportedExtensions = ['jpg', 'jpeg', 'png', 'webp'];
+
+    if (!extension || !supportedExtensions.includes(extension)) {
+      setAvatarError('Поддерживаются только изображения JPEG, PNG и WebP.');
+      input.value = '';
+      return;
+    }
+
+    if (file.size === 0 || file.size > 5 * 1024 * 1024) {
+      setAvatarError('Размер изображения должен быть от 1 байта до 5 MiB.');
+      input.value = '';
+      return;
+    }
+
+    let previewUrl = '';
+
+    try {
+      setUploadingAvatar(true);
+      const preparedFile = await prepareAvatarFile(file);
+      previewUrl = URL.createObjectURL(preparedFile);
+      setAvatarPreview(previewUrl);
+
+      const avatar = await api.uploadAvatar(token, preparedFile);
+      onAvatarChange(avatar);
+      setAvatarMessage('Фото профиля обновлено.');
+    } catch (error) {
+      setAvatarError(getAvatarErrorMessage(error));
+    } finally {
+      setUploadingAvatar(false);
+      setAvatarPreview('');
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
+      input.value = '';
+    }
+  };
+
+  return (
+    <div className="profile-layout">
+      <aside className="profile-photo-card">
+        <div className="profile-avatar" aria-label={`Фото профиля: ${getInitials(displayName)}`}>
+          {avatarPreview || user?.avatar ? (
+            <img src={avatarPreview || user.avatar} alt={`Аватар пользователя ${displayName}`} />
+          ) : (
+            <DefaultAvatar />
+          )}
         </div>
-      </div>
 
-      <div className="profile-metrics" aria-label="Краткая информация">
-        {metrics.map((metric) => (
-          <div className={`profile-metric ${metric.wide ? 'profile-metric--wide' : ''}`} key={metric.label}>
-            <span>{metric.label}</span>
-            <strong>{metric.value}</strong>
-          </div>
-        ))}
-      </div>
+        <div className="profile-photo-actions">
+          <input
+            ref={fileInputRef}
+            className="profile-photo-input"
+            type="file"
+            accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+            onChange={handleAvatarSelect}
+          />
 
-      <div className="profile-details" aria-label="Данные профиля">
-        {rows.map((row) => (
-          <div
-            className={`profile-detail ${row.compact ? 'profile-detail--compact' : ''} ${row.wide ? 'profile-detail--wide' : ''}`}
-            key={row.label}
+          <button
+            type="button"
+            className="profile-photo-button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploadingAvatar}
           >
-            <span>{row.label}</span>
-            <strong>{row.value}</strong>
+            {uploadingAvatar ? 'Загружаем...' : user?.avatar ? 'Изменить фото' : 'Загрузить фото'}
+          </button>
+
+          <small className="profile-photo-note">JPEG, PNG или WebP, до 5 MiB</small>
+          {avatarMessage && <span className="profile-photo-message is-success" role="status">{avatarMessage}</span>}
+          {avatarError && <span className="profile-photo-message is-error" role="alert">{avatarError}</span>}
+        </div>
+      </aside>
+
+      <section className="profile-card">
+        <div className="profile-card-header">
+          <div>
+            <span>ФИО</span>
+            <h2>{displayName}</h2>
+            <p>{user?.group_name || user?.job_title || getRoleLabel(user?.role)}</p>
           </div>
-        ))}
-      </div>
-    </section>
-  </div>
-);
+        </div>
+
+        <div className="profile-metrics" aria-label="Краткая информация">
+          {metrics.map((metric) => (
+            <div className={`profile-metric ${metric.wide ? 'profile-metric--wide' : ''}`} key={metric.label}>
+              <span>{metric.label}</span>
+              <strong>{metric.value}</strong>
+            </div>
+          ))}
+        </div>
+
+        <div className="profile-details" aria-label="Данные профиля">
+          {rows.map((row) => (
+            <div
+              className={`profile-detail ${row.compact ? 'profile-detail--compact' : ''} ${row.wide ? 'profile-detail--wide' : ''}`}
+              key={row.label}
+            >
+              <span>{row.label}</span>
+              <strong>{row.value}</strong>
+            </div>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+};
 
 const ProfileTabPanel = ({ tab, children }) => (
   <div key={tab} className="profile-tab-panel">
@@ -269,7 +640,7 @@ const ProfileTabPanel = ({ tab, children }) => (
   </div>
 );
 
-const ProfilePage = ({ user, token }) => {
+const ProfilePage = ({ user, token, onUserUpdate }) => {
   const [activeTab, setActiveTab] = useState('profile');
   const displayName = pickDisplayName(user);
   const rows = profileRows(user);
@@ -307,7 +678,14 @@ const ProfilePage = ({ user, token }) => {
 
       <ProfileTabPanel tab={activeTab}>
         {activeTab === 'profile' && (
-          <ProfileInfoPanel user={user} displayName={displayName} rows={rows} metrics={metrics} />
+          <ProfileInfoPanel
+            user={user}
+            token={token}
+            displayName={displayName}
+            rows={rows}
+            metrics={metrics}
+            onAvatarChange={(avatar) => onUserUpdate({ avatar })}
+          />
         )}
 
         {activeTab === 'security' && <SecurityPanel user={user} token={token} />}

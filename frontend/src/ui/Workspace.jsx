@@ -5,6 +5,7 @@ import ProfilePage from './pages/ProfilePage';
 import SchedulePage from './pages/SchedulePage';
 import GradesPage from './pages/GradesPage';
 import AttendancePage from './pages/AttendancePage';
+import AnalyticsPage from './pages/AnalyticsPage';
 import DashboardPage from './pages/DashboardPage';
 import StaffOverviewPage from './pages/StaffOverviewPage';
 import TeacherPage from './pages/TeacherPage';
@@ -96,7 +97,7 @@ const NavIcon = ({ name }) => (
   </svg>
 );
 
-const renderPage = (activeItem, user, token, navigate) => {
+const renderPage = (activeItem, user, token, navigate, onUserUpdate) => {
   if (activeItem.key === 'dashboard') {
     return <DashboardPage user={user} token={token} navigate={navigate} />;
   }
@@ -104,7 +105,7 @@ const renderPage = (activeItem, user, token, navigate) => {
     return <StaffOverviewPage token={token} />;
   }
   if (activeItem.key === 'profile') {
-    return <ProfilePage user={user} token={token} />;
+    return <ProfilePage user={user} token={token} onUserUpdate={onUserUpdate} />;
   }
   if (activeItem.key === 'schedule') {
     return <SchedulePage user={user} token={token} />;
@@ -114,6 +115,9 @@ const renderPage = (activeItem, user, token, navigate) => {
   }
   if (activeItem.key === 'attendance' && user?.role === 'student') {
     return <AttendancePage user={user} token={token} />;
+  }
+  if (activeItem.key === 'analytics' && user?.role === 'student') {
+    return <AnalyticsPage user={user} token={token} />;
   }
   if (user?.role === 'teacher' && ['attendance', 'stats', 'grades'].includes(activeItem.key)) {
     const section = activeItem.key === 'stats' ? 'statistics' : activeItem.key;
@@ -128,7 +132,7 @@ const renderPage = (activeItem, user, token, navigate) => {
   );
 };
 
-const Workspace = ({ user, token, route, navigate, onLogout }) => {
+const Workspace = ({ user, token, route, navigate, onLogout, onUserUpdate }) => {
   const [isNavOpen, setIsNavOpen] = useState(false);
   const navItems = getNavigationForRole(user?.role);
   const activeItem = navItems.find((item) => item.route === route) || navItems[0];
@@ -209,7 +213,7 @@ const Workspace = ({ user, token, route, navigate, onLogout }) => {
         </header>
 
         <main className="ui-main">
-          {renderPage(activeItem, user, token, navigate)}
+          {renderPage(activeItem, user, token, navigate, onUserUpdate)}
         </main>
       </div>
     </div>

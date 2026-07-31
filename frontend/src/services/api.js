@@ -99,7 +99,8 @@ const api = {
       const form = new FormData();
       form.append('avatar', file);
       const response = await axios.post(`${BACKEND_URL}/api/user/upload-avatar`, form, {
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { 'Authorization': `Bearer ${token}` },
+        timeout: 20000
       });
       return resolveAssetUrl(unwrapApiResponse(response.data));
     } catch (error) {
