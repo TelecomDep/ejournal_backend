@@ -182,6 +182,31 @@ Swagger UI: `/swagger/index.html` (там же, где фронтенд — ngin
 | `POST /api/user/email` | любой авторизованный | привязать/обновить email |
 | `POST /api/user/upload-avatar` | любой авторизованный | загрузка аватара, `multipart/form-data`, поле `avatar` (jpg/png/webp, до 5 МБ) |
 
+### Семестры
+
+| Метод и путь | Доступ | Описание |
+|---|---|---|
+| `GET /api/semesters` | без токена | список всех семестров, включая закрытые и архивные |
+| `GET /api/semesters/current` | без токена | открытый семестр, используемый по умолчанию |
+| `POST /api/admin/semesters` | admin | создать семестр со статусом `planned` или `open` |
+| `PATCH /api/admin/semesters/:semester_id/activate` | admin | открыть запланированный семестр и автоматически закрыть предыдущий |
+| `PATCH /api/admin/semesters/:semester_id/close` | admin | закрыть открытый семестр и запретить изменение его данных |
+| `PATCH /api/admin/semesters/:semester_id/archive` | admin | архивировать закрытый семестр, сохранив историческое чтение |
+
+### Администратор: пользователи
+
+| Endpoint | Доступ | Назначение |
+|---|---|---|
+| `GET /api/admin/users` | admin | список пользователей с пагинацией, поиском и фильтрами |
+| `GET /api/admin/users/:user_id` | admin | получить одного пользователя |
+| `POST /api/admin/users` | admin | создать пользователя и профиль его роли |
+| `PATCH /api/admin/users/:user_id` | admin | изменить данные, роль или статус |
+| `DELETE /api/admin/users/:user_id` | admin | мягко удалить пользователя (`status=archived`) |
+
+Lifecycle семестра: `planned → open → closed → archived`. Одновременно может быть открыт только один семестр. Создание занятий, контрольных точек и изменение оценок разрешено только в открытом семестре и только между `starts_at` и `ends_at`. Закрытие и переключение блокируются, пока в текущем семестре есть активная attendance-сессия. При отсутствии `semester_id` backend использует открытый семестр; для исторического чтения можно передать ID закрытого или архивного периода.
+
+`term_num` в таблице `semesters` означает календарную половину учебного года (`1` — осень, `2` — весна). Старый `semester_num` в учебной нагрузке и видах контроля остаётся номером семестра образовательной программы (`1…8`) и не подменяется календарным периодом.
+
 ### Посещаемость — преподаватель
 
 | Метод и путь | Описание |
@@ -225,8 +250,8 @@ Swagger UI: `/swagger/index.html` (там же, где фронтенд — ngin
 | `POST /api/teacher/grades/student` | teacher | оценочный лист одного студента |
 | `POST /api/teacher/student/performance/radar` | teacher | radar-диаграмма успеваемости конкретного студента |
 | `POST /api/student/grades` | student | свои оценки по предмету |
-| `GET /api/student/performance/radar` | student | своя radar-диаграмма успеваемости |
-| `GET /api/student/grades/all` | student | все предметы, оценки и сводная статистика одним запросом |
+| `GET /api/student/performance/radar?semester_id=` | student | своя radar-диаграмма успеваемости за выбранный или открытый семестр |
+| `GET /api/student/grades/all?semester_id=` | student | все предметы, оценки и сводная статистика за выбранный или открытый семестр |
 
 ### Supervisory overview
 
@@ -234,7 +259,8 @@ Swagger UI: `/swagger/index.html` (там же, где фронтенд — ngin
 |---|---|
 | `GET /api/staff/overview` | обзор оргструктуры, объём зависит от роли (teacher/head/dean/admin) |
 | `GET /api/staff/overview/students` | постраничный список студентов в зоне видимости: `page`, `page_size`, `group_id`, `search`, `sort`, `order` |
-| `GET /api/staff/reports/performance.xlsx` | скачать Excel-отчёт успеваемости (только head/dean/admin): лист «Поток» по всему охвату + лист на каждую группу, студенты отсортированы по итоговому рейтингу, колонки — % по предметам, рейтинг, посещаемость, внизу средние значения |
+| `GET /api/staff/reports/performance.xlsx?semester_id=` | скачать Excel-отчёт успеваемости (только head/dean/admin): лист «Поток» по всему охвату + лист на каждую группу, студенты отсортированы по итоговому рейтингу, колонки — % по предметам, рейтинг, посещаемость, внизу средние значения |
+| `GET /api/staff/reports/performance.pdf?semester_id=` | скачать тот же отчёт в PDF; без `semester_id` используется открытый семестр |
 
 ### Прочее
 
@@ -304,9 +330,9 @@ POST /api/teacher/attendance-link
     "subject_id": 1,
     "lesson_name": "Networks",
     "invite_token": "<token>",
-    "url": "http://localhost:3000/attendance/join?token=<token>",
-    "join_url": "http://localhost:3000/attendance/join?token=<token>",
-    "qr_payload": "http://localhost:3000/attendance/join?token=<token>",
+    "url": "http://localhost:3000/#/attendance/join?token=<token>",
+    "join_url": "http://localhost:3000/#/attendance/join?token=<token>",
+    "qr_payload": "http://localhost:3000/#/attendance/join?token=<token>",
     "group_ids": [1, 2],
     "roster_size": 35,
     "teacher_id": "1",
@@ -405,6 +431,7 @@ Backend (`backend/`):
 - `internal/app/service.go` — доменная логика, JWT, роли, worker pool
 - `internal/app/android.go` — посещаемость с геолокацией для Android-клиента
 - `internal/app/grades.go` — контрольные точки и оценки
+- `internal/app/semester.go` — lifecycle семестров и правила исторического чтения/записи
 - `internal/app/supervision.go` — ролевой обзор оргструктуры (staff overview)
 - `internal/app/schedule.go` — расписание студента на день
 - `internal/app/report.go` — Excel-отчёт успеваемости (excelize)

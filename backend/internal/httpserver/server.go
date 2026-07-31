@@ -71,6 +71,13 @@ func (s *Server) Start() {
 	fiberApp.Get("/api/semesters/current", s.currentSemesterHandler)
 	fiberApp.Post("/api/admin/semesters", s.createSemesterHandler)
 	fiberApp.Patch("/api/admin/semesters/:semester_id/activate", s.activateSemesterHandler)
+	fiberApp.Patch("/api/admin/semesters/:semester_id/close", s.closeSemesterHandler)
+	fiberApp.Patch("/api/admin/semesters/:semester_id/archive", s.archiveSemesterHandler)
+	fiberApp.Get("/api/admin/users", s.adminUsersListHandler)
+	fiberApp.Get("/api/admin/users/:user_id", s.adminUserGetHandler)
+	fiberApp.Post("/api/admin/users", s.adminUserCreateHandler)
+	fiberApp.Patch("/api/admin/users/:user_id", s.adminUserUpdateHandler)
+	fiberApp.Delete("/api/admin/users/:user_id", s.adminUserDeleteHandler)
 
 	fiberApp.Post("/api/teacher/attendance-link", s.teacherAttendanceLinkHandler)
 	fiberApp.Post("/api/teacher/attendance/session", s.teacherAttendanceLinkHandler)
@@ -175,7 +182,7 @@ func (s *Server) androidJSONActionHandler(c *fiber.Ctx, requestID, action string
 	}
 	if !resp.OK {
 		switch resp.Error {
-		case "invalid token", "session not found", "missing token":
+		case "invalid token", "session not found", "missing token", "account is not active":
 			return c.Status(fiber.StatusUnauthorized).JSON(resp)
 		case "forbidden: teacher role required",
 			"forbidden: student role required",
@@ -244,7 +251,7 @@ func (s *Server) uploadAvatarHandler(c *fiber.Ctx) error {
 	if !resp.OK {
 		_ = os.Remove(avatarPath)
 		switch resp.Error {
-		case "invalid token", "session not found", "missing token":
+		case "invalid token", "session not found", "missing token", "account is not active":
 			return c.Status(fiber.StatusUnauthorized).JSON(resp)
 		default:
 			return c.Status(fiber.StatusBadRequest).JSON(resp)
@@ -306,7 +313,7 @@ func (s *Server) currentSemesterHandler(c *fiber.Ctx) error {
 
 // createSemesterHandler godoc
 // @Summary Create semester
-// @Description Admin creates a semester record and may mark it current.
+// @Description Admin creates a planned semester or opens it immediately with status=open.
 // @Tags semesters
 // @Accept json
 // @Produce json
@@ -316,25 +323,29 @@ func (s *Server) currentSemesterHandler(c *fiber.Ctx) error {
 // @Failure 400 {object} app.Response
 // @Failure 401 {object} app.Response
 // @Failure 403 {object} app.Response
+// @Failure 409 {object} app.Response
 // @Router /api/admin/semesters [post]
 func (s *Server) createSemesterHandler(c *fiber.Ctx) error {
 	var body app.SemesterCreateData
+	if err := c.BodyParser(&body); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(app.Response{OK: false, Error: "Error parsing body"})
+	}
 	return s.semesterActionHandler(c, "http-create-semester", "create_semester", &body)
 }
 
 // activateSemesterHandler godoc
 // @Summary Activate semester
-// @Description Admin marks one semester as current and clears the previous one.
+// @Description Admin opens a planned semester and closes the previously open semester.
 // @Tags semesters
-// @Accept json
 // @Produce json
 // @Security BearerAuth
-// @Param request body app.SemesterIDData true "Semester payload"
+// @Param semester_id path int true "Semester ID"
 // @Success 200 {object} app.Response
 // @Failure 400 {object} app.Response
 // @Failure 401 {object} app.Response
 // @Failure 403 {object} app.Response
 // @Failure 404 {object} app.Response
+// @Failure 409 {object} app.Response
 // @Router /api/admin/semesters/{semester_id}/activate [patch]
 func (s *Server) activateSemesterHandler(c *fiber.Ctx) error {
 	semesterID, err := c.ParamsInt("semester_id")
@@ -343,6 +354,51 @@ func (s *Server) activateSemesterHandler(c *fiber.Ctx) error {
 	}
 	body := app.SemesterIDData{SemesterID: int32(semesterID)}
 	return s.semesterActionHandler(c, "http-activate-semester", "activate_semester", &body)
+}
+
+// closeSemesterHandler godoc
+// @Summary Close semester
+// @Description Admin closes the open semester. Closed semester data becomes read-only.
+// @Tags semesters
+// @Produce json
+// @Security BearerAuth
+// @Param semester_id path int true "Semester ID"
+// @Success 200 {object} app.Response
+// @Failure 400 {object} app.Response
+// @Failure 401 {object} app.Response
+// @Failure 403 {object} app.Response
+// @Failure 404 {object} app.Response
+// @Failure 409 {object} app.Response
+// @Router /api/admin/semesters/{semester_id}/close [patch]
+func (s *Server) closeSemesterHandler(c *fiber.Ctx) error {
+	return s.semesterTransitionHandler(c, "http-close-semester", "close_semester")
+}
+
+// archiveSemesterHandler godoc
+// @Summary Archive semester
+// @Description Admin archives a closed semester. Archived data remains available for historical reads.
+// @Tags semesters
+// @Produce json
+// @Security BearerAuth
+// @Param semester_id path int true "Semester ID"
+// @Success 200 {object} app.Response
+// @Failure 400 {object} app.Response
+// @Failure 401 {object} app.Response
+// @Failure 403 {object} app.Response
+// @Failure 404 {object} app.Response
+// @Failure 409 {object} app.Response
+// @Router /api/admin/semesters/{semester_id}/archive [patch]
+func (s *Server) archiveSemesterHandler(c *fiber.Ctx) error {
+	return s.semesterTransitionHandler(c, "http-archive-semester", "archive_semester")
+}
+
+func (s *Server) semesterTransitionHandler(c *fiber.Ctx, requestID, action string) error {
+	semesterID, err := c.ParamsInt("semester_id")
+	if err != nil || semesterID <= 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(app.Response{OK: false, Error: "invalid semester_id"})
+	}
+	body := app.SemesterIDData{SemesterID: int32(semesterID)}
+	return s.semesterActionHandler(c, requestID, action, &body)
 }
 
 // registerHandler godoc
@@ -541,6 +597,23 @@ func (s *Server) staffOverviewHandler(c *fiber.Ctx) error {
 	return c.JSON(resp)
 }
 
+// staffStudentsPageHandler godoc
+// @Summary List students with pagination
+// @Description Returns a role-scoped, paginated student list for staff users.
+// @Tags staff
+// @Produce json
+// @Security BearerAuth
+// @Param page query int false "Page number" default(1)
+// @Param page_size query int false "Rows per page" default(100)
+// @Param group_id query int false "Filter by group ID"
+// @Param search query string false "Search by student name or related fields"
+// @Param sort query string false "Sort field"
+// @Param order query string false "Sort order: asc or desc"
+// @Success 200 {object} app.Response
+// @Failure 400 {object} app.Response
+// @Failure 401 {object} app.Response
+// @Failure 403 {object} app.Response
+// @Router /api/staff/overview/students [get]
 func (s *Server) staffStudentsPageHandler(c *fiber.Ctx) error {
 	token := c.Get("Authorization")
 	if token == "" {
@@ -593,18 +666,50 @@ func (s *Server) loadStaffPerformanceReport(c *fiber.Ctx) (*app.PerformanceRepor
 		return nil, c.Status(fiber.StatusUnauthorized).JSON(app.Response{OK: false, Error: "missing Authorization header"})
 	}
 
-	report, resp := s.svc.StaffPerformanceReport(token)
+	semesterID, parseErr := optionalSemesterIDFromQuery(c)
+	if parseErr != nil {
+		return nil, c.Status(fiber.StatusBadRequest).JSON(app.Response{OK: false, Error: parseErr.Error()})
+	}
+
+	report, resp := s.svc.StaffPerformanceReport(token, semesterID)
 	if report == nil {
 		switch resp.Error {
 		case "forbidden: head role or higher required":
 			return nil, c.Status(fiber.StatusForbidden).JSON(resp)
-		case "invalid token", "session not found", "missing token":
+		case "invalid token", "session not found", "missing token", "account is not active":
 			return nil, c.Status(fiber.StatusUnauthorized).JSON(resp)
+		case "semester not found", "open semester not found":
+			return nil, c.Status(fiber.StatusNotFound).JSON(resp)
 		default:
 			return nil, c.Status(fiber.StatusInternalServerError).JSON(resp)
 		}
 	}
 	return report, nil
+}
+
+func optionalSemesterIDFromQuery(c *fiber.Ctx) (*int32, error) {
+	rawSemesterID := strings.TrimSpace(c.Query("semester_id"))
+	if rawSemesterID == "" {
+		return nil, nil
+	}
+	parsed, err := strconv.ParseInt(rawSemesterID, 10, 32)
+	if err != nil || parsed <= 0 {
+		return nil, fmt.Errorf("invalid semester_id")
+	}
+	value := int32(parsed)
+	return &value, nil
+}
+
+func semesterSelectionRequest(c *fiber.Ctx, requestID, action, token string) (app.Request, error) {
+	semesterID, err := optionalSemesterIDFromQuery(c)
+	if err != nil {
+		return app.Request{}, err
+	}
+	data, err := json.Marshal(app.SemesterSelectionData{SemesterID: semesterID})
+	if err != nil {
+		return app.Request{}, err
+	}
+	return app.Request{ID: requestID, Action: action, Token: token, Data: data}, nil
 }
 
 // staffPerformanceReportHandler godoc
@@ -613,6 +718,7 @@ func (s *Server) loadStaffPerformanceReport(c *fiber.Ctx) (*app.PerformanceRepor
 // @Tags staff
 // @Produce application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
 // @Security BearerAuth
+// @Param semester_id query int false "Semester ID; defaults to the open semester"
 // @Success 200 {file} file "Excel workbook"
 // @Failure 401 {object} app.Response
 // @Failure 403 {object} app.Response
@@ -629,7 +735,7 @@ func (s *Server) staffPerformanceReportHandler(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(app.Response{OK: false, Error: "failed to build report file"})
 	}
 
-	filename := "performance_" + report.GeneratedAt.Format("2006-01-02") + ".xlsx"
+	filename := fmt.Sprintf("performance_semester_%d_%s.xlsx", report.SemesterID, report.GeneratedAt.Format("2006-01-02"))
 	c.Set(fiber.HeaderContentType, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 	c.Set(fiber.HeaderContentDisposition, `attachment; filename="`+filename+`"`)
 	return c.Send(buf.Bytes())
@@ -641,6 +747,7 @@ func (s *Server) staffPerformanceReportHandler(c *fiber.Ctx) error {
 // @Tags staff
 // @Produce application/pdf
 // @Security BearerAuth
+// @Param semester_id query int false "Semester ID; defaults to the open semester"
 // @Success 200 {file} file "PDF document"
 // @Failure 401 {object} app.Response
 // @Failure 403 {object} app.Response
@@ -657,7 +764,7 @@ func (s *Server) staffPerformanceReportPDFHandler(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(app.Response{OK: false, Error: "failed to build report file"})
 	}
 
-	filename := "performance_" + report.GeneratedAt.Format("2006-01-02") + ".pdf"
+	filename := fmt.Sprintf("performance_semester_%d_%s.pdf", report.SemesterID, report.GeneratedAt.Format("2006-01-02"))
 	c.Set(fiber.HeaderContentType, "application/pdf")
 	c.Set(fiber.HeaderContentDisposition, `attachment; filename="`+filename+`"`)
 	return c.Send(buf.Bytes())
@@ -709,8 +816,16 @@ func (s *Server) teacherAttendanceLinkHandler(c *fiber.Ctx) error {
 		if resp.Error == "forbidden: teacher role required" {
 			return c.Status(fiber.StatusForbidden).JSON(resp)
 		}
-		if resp.Error == "invalid token" || resp.Error == "session not found" || resp.Error == "missing token" {
+		if resp.Error == "invalid token" || resp.Error == "session not found" || resp.Error == "missing token" || resp.Error == "account is not active" {
 			return c.Status(fiber.StatusUnauthorized).JSON(resp)
+		}
+		if resp.Error == "semester is not open for changes" ||
+			resp.Error == "semester has not started" ||
+			resp.Error == "semester has ended" {
+			return c.Status(fiber.StatusConflict).JSON(resp)
+		}
+		if resp.Error == "semester not found" || resp.Error == "open semester not found" {
+			return c.Status(fiber.StatusNotFound).JSON(resp)
 		}
 		return c.Status(fiber.StatusBadRequest).JSON(resp)
 	}
@@ -767,7 +882,7 @@ func (s *Server) studentAttendanceConfirmHandler(c *fiber.Ctx) error {
 		if resp.Error == "forbidden: student is not in session roster" {
 			return c.Status(fiber.StatusForbidden).JSON(resp)
 		}
-		if resp.Error == "invalid token" || resp.Error == "session not found" || resp.Error == "missing token" {
+		if resp.Error == "invalid token" || resp.Error == "session not found" || resp.Error == "missing token" || resp.Error == "account is not active" {
 			return c.Status(fiber.StatusUnauthorized).JSON(resp)
 		}
 		if resp.Error == "attendance already confirmed" {
@@ -824,7 +939,7 @@ func (s *Server) teacherAttendanceByGroupHandler(c *fiber.Ctx) error {
 		if resp.Error == "forbidden: teacher role required" {
 			return c.Status(fiber.StatusForbidden).JSON(resp)
 		}
-		if resp.Error == "invalid token" || resp.Error == "session not found" || resp.Error == "missing token" {
+		if resp.Error == "invalid token" || resp.Error == "session not found" || resp.Error == "missing token" || resp.Error == "account is not active" {
 			return c.Status(fiber.StatusUnauthorized).JSON(resp)
 		}
 		return c.Status(fiber.StatusBadRequest).JSON(resp)
@@ -945,7 +1060,7 @@ func (s *Server) teacherAttendanceReadHandler(c *fiber.Ctx, requestID, action st
 		if resp.Error == "forbidden: teacher role required" || resp.Error == "forbidden: lesson belongs to another teacher" {
 			return c.Status(fiber.StatusForbidden).JSON(resp)
 		}
-		if resp.Error == "invalid token" || resp.Error == "session not found" || resp.Error == "missing token" {
+		if resp.Error == "invalid token" || resp.Error == "session not found" || resp.Error == "missing token" || resp.Error == "account is not active" {
 			return c.Status(fiber.StatusUnauthorized).JSON(resp)
 		}
 		return c.Status(fiber.StatusBadRequest).JSON(resp)
@@ -998,7 +1113,7 @@ func (s *Server) teacherAttendanceMarkHandler(c *fiber.Ctx) error {
 		if resp.Error == "forbidden: teacher role required" || resp.Error == "forbidden: lesson belongs to another teacher" {
 			return c.Status(fiber.StatusForbidden).JSON(resp)
 		}
-		if resp.Error == "invalid token" || resp.Error == "session not found" || resp.Error == "missing token" {
+		if resp.Error == "invalid token" || resp.Error == "session not found" || resp.Error == "missing token" || resp.Error == "account is not active" {
 			return c.Status(fiber.StatusUnauthorized).JSON(resp)
 		}
 		if resp.Error == "student not found in this session's roster" {
@@ -1092,7 +1207,7 @@ func (s *Server) studentAttendanceHistoryHandler(c *fiber.Ctx) error {
 		if resp.Error == "forbidden: student role required" {
 			return c.Status(fiber.StatusForbidden).JSON(resp)
 		}
-		if resp.Error == "invalid token" || resp.Error == "session not found" || resp.Error == "missing token" {
+		if resp.Error == "invalid token" || resp.Error == "session not found" || resp.Error == "missing token" || resp.Error == "account is not active" {
 			return c.Status(fiber.StatusUnauthorized).JSON(resp)
 		}
 		return c.Status(fiber.StatusBadRequest).JSON(resp)
@@ -1199,6 +1314,22 @@ func (s *Server) teacherUpsertGradeHandler(c *fiber.Ctx) error {
 	return s.gradeActionHandler(c, "http-teacher-upsert-grade", "teacher_upsert_grade", &body)
 }
 
+// teacherDeleteGradeHandler godoc
+// @Summary Delete student grade
+// @Description Soft-deletes a grade in the open semester. An optional reason can be sent in the request body.
+// @Tags grades
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param grade_id path int true "Grade ID"
+// @Param request body app.GradeDeleteData false "Optional deletion reason; grade_id from the path takes precedence"
+// @Success 200 {object} app.Response
+// @Failure 400 {object} app.Response
+// @Failure 401 {object} app.Response
+// @Failure 403 {object} app.Response
+// @Failure 404 {object} app.Response
+// @Failure 409 {object} app.Response
+// @Router /api/teacher/grades/{grade_id} [delete]
 func (s *Server) teacherDeleteGradeHandler(c *fiber.Ctx) error {
 	gradeID, err := c.ParamsInt("grade_id")
 	if err != nil || gradeID <= 0 {
@@ -1208,6 +1339,20 @@ func (s *Server) teacherDeleteGradeHandler(c *fiber.Ctx) error {
 	return s.gradeDeleteActionHandler(c, "http-teacher-delete-grade", "teacher_delete_grade", &body, int32(gradeID))
 }
 
+// teacherRestoreGradeHandler godoc
+// @Summary Restore student grade
+// @Description Restores a soft-deleted grade in the open semester.
+// @Tags grades
+// @Produce json
+// @Security BearerAuth
+// @Param grade_id path int true "Grade ID"
+// @Success 200 {object} app.Response
+// @Failure 400 {object} app.Response
+// @Failure 401 {object} app.Response
+// @Failure 403 {object} app.Response
+// @Failure 404 {object} app.Response
+// @Failure 409 {object} app.Response
+// @Router /api/teacher/grades/{grade_id}/restore [post]
 func (s *Server) teacherRestoreGradeHandler(c *fiber.Ctx) error {
 	gradeID, err := c.ParamsInt("grade_id")
 	if err != nil || gradeID <= 0 {
@@ -1217,6 +1362,22 @@ func (s *Server) teacherRestoreGradeHandler(c *fiber.Ctx) error {
 	return s.gradeDeleteActionHandler(c, "http-teacher-restore-grade", "teacher_restore_grade", &body, int32(gradeID))
 }
 
+// teacherDeleteGradeItemHandler godoc
+// @Summary Delete grade item
+// @Description Soft-deletes a grade item in the open semester. Set cascade=true to also delete its active grades.
+// @Tags grades
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param item_id path int true "Grade item ID"
+// @Param request body app.GradeItemDeleteData false "Deletion options; item_id from the path takes precedence"
+// @Success 200 {object} app.Response
+// @Failure 400 {object} app.Response
+// @Failure 401 {object} app.Response
+// @Failure 403 {object} app.Response
+// @Failure 404 {object} app.Response
+// @Failure 409 {object} app.Response
+// @Router /api/teacher/grades/items/{item_id} [delete]
 func (s *Server) teacherDeleteGradeItemHandler(c *fiber.Ctx) error {
 	itemID, err := c.ParamsInt("item_id")
 	if err != nil || itemID <= 0 {
@@ -1226,6 +1387,20 @@ func (s *Server) teacherDeleteGradeItemHandler(c *fiber.Ctx) error {
 	return s.gradeDeleteActionHandler(c, "http-teacher-delete-grade-item", "teacher_delete_grade_item", &body, int32(itemID))
 }
 
+// teacherRestoreGradeItemHandler godoc
+// @Summary Restore grade item
+// @Description Restores a soft-deleted grade item and its cascade-deleted grades in the open semester.
+// @Tags grades
+// @Produce json
+// @Security BearerAuth
+// @Param item_id path int true "Grade item ID"
+// @Success 200 {object} app.Response
+// @Failure 400 {object} app.Response
+// @Failure 401 {object} app.Response
+// @Failure 403 {object} app.Response
+// @Failure 404 {object} app.Response
+// @Failure 409 {object} app.Response
+// @Router /api/teacher/grades/items/{item_id}/restore [post]
 func (s *Server) teacherRestoreGradeItemHandler(c *fiber.Ctx) error {
 	itemID, err := c.ParamsInt("item_id")
 	if err != nil || itemID <= 0 {
@@ -1274,11 +1449,12 @@ func (s *Server) studentGradesBySubjectHandler(c *fiber.Ctx) error {
 }
 
 // studentPerformanceRadarHandler godoc
-// @Summary Get current student performance radar
-// @Description Returns one point per subject (from the student's group schedule) with the score/percent the student earned on graded-so-far work this semester.
+// @Summary Get student performance radar
+// @Description Returns one point per subject for the selected semester. Defaults to the open semester.
 // @Tags grades
 // @Produce json
 // @Security BearerAuth
+// @Param semester_id query int false "Semester ID; defaults to the open semester"
 // @Success 200 {object} app.Response
 // @Failure 401 {object} app.Response
 // @Failure 403 {object} app.Response
@@ -1290,7 +1466,10 @@ func (s *Server) studentPerformanceRadarHandler(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusUnauthorized).JSON(app.Response{OK: false, Error: "missing Authorization header"})
 	}
 
-	req := app.Request{ID: "http-student-performance-radar", Action: "student_performance_radar", Token: token}
+	req, err := semesterSelectionRequest(c, "http-student-performance-radar", "student_performance_radar", token)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(app.Response{OK: false, Error: err.Error()})
+	}
 	raw, err := json.Marshal(req)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(app.Response{OK: false, Error: "Error marshalling envelope"})
@@ -1309,10 +1488,11 @@ func (s *Server) studentPerformanceRadarHandler(c *fiber.Ctx) error {
 
 // studentAllGradesHandler godoc
 // @Summary Get all grades for the current student
-// @Description Returns every plan subject with its grade items and per-subject totals, plus an aggregate summary, in one request.
+// @Description Returns every plan subject with its grade items and totals for the selected semester. Defaults to the open semester.
 // @Tags grades
 // @Produce json
 // @Security BearerAuth
+// @Param semester_id query int false "Semester ID; defaults to the open semester"
 // @Success 200 {object} app.Response
 // @Failure 401 {object} app.Response
 // @Failure 403 {object} app.Response
@@ -1323,7 +1503,10 @@ func (s *Server) studentAllGradesHandler(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusUnauthorized).JSON(app.Response{OK: false, Error: "missing Authorization header"})
 	}
 
-	req := app.Request{ID: "http-student-all-grades", Action: "student_all_grades", Token: token}
+	req, err := semesterSelectionRequest(c, "http-student-all-grades", "student_all_grades", token)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(app.Response{OK: false, Error: err.Error()})
+	}
 	raw, err := json.Marshal(req)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(app.Response{OK: false, Error: "Error marshalling envelope"})
@@ -1397,10 +1580,6 @@ func (s *Server) semesterActionHandler(c *fiber.Ctx, requestID, action string, b
 		return c.Status(fiber.StatusUnauthorized).JSON(app.Response{OK: false, Error: "missing Authorization header"})
 	}
 
-	if err := c.BodyParser(body); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(app.Response{OK: false, Error: "Error parsing body"})
-	}
-
 	data, err := json.Marshal(body)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(app.Response{OK: false, Error: "Error marshalling request"})
@@ -1428,12 +1607,21 @@ func semesterHTTPStatus(resp app.Response) int {
 		return fiber.StatusOK
 	}
 	switch resp.Error {
-	case "missing token", "invalid token", "session not found":
+	case "missing token", "invalid token", "session not found", "account is not active":
 		return fiber.StatusUnauthorized
 	case "forbidden: admin role required":
 		return fiber.StatusForbidden
-	case "semester not found", "current semester not found":
+	case "semester not found", "open semester not found":
 		return fiber.StatusNotFound
+	case "semester already exists",
+		"semester date range overlaps an existing semester",
+		"invalid semester status transition",
+		"semester has active attendance sessions",
+		"semester is not open for changes",
+		"semester has not started",
+		"semester has ended",
+		"ended semester cannot be opened":
+		return fiber.StatusConflict
 	default:
 		return fiber.StatusBadRequest
 	}
@@ -1600,7 +1788,7 @@ func (s *Server) updateEmailHandler(c *fiber.Ctx) error {
 	}
 
 	if !resp.OK {
-		if resp.Error == "invalid token" || resp.Error == "session not found" || resp.Error == "missing token" {
+		if resp.Error == "invalid token" || resp.Error == "session not found" || resp.Error == "missing token" || resp.Error == "account is not active" {
 			return c.Status(fiber.StatusUnauthorized).JSON(resp)
 		}
 		return c.Status(fiber.StatusBadRequest).JSON(resp)

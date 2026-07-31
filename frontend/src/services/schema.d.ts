@@ -4,6 +4,325 @@
  */
 
 export interface paths {
+  "/api/admin/semesters": {
+    /** Admin creates a planned semester or opens it immediately with status=open. */
+    post: {
+      parameters: {
+        body: {
+          /** Semester payload */
+          request: definitions["app.SemesterCreateData"];
+        };
+      };
+      responses: {
+        /** OK */
+        200: {
+          schema: definitions["app.Response"];
+        };
+        /** Bad Request */
+        400: {
+          schema: definitions["app.Response"];
+        };
+        /** Unauthorized */
+        401: {
+          schema: definitions["app.Response"];
+        };
+        /** Forbidden */
+        403: {
+          schema: definitions["app.Response"];
+        };
+        /** Conflict */
+        409: {
+          schema: definitions["app.Response"];
+        };
+      };
+    };
+  };
+  "/api/admin/semesters/{semester_id}/activate": {
+    /** Admin opens a planned semester and closes the previously open semester. */
+    patch: {
+      parameters: {
+        path: {
+          /** Semester ID */
+          semester_id: number;
+        };
+      };
+      responses: {
+        /** OK */
+        200: {
+          schema: definitions["app.Response"];
+        };
+        /** Bad Request */
+        400: {
+          schema: definitions["app.Response"];
+        };
+        /** Unauthorized */
+        401: {
+          schema: definitions["app.Response"];
+        };
+        /** Forbidden */
+        403: {
+          schema: definitions["app.Response"];
+        };
+        /** Not Found */
+        404: {
+          schema: definitions["app.Response"];
+        };
+        /** Conflict */
+        409: {
+          schema: definitions["app.Response"];
+        };
+      };
+    };
+  };
+  "/api/admin/semesters/{semester_id}/archive": {
+    /** Admin archives a closed semester. Archived data remains available for historical reads. */
+    patch: {
+      parameters: {
+        path: {
+          /** Semester ID */
+          semester_id: number;
+        };
+      };
+      responses: {
+        /** OK */
+        200: {
+          schema: definitions["app.Response"];
+        };
+        /** Bad Request */
+        400: {
+          schema: definitions["app.Response"];
+        };
+        /** Unauthorized */
+        401: {
+          schema: definitions["app.Response"];
+        };
+        /** Forbidden */
+        403: {
+          schema: definitions["app.Response"];
+        };
+        /** Not Found */
+        404: {
+          schema: definitions["app.Response"];
+        };
+        /** Conflict */
+        409: {
+          schema: definitions["app.Response"];
+        };
+      };
+    };
+  };
+  "/api/admin/semesters/{semester_id}/close": {
+    /** Admin closes the open semester. Closed semester data becomes read-only. */
+    patch: {
+      parameters: {
+        path: {
+          /** Semester ID */
+          semester_id: number;
+        };
+      };
+      responses: {
+        /** OK */
+        200: {
+          schema: definitions["app.Response"];
+        };
+        /** Bad Request */
+        400: {
+          schema: definitions["app.Response"];
+        };
+        /** Unauthorized */
+        401: {
+          schema: definitions["app.Response"];
+        };
+        /** Forbidden */
+        403: {
+          schema: definitions["app.Response"];
+        };
+        /** Not Found */
+        404: {
+          schema: definitions["app.Response"];
+        };
+        /** Conflict */
+        409: {
+          schema: definitions["app.Response"];
+        };
+      };
+    };
+  };
+  "/api/admin/users": {
+    /** Returns users with pagination, search and filters. Admin only. */
+    get: {
+      parameters: {
+        query: {
+          /** Page */
+          page?: number;
+          /** Page size */
+          page_size?: number;
+          /** Search by login or email */
+          search?: string;
+          /** Role */
+          role?: string;
+          /** Status */
+          status?: string;
+        };
+      };
+      responses: {
+        /** OK */
+        200: {
+          schema: definitions["app.Response"];
+        };
+        /** Bad Request */
+        400: {
+          schema: definitions["app.Response"];
+        };
+        /** Unauthorized */
+        401: {
+          schema: definitions["app.Response"];
+        };
+        /** Forbidden */
+        403: {
+          schema: definitions["app.Response"];
+        };
+      };
+    };
+    /** Creates a user and the required role profile in one transaction. Admin only. */
+    post: {
+      parameters: {
+        body: {
+          /** User payload */
+          request: definitions["app.AdminUserCreateData"];
+        };
+      };
+      responses: {
+        /** Created */
+        201: {
+          schema: definitions["app.Response"];
+        };
+        /** Bad Request */
+        400: {
+          schema: definitions["app.Response"];
+        };
+        /** Unauthorized */
+        401: {
+          schema: definitions["app.Response"];
+        };
+        /** Forbidden */
+        403: {
+          schema: definitions["app.Response"];
+        };
+        /** Conflict */
+        409: {
+          schema: definitions["app.Response"];
+        };
+      };
+    };
+  };
+  "/api/admin/users/{user_id}": {
+    /** Returns one user. Admin only. */
+    get: {
+      parameters: {
+        path: {
+          /** User ID */
+          user_id: number;
+        };
+      };
+      responses: {
+        /** OK */
+        200: {
+          schema: definitions["app.Response"];
+        };
+        /** Bad Request */
+        400: {
+          schema: definitions["app.Response"];
+        };
+        /** Unauthorized */
+        401: {
+          schema: definitions["app.Response"];
+        };
+        /** Forbidden */
+        403: {
+          schema: definitions["app.Response"];
+        };
+        /** Not Found */
+        404: {
+          schema: definitions["app.Response"];
+        };
+      };
+    };
+    /** Soft deletes a user by setting status=archived. Admin only. */
+    delete: {
+      parameters: {
+        path: {
+          /** User ID */
+          user_id: number;
+        };
+      };
+      responses: {
+        /** OK */
+        200: {
+          schema: definitions["app.Response"];
+        };
+        /** Bad Request */
+        400: {
+          schema: definitions["app.Response"];
+        };
+        /** Unauthorized */
+        401: {
+          schema: definitions["app.Response"];
+        };
+        /** Forbidden */
+        403: {
+          schema: definitions["app.Response"];
+        };
+        /** Not Found */
+        404: {
+          schema: definitions["app.Response"];
+        };
+        /** Conflict */
+        409: {
+          schema: definitions["app.Response"];
+        };
+      };
+    };
+    /** Updates user fields, status or role. Admin only. */
+    patch: {
+      parameters: {
+        path: {
+          /** User ID */
+          user_id: number;
+        };
+        body: {
+          /** User payload */
+          request: definitions["app.AdminUserUpdateData"];
+        };
+      };
+      responses: {
+        /** OK */
+        200: {
+          schema: definitions["app.Response"];
+        };
+        /** Bad Request */
+        400: {
+          schema: definitions["app.Response"];
+        };
+        /** Unauthorized */
+        401: {
+          schema: definitions["app.Response"];
+        };
+        /** Forbidden */
+        403: {
+          schema: definitions["app.Response"];
+        };
+        /** Not Found */
+        404: {
+          schema: definitions["app.Response"];
+        };
+        /** Conflict */
+        409: {
+          schema: definitions["app.Response"];
+        };
+      };
+    };
+  };
   "/api/auth/forgot-password": {
     /** Generates a password reset token and sends it to the user's email. */
     post: {
@@ -54,6 +373,36 @@ export interface paths {
       };
     };
   };
+  "/api/semesters": {
+    /** Returns all known semesters ordered by start date. */
+    get: {
+      responses: {
+        /** OK */
+        200: {
+          schema: definitions["app.Response"];
+        };
+        /** Bad Request */
+        400: {
+          schema: definitions["app.Response"];
+        };
+      };
+    };
+  };
+  "/api/semesters/current": {
+    /** Returns the active semester used by grade and attendance calculations. */
+    get: {
+      responses: {
+        /** OK */
+        200: {
+          schema: definitions["app.Response"];
+        };
+        /** Not Found */
+        404: {
+          schema: definitions["app.Response"];
+        };
+      };
+    };
+  };
   "/api/staff/overview": {
     /** Returns groups, teachers and students scoped to the caller's role: teacher -> own groups, head -> own lectern, dean -> own faculty, admin -> everything. */
     get: {
@@ -73,9 +422,54 @@ export interface paths {
       };
     };
   };
+  "/api/staff/overview/students": {
+    /** Returns a role-scoped, paginated student list for staff users. */
+    get: {
+      parameters: {
+        query: {
+          /** Page number */
+          page?: number;
+          /** Rows per page */
+          page_size?: number;
+          /** Filter by group ID */
+          group_id?: number;
+          /** Search by student name or related fields */
+          search?: string;
+          /** Sort field */
+          sort?: string;
+          /** Sort order: asc or desc */
+          order?: string;
+        };
+      };
+      responses: {
+        /** OK */
+        200: {
+          schema: definitions["app.Response"];
+        };
+        /** Bad Request */
+        400: {
+          schema: definitions["app.Response"];
+        };
+        /** Unauthorized */
+        401: {
+          schema: definitions["app.Response"];
+        };
+        /** Forbidden */
+        403: {
+          schema: definitions["app.Response"];
+        };
+      };
+    };
+  };
   "/api/staff/reports/performance.pdf": {
     /** Head, dean, or admin downloads a PDF performance rating report: one page (or more) for the whole scope plus one section per group, colour-coded by percent, matching the xlsx report. */
     get: {
+      parameters: {
+        query: {
+          /** Semester ID; defaults to the open semester */
+          semester_id?: number;
+        };
+      };
       responses: {
         /** PDF document */
         200: {
@@ -99,6 +493,12 @@ export interface paths {
   "/api/staff/reports/performance.xlsx": {
     /** Head, dean, or admin downloads an xlsx performance rating report: one sheet for the whole scope plus one sheet per group. Rows are students ranked by overall rating with per-subject percents and attendance. */
     get: {
+      parameters: {
+        query: {
+          /** Semester ID; defaults to the open semester */
+          semester_id?: number;
+        };
+      };
       responses: {
         /** Excel workbook */
         200: {
@@ -223,8 +623,14 @@ export interface paths {
     };
   };
   "/api/student/grades/all": {
-    /** Returns every plan subject with its grade items and per-subject totals, plus an aggregate summary, in one request. */
+    /** Returns every plan subject with its grade items and totals for the selected semester. Defaults to the open semester. */
     get: {
+      parameters: {
+        query: {
+          /** Semester ID; defaults to the open semester */
+          semester_id?: number;
+        };
+      };
       responses: {
         /** OK */
         200: {
@@ -275,8 +681,14 @@ export interface paths {
     };
   };
   "/api/student/performance/radar": {
-    /** Returns one point per subject (from the student's group schedule) with the score/percent the student earned on graded-so-far work this semester. */
+    /** Returns one point per subject for the selected semester. Defaults to the open semester. */
     get: {
+      parameters: {
+        query: {
+          /** Semester ID; defaults to the open semester */
+          semester_id?: number;
+        };
+      };
       responses: {
         /** OK */
         200: {
@@ -671,6 +1083,84 @@ export interface paths {
       };
     };
   };
+  "/api/teacher/grades/items/{item_id}": {
+    /** Soft-deletes a grade item in the open semester. Set cascade=true to also delete its active grades. */
+    delete: {
+      parameters: {
+        path: {
+          /** Grade item ID */
+          item_id: number;
+        };
+        body: {
+          /** Deletion options; item_id from the path takes precedence */
+          request?: definitions["app.GradeItemDeleteData"];
+        };
+      };
+      responses: {
+        /** OK */
+        200: {
+          schema: definitions["app.Response"];
+        };
+        /** Bad Request */
+        400: {
+          schema: definitions["app.Response"];
+        };
+        /** Unauthorized */
+        401: {
+          schema: definitions["app.Response"];
+        };
+        /** Forbidden */
+        403: {
+          schema: definitions["app.Response"];
+        };
+        /** Not Found */
+        404: {
+          schema: definitions["app.Response"];
+        };
+        /** Conflict */
+        409: {
+          schema: definitions["app.Response"];
+        };
+      };
+    };
+  };
+  "/api/teacher/grades/items/{item_id}/restore": {
+    /** Restores a soft-deleted grade item and its cascade-deleted grades in the open semester. */
+    post: {
+      parameters: {
+        path: {
+          /** Grade item ID */
+          item_id: number;
+        };
+      };
+      responses: {
+        /** OK */
+        200: {
+          schema: definitions["app.Response"];
+        };
+        /** Bad Request */
+        400: {
+          schema: definitions["app.Response"];
+        };
+        /** Unauthorized */
+        401: {
+          schema: definitions["app.Response"];
+        };
+        /** Forbidden */
+        403: {
+          schema: definitions["app.Response"];
+        };
+        /** Not Found */
+        404: {
+          schema: definitions["app.Response"];
+        };
+        /** Conflict */
+        409: {
+          schema: definitions["app.Response"];
+        };
+      };
+    };
+  };
   "/api/teacher/grades/student": {
     /** Teacher gets a student's grade sheet for an assigned subject. */
     post: {
@@ -699,6 +1189,84 @@ export interface paths {
         };
         /** Not Found */
         404: {
+          schema: definitions["app.Response"];
+        };
+      };
+    };
+  };
+  "/api/teacher/grades/{grade_id}": {
+    /** Soft-deletes a grade in the open semester. An optional reason can be sent in the request body. */
+    delete: {
+      parameters: {
+        path: {
+          /** Grade ID */
+          grade_id: number;
+        };
+        body: {
+          /** Optional deletion reason; grade_id from the path takes precedence */
+          request?: definitions["app.GradeDeleteData"];
+        };
+      };
+      responses: {
+        /** OK */
+        200: {
+          schema: definitions["app.Response"];
+        };
+        /** Bad Request */
+        400: {
+          schema: definitions["app.Response"];
+        };
+        /** Unauthorized */
+        401: {
+          schema: definitions["app.Response"];
+        };
+        /** Forbidden */
+        403: {
+          schema: definitions["app.Response"];
+        };
+        /** Not Found */
+        404: {
+          schema: definitions["app.Response"];
+        };
+        /** Conflict */
+        409: {
+          schema: definitions["app.Response"];
+        };
+      };
+    };
+  };
+  "/api/teacher/grades/{grade_id}/restore": {
+    /** Restores a soft-deleted grade in the open semester. */
+    post: {
+      parameters: {
+        path: {
+          /** Grade ID */
+          grade_id: number;
+        };
+      };
+      responses: {
+        /** OK */
+        200: {
+          schema: definitions["app.Response"];
+        };
+        /** Bad Request */
+        400: {
+          schema: definitions["app.Response"];
+        };
+        /** Unauthorized */
+        401: {
+          schema: definitions["app.Response"];
+        };
+        /** Forbidden */
+        403: {
+          schema: definitions["app.Response"];
+        };
+        /** Not Found */
+        404: {
+          schema: definitions["app.Response"];
+        };
+        /** Conflict */
+        409: {
           schema: definitions["app.Response"];
         };
       };
@@ -793,6 +1361,69 @@ export interface paths {
       };
     };
   };
+  "/api/user/2fa/disable": {
+    /** Disables 2FA and removes the stored TOTP secret for the current user. */
+    post: {
+      responses: {
+        /** OK */
+        200: {
+          schema: definitions["app.Response"];
+        };
+        /** Bad Request */
+        400: {
+          schema: definitions["app.Response"];
+        };
+        /** Unauthorized */
+        401: {
+          schema: definitions["app.Response"];
+        };
+      };
+    };
+  };
+  "/api/user/2fa/generate": {
+    /** Generates a TOTP secret and QR code for the current user. */
+    get: {
+      responses: {
+        /** OK */
+        200: {
+          schema: definitions["app.Response"];
+        };
+        /** Bad Request */
+        400: {
+          schema: definitions["app.Response"];
+        };
+        /** Unauthorized */
+        401: {
+          schema: definitions["app.Response"];
+        };
+      };
+    };
+  };
+  "/api/user/2fa/verify": {
+    /** Verifies a TOTP code and enables 2FA for the current user. */
+    post: {
+      parameters: {
+        body: {
+          /** TOTP code */
+          request: definitions["app.TwoFaCodeData"];
+        };
+      };
+      responses: {
+        /** OK */
+        200: {
+          schema: definitions["app.Response"];
+        };
+        /** Bad Request */
+        400: {
+          schema: definitions["app.Response"];
+        };
+        /** Unauthorized */
+        401: {
+          schema: definitions["app.Response"];
+        };
+      };
+    };
+  };
   "/api/user/email": {
     /** Links/updates email for current user. */
     post: {
@@ -817,6 +1448,56 @@ export interface paths {
         };
         /** Internal Server Error */
         500: {
+          schema: definitions["app.Response"];
+        };
+      };
+    };
+  };
+  "/api/user/email/bind/confirm": {
+    /** Confirms the email address using the code sent to the user. */
+    post: {
+      parameters: {
+        body: {
+          /** Confirmation code */
+          request: definitions["app.ConfirmEmailData"];
+        };
+      };
+      responses: {
+        /** OK */
+        200: {
+          schema: definitions["app.Response"];
+        };
+        /** Bad Request */
+        400: {
+          schema: definitions["app.Response"];
+        };
+        /** Unauthorized */
+        401: {
+          schema: definitions["app.Response"];
+        };
+      };
+    };
+  };
+  "/api/user/email/bind/request": {
+    /** Sends a confirmation code to the requested email address. */
+    post: {
+      parameters: {
+        body: {
+          /** Email address */
+          request: definitions["app.RequestEmailData"];
+        };
+      };
+      responses: {
+        /** OK */
+        200: {
+          schema: definitions["app.Response"];
+        };
+        /** Bad Request */
+        400: {
+          schema: definitions["app.Response"];
+        };
+        /** Unauthorized */
+        401: {
           schema: definitions["app.Response"];
         };
       };
@@ -977,6 +1658,29 @@ export interface paths {
 }
 
 export interface definitions {
+  "app.AdminUserCreateData": {
+    email?: string;
+    faculty_id?: number;
+    full_name?: string;
+    group_id?: number;
+    job_title?: string;
+    lectern_id?: number;
+    login?: string;
+    password?: string;
+    role?: string;
+  };
+  "app.AdminUserUpdateData": {
+    email?: string;
+    faculty_id?: number;
+    lectern_id?: number;
+    login?: string;
+    password?: string;
+    role?: string;
+    status?: string;
+    student_id?: number;
+    teacher_id?: number;
+    user_id?: number;
+  };
   "app.AndroidAttendanceMarkData": {
     device_id?: string;
     invite_token?: string;
@@ -1000,19 +1704,34 @@ export interface definitions {
   };
   "app.AttendanceGroupStatsData": {
     group_id?: number;
+    semester_id?: number;
     subject_id?: number;
+  };
+  "app.ConfirmEmailData": {
+    code?: string;
   };
   "app.ForgotPasswordData": {
     identity?: string;
+  };
+  "app.GradeDeleteData": {
+    grade_id?: number;
+    reason?: string;
   };
   "app.GradeItemCreateData": {
     deadline?: string;
     item_type?: string;
     max_score?: number;
+    semester_id?: number;
     subject_id?: number;
     title?: string;
   };
+  "app.GradeItemDeleteData": {
+    cascade?: boolean;
+    item_id?: number;
+    reason?: string;
+  };
   "app.GradeSubjectData": {
+    semester_id?: number;
     subject_id?: number;
   };
   "app.GradeUpsertData": {
@@ -1024,11 +1743,13 @@ export interface definitions {
   };
   "app.GroupPerformanceData": {
     group_id?: number;
+    semester_id?: number;
     subject_id?: number;
   };
   "app.LoginData": {
     login?: string;
     password?: string;
+    two_fa_code?: string;
   };
   "app.RegisterByInviteData": {
     invite_code?: string;
@@ -1042,6 +1763,9 @@ export interface definitions {
     role?: string;
     role_hash?: string;
   };
+  "app.RequestEmailData": {
+    email?: string;
+  };
   "app.ResetPasswordData": {
     new_password?: string;
     token?: string;
@@ -1052,21 +1776,36 @@ export interface definitions {
     ok?: boolean;
     result?: unknown;
   };
+  "app.SemesterCreateData": {
+    academic_year?: string;
+    ends_at?: string;
+    is_current?: boolean;
+    name?: string;
+    starts_at?: string;
+    status?: string;
+    term_num?: number;
+  };
   "app.TeacherAttendanceMarkData": {
     lesson_id?: number;
     status?: string;
     student_id?: number;
   };
   "app.TeacherAttendanceStudentHistoryData": {
+    semester_id?: number;
     student_id?: number;
     subject_id?: number;
   };
   "app.TeacherStudentGradesData": {
+    semester_id?: number;
     student_id?: number;
     subject_id?: number;
   };
   "app.TeacherStudentRadarData": {
+    semester_id?: number;
     student_id?: number;
+  };
+  "app.TwoFaCodeData": {
+    code?: string;
   };
   "app.UpdateEmailData": {
     email?: string;
@@ -1354,13 +2093,13 @@ export interface definitions {
     group_ids?: number[];
     /** @example <attendance_invite_jwt> */
     invite_token?: string;
-    /** @example http://localhost:3000/attendance/join?token=<attendance_invite_jwt> */
+    /** @example http://localhost:3000/#/attendance/join?token=<attendance_invite_jwt> */
     join_url?: string;
     /** @example 5 */
     lesson_id?: string;
     /** @example Networks */
     lesson_name?: string;
-    /** @example http://localhost:3000/attendance/join?token=<attendance_invite_jwt> */
+    /** @example http://localhost:3000/#/attendance/join?token=<attendance_invite_jwt> */
     qr_payload?: string;
     /** @example 25 */
     roster_size?: number;
@@ -1374,7 +2113,7 @@ export interface definitions {
     teacher_id?: string;
     /** @example Asia/Novosibirsk */
     timezone?: string;
-    /** @example http://localhost:3000/attendance/join?token=<attendance_invite_jwt> */
+    /** @example http://localhost:3000/#/attendance/join?token=<attendance_invite_jwt> */
     url?: string;
   };
   "httpserver.teacherAttendanceMarkedCountResponse": {

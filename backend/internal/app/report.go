@@ -38,7 +38,7 @@ type PerformanceReport struct {
 	GroupNames   []string
 }
 
-func (s *Service) StaffPerformanceReport(sessionToken string) (*PerformanceReport, Response) {
+func (s *Service) StaffPerformanceReport(sessionToken string, semesterID *int32) (*PerformanceReport, Response) {
 	user, err := s.userBySessionToken(sessionToken)
 	if err != nil {
 		return nil, Response{OK: false, Error: err.Error()}
@@ -55,9 +55,9 @@ func (s *Service) StaffPerformanceReport(sessionToken string) (*PerformanceRepor
 		return nil, Response{OK: false, Error: "failed to resolve scope"}
 	}
 
-	semester, err := s.currentSemester(ctx)
+	semester, err := s.semesterForOptionalID(ctx, semesterID)
 	if err != nil {
-		return nil, Response{OK: false, Error: "failed to resolve current semester"}
+		return nil, Response{OK: false, Error: err.Error()}
 	}
 
 	studentPred, studentArgs := scopeStudentPredicate(scope, "st")
@@ -109,7 +109,7 @@ func (s *Service) StaffPerformanceReport(sessionToken string) (*PerformanceRepor
 		student_subjects AS (
 		    SELECT DISTINCT ss.student_id, sch.subject_id
 		    FROM scoped_students ss
-		    JOIN schedules sch ON sch.group_id = ss.group_id
+			    JOIN schedules sch ON sch.group_id = ss.group_id AND sch.semester_id = $1
 		)
 		SELECT stsub.student_id,
 		       sub.subject_id,
@@ -118,7 +118,9 @@ func (s *Service) StaffPerformanceReport(sessionToken string) (*PerformanceRepor
 		       COALESCE(SUM(gi.max_score) FILTER (WHERE gi.deadline < now()), 0)::float8
 		FROM student_subjects stsub
 		JOIN subjects sub ON sub.subject_id = stsub.subject_id
-		LEFT JOIN grade_items gi ON gi.subject_id = sub.subject_id AND gi.semester_id = $1
+			LEFT JOIN grade_items gi ON gi.subject_id = sub.subject_id
+			                        AND gi.semester_id = $1
+			                        AND gi.deleted_at IS NULL
 		LEFT JOIN grades g ON g.item_id = gi.item_id AND g.student_id = stsub.student_id AND g.deleted_at IS NULL
 		GROUP BY stsub.student_id, sub.subject_id, sub.name`, append([]any{semester.ID}, studentArgs...)...)
 	if err != nil {
@@ -200,6 +202,12 @@ func sanitizeSheetName(name string) string {
 func BuildPerformanceReportXLSX(report *PerformanceReport) (*bytes.Buffer, error) {
 	f := excelize.NewFile()
 	defer f.Close()
+	if err := f.SetDocProps(&excelize.DocProperties{
+		Title:   "Отчёт успеваемости — " + report.SemesterName,
+		Subject: report.Label,
+	}); err != nil {
+		return nil, err
+	}
 
 	const streamSheet = "Поток"
 	if err := f.SetSheetName("Sheet1", streamSheet); err != nil {
@@ -487,7 +495,7 @@ func BuildPerformanceReportPDF(report *PerformanceReport) (*bytes.Buffer, error)
 		}
 	}
 
-	writeSection("Поток — "+report.Label, report.Rows)
+	writeSection("Поток — "+report.Label+" — "+report.SemesterName, report.Rows)
 	for _, groupName := range report.GroupNames {
 		var groupRows []PerformanceReportRow
 		for _, row := range report.Rows {
@@ -495,7 +503,7 @@ func BuildPerformanceReportPDF(report *PerformanceReport) (*bytes.Buffer, error)
 				groupRows = append(groupRows, row)
 			}
 		}
-		writeSection("Группа "+groupName, groupRows)
+		writeSection("Группа "+groupName+" — "+report.SemesterName, groupRows)
 	}
 
 	buf := new(bytes.Buffer)

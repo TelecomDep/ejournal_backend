@@ -8,15 +8,18 @@ import (
 	"github.com/TelecomDep/ejournal_backend/internal/db"
 )
 
-// updateAutoAttendanceGrades recalculates the attendance_auto grade for a specific student or all students in a subject.
-func (s *Service) updateAutoAttendanceGrades(ctx context.Context, subjectID int32, studentID *int32, teacherID int32) error {
-	semester, err := s.currentSemester(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to resolve current semester: %w", err)
+// updateAutoAttendanceGrades recalculates attendance points within one semester.
+func (s *Service) updateAutoAttendanceGrades(
+	ctx context.Context,
+	subjectID, semesterID int32,
+	studentID *int32,
+	teacherID int32,
+) error {
+	if semesterID <= 0 {
+		return fmt.Errorf("semester id is required")
 	}
 
-	// 1. Find the attendance_auto grade item for this subject
-	items, err := s.store.Grades.GetGradeItemsBySubject(ctx, subjectID, semester.ID)
+	items, err := s.store.Grades.GetGradeItemsBySubject(ctx, subjectID, semesterID)
 	if err != nil {
 		return fmt.Errorf("failed to get grade items: %w", err)
 	}
@@ -36,21 +39,19 @@ func (s *Service) updateAutoAttendanceGrades(ctx context.Context, subjectID int3
 		return nil
 	}
 
-	// 2. Fetch the students to update
 	var targetStudentIDs []int32
 	if studentID != nil {
 		targetStudentIDs = append(targetStudentIDs, *studentID)
 	} else {
-		// If studentID is nil, we need to find all students who have a schedule for this subject
-		// or all students who have attendance history for this subject.
-		// A simple way is to use the store.Pool to get distinct students from attendance_sessions.
 		rows, err := s.store.Pool().Query(
 			ctx,
-			`SELECT DISTINCT ass.student_id 
+			`SELECT DISTINCT ass.student_id
 			 FROM attendance_session_students ass
 			 INNER JOIN attendance_sessions sess ON sess.session_id = ass.session_id
-			 WHERE sess.subject_id = $1`,
+			 WHERE sess.subject_id = $1
+			   AND sess.semester_id = $2`,
 			subjectID,
+			semesterID,
 		)
 		if err != nil {
 			return fmt.Errorf("failed to query students for subject attendance: %w", err)
@@ -59,15 +60,30 @@ func (s *Service) updateAutoAttendanceGrades(ctx context.Context, subjectID int3
 
 		for rows.Next() {
 			var sid int32
-			if err := rows.Scan(&sid); err == nil {
-				targetStudentIDs = append(targetStudentIDs, sid)
+			if err := rows.Scan(&sid); err != nil {
+				return fmt.Errorf("scan student for attendance grade: %w", err)
 			}
+			targetStudentIDs = append(targetStudentIDs, sid)
+		}
+		if err := rows.Err(); err != nil {
+			return fmt.Errorf("iterate students for attendance grade: %w", err)
 		}
 	}
 
-	// 3. For each student, calculate attendance and upsert the grade
+	var actorUserID int32
+	err = s.store.Pool().QueryRow(
+		ctx,
+		`SELECT COALESCE(user_id, teacher_id)
+		 FROM teachers
+		 WHERE teacher_id = $1`,
+		teacherID,
+	).Scan(&actorUserID)
+	if err != nil {
+		return fmt.Errorf("resolve attendance grade actor: %w", err)
+	}
+
 	for _, sid := range targetStudentIDs {
-		history, err := s.store.Attendance.GetStudentSubjectAttendanceHistory(ctx, sid, subjectID, semester.ID)
+		history, err := s.store.Attendance.GetStudentSubjectAttendanceHistory(ctx, sid, subjectID, semesterID)
 		if err != nil {
 			continue // Skip on error
 		}
@@ -84,23 +100,20 @@ func (s *Service) updateAutoAttendanceGrades(ctx context.Context, subjectID int3
 			}
 		}
 
-		// Calculate score, ceiling it in favor of the student
 		ratio := float64(attended) / float64(totalSessions)
 		score := int32(math.Ceil(ratio * float64(autoItem.MaxScore)))
 
-		// Ensure it doesn't exceed max_score
 		if score > autoItem.MaxScore {
 			score = autoItem.MaxScore
 		}
 
-		// Upsert grade
 		_, err = s.store.Grades.UpsertGrade(ctx, db.Grade{
 			StudentID: sid,
 			ItemID:    autoItem.ID,
 			TeacherID: &teacherID,
 			Score:     score,
 			Comment:   func(s string) *string { return &s }("Автоматическая оценка за посещаемость"),
-		}, teacherID) // We pass teacherID as the actor user ID as well
+		}, actorUserID)
 		if err != nil {
 			fmt.Printf("Failed to upsert auto attendance grade for student %d: %v\n", sid, err)
 		}

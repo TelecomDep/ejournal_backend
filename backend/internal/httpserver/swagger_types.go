@@ -87,9 +87,9 @@ type teacherAttendanceLinkResult struct {
 	SubjectID      int32   `json:"subject_id" example:"2"`
 	LessonName     string  `json:"lesson_name" example:"Networks"`
 	InviteToken    string  `json:"invite_token" example:"<attendance_invite_jwt>"`
-	URL            string  `json:"url" example:"http://localhost:3000/attendance/join?token=<attendance_invite_jwt>"`
-	JoinURL        string  `json:"join_url" example:"http://localhost:3000/attendance/join?token=<attendance_invite_jwt>"`
-	QRPayload      string  `json:"qr_payload" example:"http://localhost:3000/attendance/join?token=<attendance_invite_jwt>"`
+	URL            string  `json:"url" example:"http://localhost:3000/#/attendance/join?token=<attendance_invite_jwt>"`
+	JoinURL        string  `json:"join_url" example:"http://localhost:3000/#/attendance/join?token=<attendance_invite_jwt>"`
+	QRPayload      string  `json:"qr_payload" example:"http://localhost:3000/#/attendance/join?token=<attendance_invite_jwt>"`
 	GroupIDs       []int32 `json:"group_ids"`
 	RosterSize     int32   `json:"roster_size" example:"25"`
 	TeacherID      string  `json:"teacher_id" example:"3"`

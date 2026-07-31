@@ -412,6 +412,9 @@ func (s *Service) userBySessionToken(token string) (User, error) {
 	if !ok {
 		return User{}, errors.New("session not found")
 	}
+	if dbUser.Status != "active" {
+		return User{}, errors.New("account is not active")
+	}
 
 	var emailStr string
 	if dbUser.Email != nil {
@@ -479,6 +482,9 @@ func (s *Service) nearestLessonForTeacher(ctx context.Context, teacherID int32, 
 			   AND s.day_idx = $2
 			   AND COALESCE(s.week_type, $3) = $3
 			   AND ($4::time IS NULL OR lt.end_time >= $4::time)
+			   AND s.semester_id = (
+			       SELECT semester_id FROM semesters WHERE status = 'open' LIMIT 1
+			   )
 			 GROUP BY s.subject_id, s.lesson_num, lt.start_time, lt.end_time
 			 ORDER BY
 			     CASE
@@ -931,6 +937,9 @@ func (s *Service) login(data LoginData) Response {
 	if !ok {
 		return Response{OK: false, Error: "user does not exist"}
 	}
+	if storedUser.Status != "active" {
+		return Response{OK: false, Error: "account is not active"}
+	}
 
 	if !s.passwordMatches(ctx, storedUser.PasswordHash, password) {
 		return Response{OK: false, Error: "wrong password"}
@@ -982,6 +991,10 @@ func (s *Service) passwordMatches(ctx context.Context, storedHash, password stri
 		storedHash,
 	).Scan(&matches)
 	return err == nil && matches
+}
+
+func buildAttendanceJoinURL(siteBaseURL, inviteToken string) string {
+	return fmt.Sprintf("%s/#/attendance/join?token=%s", strings.TrimRight(siteBaseURL, "/"), inviteToken)
 }
 
 func (s *Service) createAttendanceLinkByTeacher(sessionToken string, data AttendanceCreateData) Response {
@@ -1063,7 +1076,7 @@ func (s *Service) createAttendanceLinkByTeacher(sessionToken string, data Attend
 		}
 	}
 
-	semester, err := s.semesterForOptionalID(ctx, data.SemesterID)
+	semester, err := s.semesterForWrite(ctx, data.SemesterID)
 	if err != nil {
 		return Response{OK: false, Error: err.Error()}
 	}
@@ -1082,7 +1095,7 @@ func (s *Service) createAttendanceLinkByTeacher(sessionToken string, data Attend
 		return Response{OK: false, Error: "failed to generate invite token"}
 	}
 
-	joinURL := fmt.Sprintf("%s/attendance/join?token=%s", strings.TrimRight(s.siteBaseURL, "/"), inviteToken)
+	joinURL := buildAttendanceJoinURL(s.siteBaseURL, inviteToken)
 	lessonName := strings.TrimSpace(data.LessonName)
 	if lessonName == "" {
 		lessonName = subject.Name
@@ -1175,7 +1188,7 @@ func (s *Service) confirmAttendanceByStudent(sessionToken string, data Attendanc
 	}
 
 	// Recalculate auto attendance grades
-	_ = s.updateAutoAttendanceGrades(ctx, session.SubjectID, &studentProfile.ID, session.TeacherID)
+	_ = s.updateAutoAttendanceGrades(ctx, session.SubjectID, session.SemesterID, &studentProfile.ID, session.TeacherID)
 
 	return Response{
 		OK: true,
@@ -1299,10 +1312,6 @@ func (s *Service) groupPerformanceForTeacher(sessionToken string, data GroupPerf
 	ctx, cancel := s.dbContext()
 	defer cancel()
 
-	if resp := s.ensureTeacherSubjectAccess(ctx, teacherProfile.ID, data.SubjectID); !resp.OK {
-		return resp
-	}
-
 	group, found, err := s.store.Groups.GetByID(ctx, data.GroupID)
 	if err != nil {
 		return Response{OK: false, Error: "failed to load group"}
@@ -1321,6 +1330,9 @@ func (s *Service) groupPerformanceForTeacher(sessionToken string, data GroupPerf
 	semester, err := s.semesterForOptionalID(ctx, data.SemesterID)
 	if err != nil {
 		return Response{OK: false, Error: err.Error()}
+	}
+	if resp := s.ensureTeacherSubjectAccess(ctx, teacherProfile.ID, data.SubjectID, semester.ID); !resp.OK {
+		return resp
 	}
 
 	rows, err := s.store.Attendance.GetGroupSubjectPerformance(ctx, teacherProfile.ID, data.GroupID, data.SubjectID, semester.ID)
@@ -1545,7 +1557,7 @@ func (s *Service) attendanceManualMarkByTeacher(sessionToken string, data Teache
 	}
 
 	// Recalculate auto attendance grades
-	_ = s.updateAutoAttendanceGrades(ctx, session.SubjectID, &data.StudentID, session.TeacherID)
+	_ = s.updateAutoAttendanceGrades(ctx, session.SubjectID, session.SemesterID, &data.StudentID, session.TeacherID)
 
 	return Response{
 		OK: true,
@@ -1706,10 +1718,6 @@ func (s *Service) attendanceHistoryForTeacherStudent(sessionToken string, data T
 	ctx, cancel := s.dbContext()
 	defer cancel()
 
-	if resp := s.ensureTeacherSubjectAccess(ctx, teacherProfile.ID, data.SubjectID); !resp.OK {
-		return resp
-	}
-
 	_, found, err := s.store.Students.GetByID(ctx, data.StudentID)
 	if err != nil {
 		return Response{OK: false, Error: "failed to load student"}
@@ -1721,6 +1729,9 @@ func (s *Service) attendanceHistoryForTeacherStudent(sessionToken string, data T
 	semester, err := s.semesterForOptionalID(ctx, data.SemesterID)
 	if err != nil {
 		return Response{OK: false, Error: err.Error()}
+	}
+	if resp := s.ensureTeacherSubjectAccess(ctx, teacherProfile.ID, data.SubjectID, semester.ID); !resp.OK {
+		return resp
 	}
 
 	rows, err := s.store.Attendance.GetStudentSubjectAttendanceHistory(ctx, data.StudentID, data.SubjectID, semester.ID)
@@ -1775,6 +1786,9 @@ func (s *Service) teacherSubjects(sessionToken string) Response {
 			 LEFT JOIN schedules sch
 			        ON sch.subject_id = sub.subject_id
 			       AND sch.teacher_id = $1
+			       AND sch.semester_id = (
+			           SELECT semester_id FROM semesters WHERE status = 'open' LIMIT 1
+			       )
 			 GROUP BY sub.subject_id, sub.name
 			 ORDER BY sub.name, sub.subject_id`,
 			teacherProfile.ID,
@@ -1803,6 +1817,9 @@ func (s *Service) teacherSubjects(sessionToken string) Response {
 			 FROM schedules sch
 			 JOIN subjects sub ON sub.subject_id = sch.subject_id
 			 WHERE sch.teacher_id = $1
+			   AND sch.semester_id = (
+			       SELECT semester_id FROM semesters WHERE status = 'open' LIMIT 1
+			   )
 			 GROUP BY sch.subject_id, sub.name
 			 ORDER BY sub.name, sch.subject_id`,
 			teacherProfile.ID,
@@ -1938,6 +1955,46 @@ func (s *Service) handleRequest(raw string) Response {
 		resp := s.profileByToken(req.Token)
 		resp.ID = req.ID
 		return resp
+	case "admin_users_list":
+		var data AdminUsersListData
+		if err := json.Unmarshal(req.Data, &data); err != nil {
+			return Response{ID: req.ID, OK: false, Error: "invalid admin_users_list payload"}
+		}
+		resp := s.admin_users_list(req.Token, data)
+		resp.ID = req.ID
+		return resp
+	case "admin_user_get":
+		var data AdminUserIDData
+		if err := json.Unmarshal(req.Data, &data); err != nil {
+			return Response{ID: req.ID, OK: false, Error: "invalid admin_user_get payload"}
+		}
+		resp := s.admin_user_get(req.Token, data.UserID)
+		resp.ID = req.ID
+		return resp
+	case "admin_user_create":
+		var data AdminUserCreateData
+		if err := json.Unmarshal(req.Data, &data); err != nil {
+			return Response{ID: req.ID, OK: false, Error: "invalid admin_user_create payload"}
+		}
+		resp := s.admin_user_create(req.Token, data)
+		resp.ID = req.ID
+		return resp
+	case "admin_user_update":
+		var data AdminUserUpdateData
+		if err := json.Unmarshal(req.Data, &data); err != nil {
+			return Response{ID: req.ID, OK: false, Error: "invalid admin_user_update payload"}
+		}
+		resp := s.admin_user_update(req.Token, data)
+		resp.ID = req.ID
+		return resp
+	case "admin_user_delete":
+		var data AdminUserIDData
+		if err := json.Unmarshal(req.Data, &data); err != nil {
+			return Response{ID: req.ID, OK: false, Error: "invalid admin_user_delete payload"}
+		}
+		resp := s.admin_user_delete(req.Token, data.UserID)
+		resp.ID = req.ID
+		return resp
 	case "forgot_password":
 		var data ForgotPasswordData
 		if err := json.Unmarshal(req.Data, &data); err != nil {
@@ -2016,6 +2073,22 @@ func (s *Service) handleRequest(raw string) Response {
 			return Response{ID: req.ID, OK: false, Error: "invalid activate_semester payload"}
 		}
 		resp := s.activateSemester(req.Token, data)
+		resp.ID = req.ID
+		return resp
+	case "close_semester":
+		var data SemesterIDData
+		if err := json.Unmarshal(req.Data, &data); err != nil {
+			return Response{ID: req.ID, OK: false, Error: "invalid close_semester payload"}
+		}
+		resp := s.closeSemester(req.Token, data)
+		resp.ID = req.ID
+		return resp
+	case "archive_semester":
+		var data SemesterIDData
+		if err := json.Unmarshal(req.Data, &data); err != nil {
+			return Response{ID: req.ID, OK: false, Error: "invalid archive_semester payload"}
+		}
+		resp := s.archiveSemester(req.Token, data)
 		resp.ID = req.ID
 		return resp
 	case "create_attendance_link":
@@ -2195,11 +2268,19 @@ func (s *Service) handleRequest(raw string) Response {
 		resp.ID = req.ID
 		return resp
 	case "student_performance_radar":
-		resp := s.studentPerformanceRadar(req.Token)
+		var data SemesterSelectionData
+		if err := json.Unmarshal(req.Data, &data); err != nil {
+			return Response{ID: req.ID, OK: false, Error: "invalid student_performance_radar payload"}
+		}
+		resp := s.studentPerformanceRadar(req.Token, data)
 		resp.ID = req.ID
 		return resp
 	case "student_all_grades":
-		resp := s.studentAllGrades(req.Token)
+		var data SemesterSelectionData
+		if err := json.Unmarshal(req.Data, &data); err != nil {
+			return Response{ID: req.ID, OK: false, Error: "invalid student_all_grades payload"}
+		}
+		resp := s.studentAllGrades(req.Token, data)
 		resp.ID = req.ID
 		return resp
 	case "teacher_student_performance_radar":

@@ -3,19 +3,7 @@ import api from './services/api';
 import LoginPage from './components/LoginPage';
 import Workspace from './ui/Workspace';
 import useHashRoute from './hooks/useHashRoute';
-
-const getJoinInviteToken = () => {
-  const hash = window.location.hash || '';
-  if (!hash.startsWith('#/attendance/join')) {
-    return '';
-  }
-  const queryStart = hash.indexOf('?');
-  if (queryStart === -1) {
-    return '';
-  }
-  const params = new URLSearchParams(hash.slice(queryStart + 1));
-  return params.get('token') || '';
-};
+import { getJoinInviteToken } from './utils/attendanceJoin';
 
 function App() {
   const [token, setToken] = useState(() => localStorage.getItem('ejournal_token') || '');

@@ -8,7 +8,29 @@ type User struct {
 	PasswordHash string    `json:"-"`
 	Role         string    `json:"role"`
 	Email        *string   `json:"email,omitempty"`
+	Status       string    `json:"status"`
+	TwoFaEnabled bool      `json:"two_fa_enabled"`
 	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
+}
+
+type AdminUser struct {
+	ID           int32     `json:"user_id"`
+	Login        string    `json:"login"`
+	Role         string    `json:"role"`
+	Email        *string   `json:"email,omitempty"`
+	Status       string    `json:"status"`
+	TwoFaEnabled bool      `json:"two_fa_enabled"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
+}
+
+type AdminUserFilter struct {
+	Page     int32
+	PageSize int32
+	Search   string
+	Role     string
+	Status   string
 }
 
 type Lectern struct {
@@ -23,14 +45,23 @@ type ControlType struct {
 }
 
 type Semester struct {
-	ID           int32     `json:"semester_id"`
-	AcademicYear string    `json:"academic_year"`
-	TermNum      int32     `json:"term_num"`
-	Name         string    `json:"name"`
-	StartsAt     time.Time `json:"starts_at"`
-	EndsAt       time.Time `json:"ends_at"`
-	IsCurrent    bool      `json:"is_current"`
-	CreatedAt    time.Time `json:"created_at"`
+	ID               int32      `json:"semester_id"`
+	AcademicYear     string     `json:"academic_year"`
+	TermNum          int32      `json:"term_num"`
+	Name             string     `json:"name"`
+	StartsAt         time.Time  `json:"starts_at"`
+	EndsAt           time.Time  `json:"ends_at"`
+	Status           string     `json:"status"`
+	IsCurrent        bool       `json:"is_current"`
+	CreatedAt        time.Time  `json:"created_at"`
+	UpdatedAt        time.Time  `json:"updated_at"`
+	CreatedByUserID  *int32     `json:"created_by_user_id,omitempty"`
+	OpenedAt         *time.Time `json:"opened_at,omitempty"`
+	OpenedByUserID   *int32     `json:"opened_by_user_id,omitempty"`
+	ClosedAt         *time.Time `json:"closed_at,omitempty"`
+	ClosedByUserID   *int32     `json:"closed_by_user_id,omitempty"`
+	ArchivedAt       *time.Time `json:"archived_at,omitempty"`
+	ArchivedByUserID *int32     `json:"archived_by_user_id,omitempty"`
 }
 
 type Subject struct {
@@ -55,17 +86,19 @@ type SubjectMetric struct {
 }
 
 type SemesterLoad struct {
-	ID         int32    `json:"load_id"`
-	SubjectID  int32    `json:"subject_id"`
-	SemesterID int32    `json:"semester_id"`
-	ZetValue   *float64 `json:"zet_value,omitempty"`
+	ID                    int32    `json:"load_id"`
+	SubjectID             int32    `json:"subject_id"`
+	CurriculumSemesterNum int32    `json:"curriculum_semester_num"`
+	SemesterID            *int32   `json:"semester_id,omitempty"`
+	ZetValue              *float64 `json:"zet_value,omitempty"`
 }
 
 type SubjectControl struct {
-	ID         int32 `json:"control_id"`
-	SubjectID  int32 `json:"subject_id"`
-	TypeID     int32 `json:"type_id"`
-	SemesterID int32 `json:"semester_id"`
+	ID                    int32  `json:"control_id"`
+	SubjectID             int32  `json:"subject_id"`
+	TypeID                int32  `json:"type_id"`
+	CurriculumSemesterNum int32  `json:"curriculum_semester_num"`
+	SemesterID            *int32 `json:"semester_id,omitempty"`
 }
 
 type Teacher struct {

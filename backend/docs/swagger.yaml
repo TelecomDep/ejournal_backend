@@ -1,5 +1,49 @@
 basePath: /
 definitions:
+  app.AdminUserCreateData:
+    properties:
+      email:
+        type: string
+      faculty_id:
+        type: integer
+      full_name:
+        type: string
+      group_id:
+        type: integer
+      job_title:
+        type: string
+      lectern_id:
+        type: integer
+      login:
+        type: string
+      password:
+        type: string
+      role:
+        type: string
+    type: object
+  app.AdminUserUpdateData:
+    properties:
+      email:
+        type: string
+      faculty_id:
+        type: integer
+      lectern_id:
+        type: integer
+      login:
+        type: string
+      password:
+        type: string
+      role:
+        type: string
+      status:
+        type: string
+      student_id:
+        type: integer
+      teacher_id:
+        type: integer
+      user_id:
+        type: integer
+    type: object
   app.AndroidAttendanceMarkData:
     properties:
       device_id:
@@ -47,12 +91,26 @@ definitions:
     properties:
       group_id:
         type: integer
+      semester_id:
+        type: integer
       subject_id:
         type: integer
+    type: object
+  app.ConfirmEmailData:
+    properties:
+      code:
+        type: string
     type: object
   app.ForgotPasswordData:
     properties:
       identity:
+        type: string
+    type: object
+  app.GradeDeleteData:
+    properties:
+      grade_id:
+        type: integer
+      reason:
         type: string
     type: object
   app.GradeItemCreateData:
@@ -63,13 +121,26 @@ definitions:
         type: string
       max_score:
         type: integer
+      semester_id:
+        type: integer
       subject_id:
         type: integer
       title:
         type: string
     type: object
+  app.GradeItemDeleteData:
+    properties:
+      cascade:
+        type: boolean
+      item_id:
+        type: integer
+      reason:
+        type: string
+    type: object
   app.GradeSubjectData:
     properties:
+      semester_id:
+        type: integer
       subject_id:
         type: integer
     type: object
@@ -90,6 +161,8 @@ definitions:
     properties:
       group_id:
         type: integer
+      semester_id:
+        type: integer
       subject_id:
         type: integer
     type: object
@@ -98,6 +171,8 @@ definitions:
       login:
         type: string
       password:
+        type: string
+      two_fa_code:
         type: string
     type: object
   app.RegisterByInviteData:
@@ -122,6 +197,11 @@ definitions:
       role_hash:
         type: string
     type: object
+  app.RequestEmailData:
+    properties:
+      email:
+        type: string
+    type: object
   app.ResetPasswordData:
     properties:
       new_password:
@@ -139,6 +219,23 @@ definitions:
         type: boolean
       result: {}
     type: object
+  app.SemesterCreateData:
+    properties:
+      academic_year:
+        type: string
+      ends_at:
+        type: string
+      is_current:
+        type: boolean
+      name:
+        type: string
+      starts_at:
+        type: string
+      status:
+        type: string
+      term_num:
+        type: integer
+    type: object
   app.TeacherAttendanceMarkData:
     properties:
       lesson_id:
@@ -150,6 +247,8 @@ definitions:
     type: object
   app.TeacherAttendanceStudentHistoryData:
     properties:
+      semester_id:
+        type: integer
       student_id:
         type: integer
       subject_id:
@@ -157,6 +256,8 @@ definitions:
     type: object
   app.TeacherStudentGradesData:
     properties:
+      semester_id:
+        type: integer
       student_id:
         type: integer
       subject_id:
@@ -164,8 +265,15 @@ definitions:
     type: object
   app.TeacherStudentRadarData:
     properties:
+      semester_id:
+        type: integer
       student_id:
         type: integer
+    type: object
+  app.TwoFaCodeData:
+    properties:
+      code:
+        type: string
     type: object
   app.UpdateEmailData:
     properties:
@@ -608,7 +716,7 @@ definitions:
         example: <attendance_invite_jwt>
         type: string
       join_url:
-        example: http://localhost:3000/attendance/join?token=<attendance_invite_jwt>
+        example: http://localhost:3000/#/attendance/join?token=<attendance_invite_jwt>
         type: string
       lesson_id:
         example: "5"
@@ -617,7 +725,7 @@ definitions:
         example: Networks
         type: string
       qr_payload:
-        example: http://localhost:3000/attendance/join?token=<attendance_invite_jwt>
+        example: http://localhost:3000/#/attendance/join?token=<attendance_invite_jwt>
         type: string
       roster_size:
         example: 25
@@ -638,7 +746,7 @@ definitions:
         example: Asia/Novosibirsk
         type: string
       url:
-        example: http://localhost:3000/attendance/join?token=<attendance_invite_jwt>
+        example: http://localhost:3000/#/attendance/join?token=<attendance_invite_jwt>
         type: string
     type: object
   httpserver.teacherAttendanceMarkedCountResponse:
@@ -833,6 +941,383 @@ info:
   title: EJournal Backend API
   version: "1.0"
 paths:
+  /api/admin/semesters:
+    post:
+      consumes:
+      - application/json
+      description: Admin creates a planned semester or opens it immediately with status=open.
+      parameters:
+      - description: Semester payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/app.SemesterCreateData'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/app.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/app.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/app.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/app.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/app.Response'
+      security:
+      - BearerAuth: []
+      summary: Create semester
+      tags:
+      - semesters
+  /api/admin/semesters/{semester_id}/activate:
+    patch:
+      description: Admin opens a planned semester and closes the previously open semester.
+      parameters:
+      - description: Semester ID
+        in: path
+        name: semester_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/app.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/app.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/app.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/app.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/app.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/app.Response'
+      security:
+      - BearerAuth: []
+      summary: Activate semester
+      tags:
+      - semesters
+  /api/admin/semesters/{semester_id}/archive:
+    patch:
+      description: Admin archives a closed semester. Archived data remains available
+        for historical reads.
+      parameters:
+      - description: Semester ID
+        in: path
+        name: semester_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/app.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/app.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/app.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/app.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/app.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/app.Response'
+      security:
+      - BearerAuth: []
+      summary: Archive semester
+      tags:
+      - semesters
+  /api/admin/semesters/{semester_id}/close:
+    patch:
+      description: Admin closes the open semester. Closed semester data becomes read-only.
+      parameters:
+      - description: Semester ID
+        in: path
+        name: semester_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/app.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/app.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/app.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/app.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/app.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/app.Response'
+      security:
+      - BearerAuth: []
+      summary: Close semester
+      tags:
+      - semesters
+  /api/admin/users:
+    get:
+      description: Returns users with pagination, search and filters. Admin only.
+      parameters:
+      - description: Page
+        in: query
+        name: page
+        type: integer
+      - description: Page size
+        in: query
+        name: page_size
+        type: integer
+      - description: Search by login or email
+        in: query
+        name: search
+        type: string
+      - description: Role
+        in: query
+        name: role
+        type: string
+      - description: Status
+        in: query
+        name: status
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/app.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/app.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/app.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/app.Response'
+      security:
+      - BearerAuth: []
+      summary: List users for admin
+      tags:
+      - admin users
+    post:
+      consumes:
+      - application/json
+      description: Creates a user and the required role profile in one transaction.
+        Admin only.
+      parameters:
+      - description: User payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/app.AdminUserCreateData'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/app.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/app.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/app.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/app.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/app.Response'
+      security:
+      - BearerAuth: []
+      summary: Create user
+      tags:
+      - admin users
+  /api/admin/users/{user_id}:
+    delete:
+      description: Soft deletes a user by setting status=archived. Admin only.
+      parameters:
+      - description: User ID
+        in: path
+        name: user_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/app.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/app.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/app.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/app.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/app.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/app.Response'
+      security:
+      - BearerAuth: []
+      summary: Archive user
+      tags:
+      - admin users
+    get:
+      description: Returns one user. Admin only.
+      parameters:
+      - description: User ID
+        in: path
+        name: user_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/app.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/app.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/app.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/app.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/app.Response'
+      security:
+      - BearerAuth: []
+      summary: Get user for admin
+      tags:
+      - admin users
+    patch:
+      consumes:
+      - application/json
+      description: Updates user fields, status or role. Admin only.
+      parameters:
+      - description: User ID
+        in: path
+        name: user_id
+        required: true
+        type: integer
+      - description: User payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/app.AdminUserUpdateData'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/app.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/app.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/app.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/app.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/app.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/app.Response'
+      security:
+      - BearerAuth: []
+      summary: Update user
+      tags:
+      - admin users
   /api/auth/forgot-password:
     post:
       consumes:
@@ -893,6 +1378,40 @@ paths:
       summary: Reset password
       tags:
       - auth
+  /api/semesters:
+    get:
+      description: Returns all known semesters ordered by start date.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/app.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/app.Response'
+      summary: List semesters
+      tags:
+      - semesters
+  /api/semesters/current:
+    get:
+      description: Returns the active semester used by grade and attendance calculations.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/app.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/app.Response'
+      summary: Get current semester
+      tags:
+      - semesters
   /api/staff/overview:
     get:
       description: 'Returns groups, teachers and students scoped to the caller''s
@@ -918,11 +1437,70 @@ paths:
       summary: Supervisory overview (teacher/head/dean/admin)
       tags:
       - staff
+  /api/staff/overview/students:
+    get:
+      description: Returns a role-scoped, paginated student list for staff users.
+      parameters:
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 100
+        description: Rows per page
+        in: query
+        name: page_size
+        type: integer
+      - description: Filter by group ID
+        in: query
+        name: group_id
+        type: integer
+      - description: Search by student name or related fields
+        in: query
+        name: search
+        type: string
+      - description: Sort field
+        in: query
+        name: sort
+        type: string
+      - description: 'Sort order: asc or desc'
+        in: query
+        name: order
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/app.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/app.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/app.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/app.Response'
+      security:
+      - BearerAuth: []
+      summary: List students with pagination
+      tags:
+      - staff
   /api/staff/reports/performance.pdf:
     get:
       description: 'Head, dean, or admin downloads a PDF performance rating report:
         one page (or more) for the whole scope plus one section per group, colour-coded
         by percent, matching the xlsx report.'
+      parameters:
+      - description: Semester ID; defaults to the open semester
+        in: query
+        name: semester_id
+        type: integer
       produces:
       - application/pdf
       responses:
@@ -952,6 +1530,11 @@ paths:
       description: 'Head, dean, or admin downloads an xlsx performance rating report:
         one sheet for the whole scope plus one sheet per group. Rows are students
         ranked by overall rating with per-subject percents and attendance.'
+      parameters:
+      - description: Semester ID; defaults to the open semester
+        in: query
+        name: semester_id
+        type: integer
       produces:
       - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
       responses:
@@ -1100,8 +1683,13 @@ paths:
       - grades
   /api/student/grades/all:
     get:
-      description: Returns every plan subject with its grade items and per-subject
-        totals, plus an aggregate summary, in one request.
+      description: Returns every plan subject with its grade items and totals for
+        the selected semester. Defaults to the open semester.
+      parameters:
+      - description: Semester ID; defaults to the open semester
+        in: query
+        name: semester_id
+        type: integer
       produces:
       - application/json
       responses:
@@ -1165,8 +1753,13 @@ paths:
       - attendance
   /api/student/performance/radar:
     get:
-      description: Returns one point per subject (from the student's group schedule)
-        with the score/percent the student earned on graded-so-far work this semester.
+      description: Returns one point per subject for the selected semester. Defaults
+        to the open semester.
+      parameters:
+      - description: Semester ID; defaults to the open semester
+        in: query
+        name: semester_id
+        type: integer
       produces:
       - application/json
       responses:
@@ -1188,7 +1781,7 @@ paths:
             $ref: '#/definitions/app.Response'
       security:
       - BearerAuth: []
-      summary: Get current student performance radar
+      summary: Get student performance radar
       tags:
       - grades
   /api/student/schedule/day:
@@ -1564,6 +2157,96 @@ paths:
       summary: Create or update student grade
       tags:
       - grades
+  /api/teacher/grades/{grade_id}:
+    delete:
+      consumes:
+      - application/json
+      description: Soft-deletes a grade in the open semester. An optional reason can
+        be sent in the request body.
+      parameters:
+      - description: Grade ID
+        in: path
+        name: grade_id
+        required: true
+        type: integer
+      - description: Optional deletion reason; grade_id from the path takes precedence
+        in: body
+        name: request
+        schema:
+          $ref: '#/definitions/app.GradeDeleteData'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/app.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/app.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/app.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/app.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/app.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/app.Response'
+      security:
+      - BearerAuth: []
+      summary: Delete student grade
+      tags:
+      - grades
+  /api/teacher/grades/{grade_id}/restore:
+    post:
+      description: Restores a soft-deleted grade in the open semester.
+      parameters:
+      - description: Grade ID
+        in: path
+        name: grade_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/app.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/app.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/app.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/app.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/app.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/app.Response'
+      security:
+      - BearerAuth: []
+      summary: Restore student grade
+      tags:
+      - grades
   /api/teacher/grades/items:
     post:
       consumes:
@@ -1602,6 +2285,97 @@ paths:
       security:
       - BearerAuth: []
       summary: Create grade item
+      tags:
+      - grades
+  /api/teacher/grades/items/{item_id}:
+    delete:
+      consumes:
+      - application/json
+      description: Soft-deletes a grade item in the open semester. Set cascade=true
+        to also delete its active grades.
+      parameters:
+      - description: Grade item ID
+        in: path
+        name: item_id
+        required: true
+        type: integer
+      - description: Deletion options; item_id from the path takes precedence
+        in: body
+        name: request
+        schema:
+          $ref: '#/definitions/app.GradeItemDeleteData'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/app.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/app.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/app.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/app.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/app.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/app.Response'
+      security:
+      - BearerAuth: []
+      summary: Delete grade item
+      tags:
+      - grades
+  /api/teacher/grades/items/{item_id}/restore:
+    post:
+      description: Restores a soft-deleted grade item and its cascade-deleted grades
+        in the open semester.
+      parameters:
+      - description: Grade item ID
+        in: path
+        name: item_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/app.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/app.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/app.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/app.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/app.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/app.Response'
+      security:
+      - BearerAuth: []
+      summary: Restore grade item
       tags:
       - grades
   /api/teacher/grades/items/list:
@@ -1794,6 +2568,85 @@ paths:
       summary: Get teacher subjects
       tags:
       - attendance
+  /api/user/2fa/disable:
+    post:
+      description: Disables 2FA and removes the stored TOTP secret for the current
+        user.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/app.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/app.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/app.Response'
+      security:
+      - BearerAuth: []
+      summary: Disable 2FA
+      tags:
+      - profile
+  /api/user/2fa/generate:
+    get:
+      description: Generates a TOTP secret and QR code for the current user.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/app.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/app.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/app.Response'
+      security:
+      - BearerAuth: []
+      summary: Generate 2FA setup
+      tags:
+      - profile
+  /api/user/2fa/verify:
+    post:
+      consumes:
+      - application/json
+      description: Verifies a TOTP code and enables 2FA for the current user.
+      parameters:
+      - description: TOTP code
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/app.TwoFaCodeData'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/app.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/app.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/app.Response'
+      security:
+      - BearerAuth: []
+      summary: Verify and enable 2FA
+      tags:
+      - profile
   /api/user/email:
     post:
       consumes:
@@ -1828,6 +2681,70 @@ paths:
       security:
       - BearerAuth: []
       summary: Update user email
+      tags:
+      - profile
+  /api/user/email/bind/confirm:
+    post:
+      consumes:
+      - application/json
+      description: Confirms the email address using the code sent to the user.
+      parameters:
+      - description: Confirmation code
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/app.ConfirmEmailData'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/app.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/app.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/app.Response'
+      security:
+      - BearerAuth: []
+      summary: Confirm email binding
+      tags:
+      - profile
+  /api/user/email/bind/request:
+    post:
+      consumes:
+      - application/json
+      description: Sends a confirmation code to the requested email address.
+      parameters:
+      - description: Email address
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/app.RequestEmailData'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/app.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/app.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/app.Response'
+      security:
+      - BearerAuth: []
+      summary: Request email binding
       tags:
       - profile
   /api/user/upload-avatar:

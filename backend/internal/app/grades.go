@@ -87,14 +87,14 @@ func (s *Service) studentProfileByUser(user User) (db.Student, error) {
 	return out, nil
 }
 
-func (s *Service) teacherCanManageSubject(ctx context.Context, teacherID, subjectID int32) (bool, error) {
+func (s *Service) teacherCanManageSubject(ctx context.Context, teacherID, subjectID, semesterID int32) (bool, error) {
 	var allowed bool
 	err := s.store.Pool().QueryRow(
 		ctx,
 		`SELECT EXISTS (
 		     SELECT 1
 		     FROM schedules
-		     WHERE teacher_id = $1 AND subject_id = $2
+			     WHERE teacher_id = $1 AND subject_id = $2 AND semester_id = $3
 		 ) OR EXISTS (
 		     SELECT 1
 		     FROM teachers t
@@ -104,6 +104,7 @@ func (s *Service) teacherCanManageSubject(ctx context.Context, teacherID, subjec
 		 )`,
 		teacherID,
 		subjectID,
+		semesterID,
 	).Scan(&allowed)
 	if err != nil {
 		return false, fmt.Errorf("check teacher subject access: %w", err)
@@ -111,7 +112,7 @@ func (s *Service) teacherCanManageSubject(ctx context.Context, teacherID, subjec
 	return allowed, nil
 }
 
-func (s *Service) ensureTeacherSubjectAccess(ctx context.Context, teacherID, subjectID int32) Response {
+func (s *Service) ensureTeacherSubjectAccess(ctx context.Context, teacherID, subjectID, semesterID int32) Response {
 	if subjectID <= 0 {
 		return Response{OK: false, Error: "subject_id is required"}
 	}
@@ -124,7 +125,7 @@ func (s *Service) ensureTeacherSubjectAccess(ctx context.Context, teacherID, sub
 		return Response{OK: false, Error: "subject not found"}
 	}
 
-	allowed, err := s.teacherCanManageSubject(ctx, teacherID, subjectID)
+	allowed, err := s.teacherCanManageSubject(ctx, teacherID, subjectID, semesterID)
 	if err != nil {
 		return Response{OK: false, Error: "failed to check teacher subject access"}
 	}
@@ -132,6 +133,17 @@ func (s *Service) ensureTeacherSubjectAccess(ctx context.Context, teacherID, sub
 		return Response{OK: false, Error: "forbidden: teacher is not assigned to subject"}
 	}
 
+	return Response{OK: true}
+}
+
+func (s *Service) ensureSemesterWriteAccess(ctx context.Context, semesterID int32) Response {
+	semester, err := s.semesterByID(ctx, semesterID)
+	if err != nil {
+		return Response{OK: false, Error: err.Error()}
+	}
+	if err := semesterWriteError(semester, time.Now().UTC()); err != nil {
+		return Response{OK: false, Error: err.Error()}
+	}
 	return Response{OK: true}
 }
 
@@ -152,13 +164,18 @@ func (s *Service) createGradeItemByTeacher(sessionToken string, data GradeItemCr
 	ctx, cancel := s.dbContext()
 	defer cancel()
 
-	if resp := s.ensureTeacherSubjectAccess(ctx, teacherProfile.ID, data.SubjectID); !resp.OK {
-		return resp
-	}
-
-	semester, err := s.semesterForOptionalID(ctx, data.SemesterID)
+	semester, err := s.semesterForWrite(ctx, data.SemesterID)
 	if err != nil {
 		return Response{OK: false, Error: err.Error()}
+	}
+	if resp := s.ensureTeacherSubjectAccess(ctx, teacherProfile.ID, data.SubjectID, semester.ID); !resp.OK {
+		return resp
+	}
+	if data.Deadline != nil {
+		deadline := data.Deadline.UTC()
+		if deadline.Before(semester.StartsAt.UTC()) || deadline.After(semester.EndsAt.UTC()) {
+			return Response{OK: false, Error: "deadline must be within semester date range"}
+		}
 	}
 
 	item, err := s.store.Grades.CreateGradeItem(ctx, db.GradeItem{
@@ -175,7 +192,7 @@ func (s *Service) createGradeItemByTeacher(sessionToken string, data GradeItemCr
 	}
 
 	if item.ItemType == "attendance_auto" {
-		_ = s.updateAutoAttendanceGrades(ctx, item.SubjectID, nil, teacherProfile.ID)
+		_ = s.updateAutoAttendanceGrades(ctx, item.SubjectID, item.SemesterID, nil, teacherProfile.ID)
 	}
 
 	return Response{OK: true, Result: item}
@@ -198,13 +215,12 @@ func (s *Service) gradeItemsBySubjectForTeacher(sessionToken string, data GradeS
 	ctx, cancel := s.dbContext()
 	defer cancel()
 
-	if resp := s.ensureTeacherSubjectAccess(ctx, teacherProfile.ID, data.SubjectID); !resp.OK {
-		return resp
-	}
-
 	semester, err := s.semesterForOptionalID(ctx, data.SemesterID)
 	if err != nil {
 		return Response{OK: false, Error: err.Error()}
+	}
+	if resp := s.ensureTeacherSubjectAccess(ctx, teacherProfile.ID, data.SubjectID, semester.ID); !resp.OK {
+		return resp
 	}
 
 	items, err := s.store.Grades.GetGradeItemsBySubject(ctx, data.SubjectID, semester.ID)
@@ -246,7 +262,10 @@ func (s *Service) upsertGradeByTeacher(sessionToken string, data GradeUpsertData
 	if !found {
 		return Response{OK: false, Error: "grade item not found"}
 	}
-	if resp := s.ensureTeacherSubjectAccess(ctx, teacherProfile.ID, item.SubjectID); !resp.OK {
+	if resp := s.ensureSemesterWriteAccess(ctx, item.SemesterID); !resp.OK {
+		return resp
+	}
+	if resp := s.ensureTeacherSubjectAccess(ctx, teacherProfile.ID, item.SubjectID, item.SemesterID); !resp.OK {
 		return resp
 	}
 
@@ -273,8 +292,10 @@ func (s *Service) upsertGradeByTeacher(sessionToken string, data GradeUpsertData
 		if !found {
 			return Response{OK: false, Error: "attendance session not found"}
 		}
-		if session.TeacherID != teacherProfile.ID || session.SubjectID != item.SubjectID {
-			return Response{OK: false, Error: "attendance session does not match teacher and subject"}
+		if session.TeacherID != teacherProfile.ID ||
+			session.SubjectID != item.SubjectID ||
+			session.SemesterID != item.SemesterID {
+			return Response{OK: false, Error: "attendance session does not match teacher, subject and semester"}
 		}
 	}
 
@@ -322,7 +343,7 @@ func (s *Service) ensureGradeItemOwnerAccess(ctx context.Context, user User, ite
 	if *item.CreatedByTeacherID != teacher.ID {
 		return Response{OK: false, Error: "forbidden: only the grade item owner can modify it"}
 	}
-	return s.ensureTeacherSubjectAccess(ctx, teacher.ID, item.SubjectID)
+	return s.ensureTeacherSubjectAccess(ctx, teacher.ID, item.SubjectID, item.SemesterID)
 }
 
 func (s *Service) deleteGradeByTeacher(sessionToken string, data GradeDeleteData) Response {
@@ -349,6 +370,9 @@ func (s *Service) deleteGradeByTeacher(sessionToken string, data GradeDeleteData
 	}
 	if !found {
 		return Response{OK: false, Error: "grade item not found"}
+	}
+	if resp := s.ensureSemesterWriteAccess(ctx, item.SemesterID); !resp.OK {
+		return resp
 	}
 	if resp := s.ensureGradeItemOwnerAccess(ctx, user, item); !resp.OK {
 		return resp
@@ -392,6 +416,9 @@ func (s *Service) restoreGradeByTeacher(sessionToken string, data GradeRestoreDa
 	if !found {
 		return Response{OK: false, Error: "grade item not found"}
 	}
+	if resp := s.ensureSemesterWriteAccess(ctx, item.SemesterID); !resp.OK {
+		return resp
+	}
 	if resp := s.ensureGradeItemOwnerAccess(ctx, user, item); !resp.OK {
 		return resp
 	}
@@ -429,6 +456,9 @@ func (s *Service) deleteGradeItemByTeacher(sessionToken string, data GradeItemDe
 	}
 	if !found {
 		return Response{OK: false, Error: "grade item not found"}
+	}
+	if resp := s.ensureSemesterWriteAccess(ctx, item.SemesterID); !resp.OK {
+		return resp
 	}
 	if resp := s.ensureGradeItemOwnerAccess(ctx, user, item); !resp.OK {
 		return resp
@@ -475,6 +505,9 @@ func (s *Service) restoreGradeItemByTeacher(sessionToken string, data GradeItemR
 	if !found {
 		return Response{OK: false, Error: "grade item not found"}
 	}
+	if resp := s.ensureSemesterWriteAccess(ctx, item.SemesterID); !resp.OK {
+		return resp
+	}
 	if resp := s.ensureGradeItemOwnerAccess(ctx, user, item); !resp.OK {
 		return resp
 	}
@@ -492,7 +525,7 @@ func (s *Service) restoreGradeItemByTeacher(sessionToken string, data GradeItemR
 
 	if item.ItemType == "attendance_auto" {
 		if teacher, err := s.teacherProfileByUser(user); err == nil {
-			_ = s.updateAutoAttendanceGrades(ctx, item.SubjectID, nil, teacher.ID)
+			_ = s.updateAutoAttendanceGrades(ctx, item.SubjectID, item.SemesterID, nil, teacher.ID)
 		}
 	}
 
@@ -513,7 +546,7 @@ func (s *Service) gradesBySubjectForStudent(sessionToken string, data GradeSubje
 		return Response{OK: false, Error: err.Error()}
 	}
 
-	return s.studentGradesResult(studentProfile.ID, data.SubjectID)
+	return s.studentGradesResult(studentProfile.ID, data.SubjectID, data.SemesterID)
 }
 
 func (s *Service) gradesBySubjectForTeacher(sessionToken string, data TeacherStudentGradesData) Response {
@@ -533,7 +566,11 @@ func (s *Service) gradesBySubjectForTeacher(sessionToken string, data TeacherStu
 	ctx, cancel := s.dbContext()
 	defer cancel()
 
-	if resp := s.ensureTeacherSubjectAccess(ctx, teacherProfile.ID, data.SubjectID); !resp.OK {
+	semester, err := s.semesterForOptionalID(ctx, data.SemesterID)
+	if err != nil {
+		return Response{OK: false, Error: err.Error()}
+	}
+	if resp := s.ensureTeacherSubjectAccess(ctx, teacherProfile.ID, data.SubjectID, semester.ID); !resp.OK {
 		return resp
 	}
 
@@ -545,10 +582,10 @@ func (s *Service) gradesBySubjectForTeacher(sessionToken string, data TeacherStu
 		return Response{OK: false, Error: "student not found"}
 	}
 
-	return s.studentGradesResult(data.StudentID, data.SubjectID)
+	return s.studentGradesResult(data.StudentID, data.SubjectID, &semester.ID)
 }
 
-func (s *Service) studentGradesResult(studentID, subjectID int32) Response {
+func (s *Service) studentGradesResult(studentID, subjectID int32, semesterID *int32) Response {
 	if subjectID <= 0 {
 		return Response{OK: false, Error: "subject_id is required"}
 	}
@@ -564,7 +601,7 @@ func (s *Service) studentGradesResult(studentID, subjectID int32) Response {
 		return Response{OK: false, Error: "subject not found"}
 	}
 
-	semester, err := s.currentSemester(ctx)
+	semester, err := s.semesterForOptionalID(ctx, semesterID)
 	if err != nil {
 		return Response{OK: false, Error: err.Error()}
 	}
@@ -595,7 +632,7 @@ func (s *Service) studentGradesResult(studentID, subjectID int32) Response {
 	}
 }
 
-func (s *Service) teacherCanViewStudent(ctx context.Context, teacherID, studentID int32) (bool, error) {
+func (s *Service) teacherCanViewStudent(ctx context.Context, teacherID, studentID, semesterID int32) (bool, error) {
 	var allowed bool
 	err := s.store.Pool().QueryRow(
 		ctx,
@@ -603,7 +640,7 @@ func (s *Service) teacherCanViewStudent(ctx context.Context, teacherID, studentI
 		     SELECT 1
 		     FROM schedules sch
 		     JOIN students st ON st.group_id = sch.group_id
-		     WHERE sch.teacher_id = $1 AND st.student_id = $2
+		     WHERE sch.teacher_id = $1 AND st.student_id = $2 AND sch.semester_id = $3
 		 ) OR EXISTS (
 		     SELECT 1
 		     FROM teachers t
@@ -613,6 +650,7 @@ func (s *Service) teacherCanViewStudent(ctx context.Context, teacherID, studentI
 		 )`,
 		teacherID,
 		studentID,
+		semesterID,
 	).Scan(&allowed)
 	if err != nil {
 		return false, fmt.Errorf("check teacher student access: %w", err)
@@ -640,7 +678,7 @@ func (s *Service) performanceRadarResult(studentID int32, semester db.Semester) 
 	}
 }
 
-func (s *Service) studentPerformanceRadar(sessionToken string) Response {
+func (s *Service) studentPerformanceRadar(sessionToken string, data SemesterSelectionData) Response {
 	studentUser, err := s.userBySessionToken(sessionToken)
 	if err != nil {
 		return Response{OK: false, Error: err.Error()}
@@ -657,7 +695,7 @@ func (s *Service) studentPerformanceRadar(sessionToken string) Response {
 	ctx, cancel := s.dbContext()
 	defer cancel()
 
-	semester, err := s.currentSemester(ctx)
+	semester, err := s.semesterForOptionalID(ctx, data.SemesterID)
 	if err != nil {
 		return Response{OK: false, Error: err.Error()}
 	}
@@ -668,7 +706,7 @@ func (s *Service) studentPerformanceRadar(sessionToken string) Response {
 // studentAllGrades returns every plan subject for the student together with its
 // grade items and per-subject totals, plus an aggregate summary — everything the
 // student grades dashboard needs in a single request.
-func (s *Service) studentAllGrades(sessionToken string) Response {
+func (s *Service) studentAllGrades(sessionToken string, data SemesterSelectionData) Response {
 	studentUser, err := s.userBySessionToken(sessionToken)
 	if err != nil {
 		return Response{OK: false, Error: err.Error()}
@@ -685,7 +723,7 @@ func (s *Service) studentAllGrades(sessionToken string) Response {
 	ctx, cancel := s.dbContext()
 	defer cancel()
 
-	semester, err := s.currentSemester(ctx)
+	semester, err := s.semesterForOptionalID(ctx, data.SemesterID)
 	if err != nil {
 		return Response{OK: false, Error: err.Error()}
 	}
@@ -770,7 +808,12 @@ func (s *Service) teacherStudentPerformanceRadar(sessionToken string, data Teach
 		return Response{OK: false, Error: "student not found"}
 	}
 
-	allowed, err := s.teacherCanViewStudent(ctx, teacherProfile.ID, data.StudentID)
+	semester, err := s.semesterForOptionalID(ctx, data.SemesterID)
+	if err != nil {
+		return Response{OK: false, Error: err.Error()}
+	}
+
+	allowed, err := s.teacherCanViewStudent(ctx, teacherProfile.ID, data.StudentID, semester.ID)
 	if err != nil {
 		return Response{OK: false, Error: "failed to check teacher student access"}
 	}
@@ -778,17 +821,12 @@ func (s *Service) teacherStudentPerformanceRadar(sessionToken string, data Teach
 		return Response{OK: false, Error: "forbidden: teacher does not teach this student"}
 	}
 
-	semester, err := s.semesterForOptionalID(ctx, data.SemesterID)
-	if err != nil {
-		return Response{OK: false, Error: err.Error()}
-	}
-
 	return s.performanceRadarResult(data.StudentID, semester)
 }
 
 func isUnauthorizedGradeError(errText string) bool {
 	switch errText {
-	case "invalid token", "session not found", "missing token":
+	case "invalid token", "session not found", "missing token", "account is not active":
 		return true
 	default:
 		return false
@@ -815,14 +853,21 @@ func GradeHTTPStatus(resp Response) int {
 		resp.Error == "subject not found" ||
 		resp.Error == "grade not found" ||
 		resp.Error == "grade item not found" ||
-		resp.Error == "attendance session not found" {
+		resp.Error == "attendance session not found" ||
+		resp.Error == "semester not found" ||
+		resp.Error == "open semester not found" {
 		return 404
 	}
 	if resp.Error == "grade item has active grades; set cascade=true to delete" ||
 		resp.Error == "grade is already deleted" ||
 		resp.Error == "grade item is already deleted" ||
 		resp.Error == "grade is not deleted" ||
-		resp.Error == "grade item is not deleted" {
+		resp.Error == "grade item is not deleted" ||
+		resp.Error == "semester is not open for changes" ||
+		resp.Error == "semester has not started" ||
+		resp.Error == "semester has ended" ||
+		resp.Error == "deadline must be within semester date range" ||
+		resp.Error == "attendance session does not match teacher, subject and semester" {
 		return 409
 	}
 	return 400

@@ -635,6 +635,7 @@ func (r *GradeRepository) GetStudentPerformanceRadar(ctx context.Context, studen
 		     FROM students st
 		     JOIN schedules sch ON sch.group_id = st.group_id
 		     WHERE st.student_id = $1
+		       AND sch.semester_id = $2
 		 )
 		 SELECT sub.subject_id, sub.name,
 		        COALESCE(SUM(g.score) FILTER (WHERE gi.deadline < now()), 0)::INTEGER,
@@ -684,6 +685,7 @@ func (r *GradeRepository) GetStudentAllSubjectGrades(ctx context.Context, studen
 		     FROM students st
 		     JOIN schedules sch ON sch.group_id = st.group_id
 		     WHERE st.student_id = $1
+		       AND sch.semester_id = $2
 		 )
 		 SELECT sub.subject_id,
 		        sub.name,

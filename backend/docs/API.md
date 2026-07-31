@@ -287,9 +287,9 @@ Authorization: Bearer <jwt_token>
   "teacher_id": "3",
   "group_ids": [1],
   "invite_token": "<attendance_invite_jwt>",
-  "join_url": "http://localhost:3000/attendance/join?token=<jwt>",
-  "url": "http://localhost:3000/attendance/join?token=<jwt>",
-  "qr_payload": "http://localhost:3000/attendance/join?token=<jwt>",
+  "join_url": "http://localhost:3000/#/attendance/join?token=<jwt>",
+  "url": "http://localhost:3000/#/attendance/join?token=<jwt>",
+  "qr_payload": "http://localhost:3000/#/attendance/join?token=<jwt>",
   "expires_minutes": 20,
   "expires_at": "2026-04-21T21:25:37+07:00",
   "schedule_start": "2026-04-21T21:15:24+07:00",
@@ -806,7 +806,55 @@ Upsert: если оценка по этой точке у студента уж�
 
 ---
 
-## 9. Прочее / Android
+## 9. Администратор — пользователи
+
+Все методы раздела доступны только роли `admin`.
+
+### GET `/api/admin/users` — список пользователей
+
+Параметры: `page`, `page_size`, `search`, `role`, `status`.
+
+Допустимые статусы: `active`, `blocked`, `archived`. Поиск работает по логину и email.
+
+### GET `/api/admin/users/:user_id` — один пользователь
+
+Возвращает логин, роль, email, статус, состояние 2FA и даты создания/обновления.
+
+### POST `/api/admin/users` — создать пользователя
+
+Общие поля:
+
+```json
+{
+  "login": "teacher_10",
+  "password": "strong_password",
+  "role": "teacher",
+  "email": "teacher@example.com",
+  "full_name": "Иванов Иван Иванович",
+  "lectern_id": 1,
+  "job_title": "Преподаватель"
+}
+```
+
+Для `student` передаются `full_name` и необязательный `group_id`. Для `teacher` — `full_name`, необязательные `lectern_id` и `job_title`. Для `head` обязателен `lectern_id`, для `dean` — `faculty_id`.
+
+Пользователь и его профиль создаются одной транзакцией.
+
+### PATCH `/api/admin/users/:user_id` — изменить пользователя
+
+Можно передать только изменяемые поля: `login`, `password`, `email`, `role`, `status`.
+
+При смене роли на `student` требуется `student_id`, на `teacher` — `teacher_id`, на `head` — `lectern_id`, на `dean` — `faculty_id`.
+
+Администратор не может изменить собственную роль или статус. Последнего активного администратора нельзя заблокировать или лишить роли.
+
+### DELETE `/api/admin/users/:user_id` — архивировать пользователя
+
+Физическое удаление не выполняется. Пользователь получает статус `archived`, после чего его токены перестают приниматься.
+
+---
+
+## 10. Прочее / Android
 
 ### POST `/lessons/create` — создать пару (Android-клиент)
 
@@ -874,6 +922,11 @@ Upsert: если оценка по этой точке у студента уж�
 | GET | `/api/student/grades/all` | student | Все оценки разом |
 | GET | `/api/student/performance/radar` | student | Свой радар успеваемости |
 | GET | `/api/student/schedule/day` | student | Расписание на день |
+| GET | `/api/admin/users` | admin | Список пользователей |
+| GET | `/api/admin/users/:user_id` | admin | Получить пользователя |
+| POST | `/api/admin/users` | admin | Создать пользователя и профиль |
+| PATCH | `/api/admin/users/:user_id` | admin | Изменить пользователя, роль или статус |
+| DELETE | `/api/admin/users/:user_id` | admin | Архивировать пользователя |
 | GET | `/api/staff/overview` | teacher+ | Обзор групп/людей по роли |
 | GET | `/api/staff/reports/performance.xlsx` | head/dean/admin | Excel-отчёт |
 | GET | `/api/staff/reports/performance.pdf` | head/dean/admin | PDF-отчёт |

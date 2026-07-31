@@ -156,8 +156,12 @@ func (s *Service) createLessonForAndroid(sessionToken string, data AndroidLesson
 	if err != nil {
 		return Response{OK: false, Error: err.Error()}
 	}
+	semester, err := s.semesterForWrite(ctx, nil)
+	if err != nil {
+		return Response{OK: false, Error: err.Error()}
+	}
 	if !isDemoTeacher(teacherUser) {
-		allowed, err := s.teacherCanManageSubject(ctx, teacherProfile.ID, subjectID)
+		allowed, err := s.teacherCanManageSubject(ctx, teacherProfile.ID, subjectID, semester.ID)
 		if err != nil {
 			return Response{OK: false, Error: "failed to check teacher subject access"}
 		}
@@ -170,10 +174,6 @@ func (s *Service) createLessonForAndroid(sessionToken string, data AndroidLesson
 	lessonName := strings.TrimSpace(data.LessonName)
 	if lessonName == "" {
 		lessonName = strings.TrimSpace(data.Subject)
-	}
-	semester, err := s.semesterForOptionalID(ctx, nil)
-	if err != nil {
-		return Response{OK: false, Error: err.Error()}
 	}
 	session, rosterSize, err := s.store.Attendance.CreateSessionWithGroupsAndLocation(
 		ctx,
@@ -245,7 +245,7 @@ func (s *Service) attendanceLinkForExistingLessonByTeacher(sessionToken string, 
 
 	return Response{
 		OK:     true,
-		Result: fmt.Sprintf("%s/attendance/join?token=%s", strings.TrimRight(s.siteBaseURL, "/"), inviteToken),
+		Result: buildAttendanceJoinURL(s.siteBaseURL, inviteToken),
 	}
 }
 

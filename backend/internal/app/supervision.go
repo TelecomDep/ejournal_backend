@@ -128,7 +128,12 @@ func (s *Service) teacherIDForUser(ctx context.Context, userID int32) (int32, er
 
 func (s *Service) teacherGroupIDs(ctx context.Context, teacherID int32) ([]int32, error) {
 	rows, err := s.store.Pool().Query(ctx,
-		`SELECT DISTINCT group_id FROM schedules WHERE teacher_id = $1 AND group_id IS NOT NULL`, teacherID)
+		`SELECT DISTINCT sch.group_id
+		 FROM schedules sch
+		 JOIN semesters sem ON sem.semester_id = sch.semester_id
+		 WHERE sch.teacher_id = $1
+		   AND sch.group_id IS NOT NULL
+		   AND sem.status = 'open'`, teacherID)
 	if err != nil {
 		return nil, err
 	}
@@ -469,7 +474,9 @@ func scopeTeacherPredicate(scope VisibilityScope, alias string) (string, []any) 
 	case scope.Role == RoleTeacher:
 		// A teacher only sees themselves in the teacher list.
 		return fmt.Sprintf("%s.user_id IS NOT NULL AND %s.teacher_id IN "+
-				"(SELECT teacher_id FROM schedules WHERE group_id = ANY($1))", alias, alias),
+				"(SELECT sch.teacher_id FROM schedules sch "+
+				"JOIN semesters sem ON sem.semester_id = sch.semester_id "+
+				"WHERE sch.group_id = ANY($1) AND sem.status = 'open')", alias, alias),
 			[]any{nonNil(scope.GroupIDs)}
 	default: // head/dean
 		return fmt.Sprintf("%s.lectern_id = ANY($1)", alias), []any{nonNil(scope.LecternIDs)}

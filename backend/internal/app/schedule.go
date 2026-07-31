@@ -83,14 +83,24 @@ func (s *Service) studentScheduleForDay(sessionToken string, data StudentSchedul
 		 FROM schedules s
 		 JOIN lesson_times lt ON lt.lesson_num = s.lesson_num
 		 JOIN subjects sub ON sub.subject_id = s.subject_id
-		 LEFT JOIN teachers t ON t.teacher_id = s.teacher_id
-		 WHERE s.group_id = $1
-		   AND s.day_idx = $2
-		   AND s.week_type = $3
-		 ORDER BY s.lesson_num`,
+			 LEFT JOIN teachers t ON t.teacher_id = s.teacher_id
+			 WHERE s.group_id = $1
+			   AND s.day_idx = $2
+			   AND s.week_type = $3
+			   AND s.semester_id = (
+			       SELECT sem.semester_id
+			       FROM semesters sem
+			       WHERE $4::date BETWEEN
+			           (sem.starts_at AT TIME ZONE 'Asia/Novosibirsk')::date
+			           AND (sem.ends_at AT TIME ZONE 'Asia/Novosibirsk')::date
+			       ORDER BY sem.starts_at DESC
+			       LIMIT 1
+			   )
+			 ORDER BY s.lesson_num`,
 		*studentProfile.GroupID,
 		dayIdx,
 		weekType,
+		target.Format("2006-01-02"),
 	)
 	if err != nil {
 		return Response{OK: false, Error: "failed to load schedule"}

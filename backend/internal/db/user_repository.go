@@ -42,11 +42,22 @@ func (r *UserRepository) Create(ctx context.Context, login, passwordHash, role s
 		ctx,
 		`INSERT INTO users (login, password_hash, role)
 		 VALUES ($1, $2, $3)
-		 RETURNING id, login, password_hash, role, email, created_at`,
+		 RETURNING id, login, password_hash, role, email, status,
+		           is_2fa_enabled, created_at, updated_at`,
 		login,
 		passwordHash,
 		role,
-	).Scan(&out.ID, &out.Login, &out.PasswordHash, &out.Role, &out.Email, &out.CreatedAt)
+	).Scan(
+		&out.ID,
+		&out.Login,
+		&out.PasswordHash,
+		&out.Role,
+		&out.Email,
+		&out.Status,
+		&out.TwoFaEnabled,
+		&out.CreatedAt,
+		&out.UpdatedAt,
+	)
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
@@ -67,11 +78,22 @@ func (r *UserRepository) GetByLogin(ctx context.Context, login string) (User, bo
 	var out User
 	err := r.pool.QueryRow(
 		ctx,
-		`SELECT id, login, password_hash, role, email, created_at
+		`SELECT id, login, password_hash, role, email, status,
+		        is_2fa_enabled, created_at, updated_at
 		 FROM users
 		 WHERE login = $1`,
 		login,
-	).Scan(&out.ID, &out.Login, &out.PasswordHash, &out.Role, &out.Email, &out.CreatedAt)
+	).Scan(
+		&out.ID,
+		&out.Login,
+		&out.PasswordHash,
+		&out.Role,
+		&out.Email,
+		&out.Status,
+		&out.TwoFaEnabled,
+		&out.CreatedAt,
+		&out.UpdatedAt,
+	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return User{}, false, nil
 	}
@@ -90,11 +112,22 @@ func (r *UserRepository) GetByID(ctx context.Context, id int32) (User, bool, err
 	var out User
 	err := r.pool.QueryRow(
 		ctx,
-		`SELECT id, login, password_hash, role, email, created_at
+		`SELECT id, login, password_hash, role, email, status,
+		        is_2fa_enabled, created_at, updated_at
 		 FROM users
 		 WHERE id = $1`,
 		id,
-	).Scan(&out.ID, &out.Login, &out.PasswordHash, &out.Role, &out.Email, &out.CreatedAt)
+	).Scan(
+		&out.ID,
+		&out.Login,
+		&out.PasswordHash,
+		&out.Role,
+		&out.Email,
+		&out.Status,
+		&out.TwoFaEnabled,
+		&out.CreatedAt,
+		&out.UpdatedAt,
+	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return User{}, false, nil
 	}
@@ -220,4 +253,110 @@ func (r *UserRepository) UpdatePassword(ctx context.Context, userID int32, passw
 		return fmt.Errorf("update password hash: %w", err)
 	}
 	return nil
+}
+
+func (r *UserRepository) AdminList(ctx context.Context, filter AdminUserFilter) ([]AdminUser, int32, error) {
+	offset := (filter.Page - 1) * filter.PageSize
+	search := strings.TrimSpace(filter.Search)
+
+	var total int32
+	err := r.pool.QueryRow(
+		ctx,
+		`SELECT COUNT(*)
+		 FROM users
+		 WHERE ($1 = '' OR role::text = $1)
+		   AND ($2 = '' OR status = $2)
+		   AND (
+		       $3 = ''
+		       OR login ILIKE '%' || $3 || '%'
+		       OR COALESCE(email, '') ILIKE '%' || $3 || '%'
+		   )`,
+		filter.Role,
+		filter.Status,
+		search,
+	).Scan(&total)
+	if err != nil {
+		return nil, 0, fmt.Errorf("count admin users: %w", err)
+	}
+
+	rows, err := r.pool.Query(
+		ctx,
+		`SELECT id, login, role::text, email, status,
+		        is_2fa_enabled, created_at, updated_at
+		 FROM users
+		 WHERE ($1 = '' OR role::text = $1)
+		   AND ($2 = '' OR status = $2)
+		   AND (
+		       $3 = ''
+		       OR login ILIKE '%' || $3 || '%'
+		       OR COALESCE(email, '') ILIKE '%' || $3 || '%'
+		   )
+		 ORDER BY id DESC
+		 LIMIT $4 OFFSET $5`,
+		filter.Role,
+		filter.Status,
+		search,
+		filter.PageSize,
+		offset,
+	)
+	if err != nil {
+		return nil, 0, fmt.Errorf("list admin users: %w", err)
+	}
+	defer rows.Close()
+
+	items := make([]AdminUser, 0)
+	for rows.Next() {
+		var item AdminUser
+		if err := rows.Scan(
+			&item.ID,
+			&item.Login,
+			&item.Role,
+			&item.Email,
+			&item.Status,
+			&item.TwoFaEnabled,
+			&item.CreatedAt,
+			&item.UpdatedAt,
+		); err != nil {
+			return nil, 0, fmt.Errorf("scan admin user: %w", err)
+		}
+		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, 0, fmt.Errorf("iterate admin users: %w", err)
+	}
+
+	return items, total, nil
+}
+
+func (r *UserRepository) AdminGetByID(ctx context.Context, userID int32) (AdminUser, bool, error) {
+	if userID <= 0 {
+		return AdminUser{}, false, fmt.Errorf("user id is required")
+	}
+
+	var item AdminUser
+	err := r.pool.QueryRow(
+		ctx,
+		`SELECT id, login, role::text, email, status,
+		        is_2fa_enabled, created_at, updated_at
+		 FROM users
+		 WHERE id = $1`,
+		userID,
+	).Scan(
+		&item.ID,
+		&item.Login,
+		&item.Role,
+		&item.Email,
+		&item.Status,
+		&item.TwoFaEnabled,
+		&item.CreatedAt,
+		&item.UpdatedAt,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return AdminUser{}, false, nil
+	}
+	if err != nil {
+		return AdminUser{}, false, fmt.Errorf("get admin user: %w", err)
+	}
+
+	return item, true, nil
 }
