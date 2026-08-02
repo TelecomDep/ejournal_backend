@@ -28,6 +28,10 @@ function resolveAssetUrl(url) {
   if (!url) {
     return '';
   }
+  const avatarIdx = url.indexOf('/api/user/avatar/');
+  if (avatarIdx >= 0) {
+    return `${BACKEND_URL}${url.slice(avatarIdx)}`;
+  }
   const uploadsIdx = url.indexOf('/uploads/');
   if (uploadsIdx >= 0) {
     return `${BACKEND_URL}${url.slice(uploadsIdx)}`;
@@ -437,9 +441,19 @@ const api = {
     }
   },
 
-  async generate2FA(token) {
+  async request2FAEnable(token) {
     try {
-      const response = await axios.get(`${BACKEND_URL}/api/user/2fa/generate`, { headers: authHeaders(token) });
+      const response = await axios.post(`${BACKEND_URL}/api/user/2fa/request-enable`, {}, { headers: authHeaders(token) });
+      return unwrapApiResponse(response.data);
+    } catch (error) {
+      console.error('Ошибка запроса подключения 2FA:', error);
+      throw error;
+    }
+  },
+
+  async generate2FA(token, emailCode) {
+    try {
+      const response = await axios.post(`${BACKEND_URL}/api/user/2fa/generate`, { email_code: emailCode }, { headers: authHeaders(token) });
       return unwrapApiResponse(response.data);
     } catch (error) {
       console.error('Ошибка генерации 2FA:', error);

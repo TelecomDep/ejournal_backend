@@ -23,6 +23,15 @@ Scenario: Teacher can create a new grade item for a subject
   Then status 200
   And match response.ok == true
   And match response.result.item_id == '#number'
+  * def itemId = response.result.item_id
+
+  # --- TEARDOWN: Clean up test grade item via HTTP ---
+  Given path 'api/teacher/grades/items/' + itemId
+  And header Authorization = 'Bearer ' + teacherToken
+  And request { cascade: true }
+  When method delete
+  Then status 200
+  And match response.ok == true
 
 Scenario: Teacher can assign a grade to a student
   # --- SETUP: Get student ID & create grade item ---
@@ -65,6 +74,14 @@ Scenario: Teacher can assign a grade to a student
   Then status 200
   And match response.ok == true
   And match response.result.score == 1
+
+  # --- TEARDOWN: Clean up test grade item & grade via HTTP ---
+  Given path 'api/teacher/grades/items/' + itemId
+  And header Authorization = 'Bearer ' + teacherToken
+  And request { cascade: true }
+  When method delete
+  Then status 200
+  And match response.ok == true
 
 Scenario: Student can view their assigned grades
   # --- SETUP: Assign a grade ---
@@ -118,3 +135,11 @@ Scenario: Student can view their assigned grades
   And match grade != null
   And match grade.score == 1
   And match grade.max_score == 1
+
+  # --- TEARDOWN: Clean up test grade item & grade via HTTP ---
+  Given path 'api/teacher/grades/items/' + itemId
+  And header Authorization = 'Bearer ' + teacherToken
+  And request { cascade: true }
+  When method delete
+  Then status 200
+  And match response.ok == true

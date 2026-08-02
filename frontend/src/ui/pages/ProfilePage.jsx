@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import api from '../../services/api';
 import { getRoleLabel } from '../navigation';
 
@@ -81,12 +81,20 @@ const getTwoFaErrorMessage = (error, fallback) => {
   const message = api.getErrorMessage(error, fallback);
   const normalized = String(message).toLowerCase();
 
+  if (normalized.includes('email_required')) {
+    return 'Сначала привяжите email в настройках выше.';
+  }
+
+  if (normalized.includes('invalid or expired email confirmation code')) {
+    return 'Неверный или истёкший код из письма.';
+  }
+
   if (normalized.includes('invalid totp code') || normalized.includes('invalid 2fa code')) {
     return 'Неверный код. Дождитесь нового кода в приложении и попробуйте ещё раз.';
   }
 
   if (normalized.includes('setup not initiated')) {
-    return 'Сначала создайте новый QR-код для подключения.';
+    return 'Сначала подтвердите email для подключения.';
   }
 
   return message;
@@ -138,42 +146,41 @@ const canvasToBlob = (canvas, quality) => new Promise((resolve, reject) => {
 
 const prepareAvatarFile = async (file) => {
   const image = await loadAvatarImage(file);
-  const sourceSize = Math.min(image.naturalWidth, image.naturalHeight);
-  const sourceX = Math.round((image.naturalWidth - sourceSize) / 2);
-  const sourceY = Math.round((image.naturalHeight - sourceSize) / 2);
-  const canvas = document.createElement('canvas');
-  const context = canvas.getContext('2d');
-  const targetBytes = 11 * 1024;
-  const variants = [
-    [192, 0.82],
-    [192, 0.66],
-    [160, 0.72],
-    [160, 0.56],
-    [128, 0.64],
-    [128, 0.46],
-    [96, 0.5]
-  ];
-  let preparedBlob = null;
+  const origW = image.naturalWidth;
+  const origH = image.naturalHeight;
 
-  if (!context || sourceSize <= 0) {
+  if (origW <= 0 || origH <= 0) {
     throw new Error('Не удалось обработать выбранное изображение');
   }
 
-  for (const [size, quality] of variants) {
-    canvas.width = size;
-    canvas.height = size;
-    context.clearRect(0, 0, size, size);
-    context.drawImage(image, sourceX, sourceY, sourceSize, sourceSize, 0, 0, size, size);
-    preparedBlob = await canvasToBlob(canvas, quality);
+  const MAX_DIM = 1600;
+  let targetW = origW;
+  let targetH = origH;
 
-    if (preparedBlob.size <= targetBytes) {
-      break;
+  if (origW > MAX_DIM || origH > MAX_DIM) {
+    if (origW >= origH) {
+      targetW = MAX_DIM;
+      targetH = Math.round((origH * MAX_DIM) / origW);
+    } else {
+      targetH = MAX_DIM;
+      targetW = Math.round((origW * MAX_DIM) / origH);
     }
   }
 
-  if (!preparedBlob) {
-    throw new Error('Не удалось подготовить изображение');
+  const canvas = document.createElement('canvas');
+  canvas.width = targetW;
+  canvas.height = targetH;
+
+  const context = canvas.getContext('2d');
+  if (!context) {
+    throw new Error('Не удалось подготовить холст изображения');
   }
+
+  context.imageSmoothingEnabled = true;
+  context.imageSmoothingQuality = 'high';
+  context.drawImage(image, 0, 0, origW, origH, 0, 0, targetW, targetH);
+
+  const preparedBlob = await canvasToBlob(canvas, 0.88);
 
   return new File([preparedBlob], 'avatar.webp', {
     type: 'image/webp',
@@ -188,6 +195,8 @@ const SecurityPanel = ({ user, token }) => {
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const [twoFaEnabled, setTwoFaEnabled] = useState(Boolean(user?.two_fa_enabled));
+  const [twoFaStage, setTwoFaStage] = useState('idle'); // 'idle' | 'email_sent' | 'qr_ready'
+  const [emailCode, setEmailCode] = useState('');
   const [twoFaSetup, setTwoFaSetup] = useState(null);
   const [twoFaCode, setTwoFaCode] = useState('');
   const [twoFaMessage, setTwoFaMessage] = useState('');
@@ -216,18 +225,48 @@ const SecurityPanel = ({ user, token }) => {
     setTwoFaMessage('');
     setTwoFaError('');
 
+    if (!savedEmail) {
+      setTwoFaError('Сначала привяжите email в настройках выше.');
+      return;
+    }
+
+    try {
+      setTwoFaAction('request_email');
+      await api.request2FAEnable(token);
+      setTwoFaStage('email_sent');
+      setEmailCode('');
+      setTwoFaMessage('Код подтверждения отправлен на вашу почту.');
+    } catch (err) {
+      setTwoFaError(getTwoFaErrorMessage(err, 'Не удалось отправить код подтверждения на email'));
+    } finally {
+      setTwoFaAction('');
+    }
+  };
+
+  const verifyEmailCodeAndGenerate = async (event) => {
+    event.preventDefault();
+    setTwoFaMessage('');
+    setTwoFaError('');
+
+    if (!emailCode.trim()) {
+      setTwoFaError('Введите код подтверждения из письма.');
+      return;
+    }
+
     try {
       setTwoFaAction('generate');
-      const setup = await api.generate2FA(token);
+      const setup = await api.generate2FA(token, emailCode.trim());
 
       if (!setup?.qr_code || !setup?.secret) {
         throw new Error('Сервер не вернул данные для подключения 2FA');
       }
 
       setTwoFaSetup(setup);
+      setTwoFaStage('qr_ready');
       setTwoFaCode('');
+      setTwoFaMessage('Email подтверждён. Отсканируйте QR-код в мобильном приложении.');
     } catch (err) {
-      setTwoFaError(getTwoFaErrorMessage(err, 'Не удалось создать QR-код для 2FA'));
+      setTwoFaError(getTwoFaErrorMessage(err, 'Не удалось подтвердить код из письма'));
     } finally {
       setTwoFaAction('');
     }
@@ -248,8 +287,10 @@ const SecurityPanel = ({ user, token }) => {
       await api.verify2FA(token, twoFaCode);
       setTwoFaEnabled(true);
       setTwoFaSetup(null);
+      setTwoFaStage('idle');
       setTwoFaCode('');
-      setTwoFaMessage('Двухфакторная аутентификация включена.');
+      setEmailCode('');
+      setTwoFaMessage('Двухфакторная аутентификация успешно включена.');
     } catch (err) {
       setTwoFaError(getTwoFaErrorMessage(err, 'Не удалось подтвердить код 2FA'));
     } finally {
@@ -270,7 +311,9 @@ const SecurityPanel = ({ user, token }) => {
       await api.disable2FA(token);
       setTwoFaEnabled(false);
       setTwoFaSetup(null);
+      setTwoFaStage('idle');
       setTwoFaCode('');
+      setEmailCode('');
       setTwoFaMessage('Двухфакторная аутентификация отключена.');
     } catch (err) {
       setTwoFaError(getTwoFaErrorMessage(err, 'Не удалось отключить 2FA'));
@@ -342,7 +385,7 @@ const SecurityPanel = ({ user, token }) => {
             <p>
               {twoFaEnabled
                 ? 'При следующем входе потребуется одноразовый код из приложения-аутентификатора.'
-                : 'Защитите аккаунт одноразовым кодом, который меняется каждые 30 секунд.'}
+                : 'Для подключения требуется привязанный email и подтверждение по почте.'}
             </p>
           </div>
 
@@ -365,9 +408,16 @@ const SecurityPanel = ({ user, token }) => {
                 type="button"
                 className="twofa-button twofa-button--primary"
                 onClick={startTwoFaSetup}
-                disabled={Boolean(twoFaAction)}
+                disabled={Boolean(twoFaAction) || !savedEmail}
+                title={!savedEmail ? 'Сначала привяжите email выше' : ''}
               >
-                {twoFaAction === 'generate' ? 'Создаём QR-код...' : twoFaSetup ? 'Обновить QR-код' : 'Подключить'}
+                {twoFaAction === 'request_email'
+                  ? 'Отправка кода...'
+                  : twoFaStage === 'email_sent'
+                  ? 'Повторить отправку кода'
+                  : twoFaSetup
+                  ? 'Запросить новый QR-код'
+                  : 'Подключить'}
               </button>
             )}
           </div>
@@ -376,7 +426,39 @@ const SecurityPanel = ({ user, token }) => {
         {twoFaMessage && <div className="security-message security-message--success">{twoFaMessage}</div>}
         {twoFaError && <div className="security-message security-message--error">{twoFaError}</div>}
 
-        {!twoFaEnabled && twoFaSetup && (
+        {!twoFaEnabled && twoFaStage === 'email_sent' && (
+          <div className="twofa-setup">
+            <div className="twofa-setup-content" style={{ width: '100%' }}>
+              <h4>Шаг 1 из 2: Подтверждение по Email</h4>
+              <p style={{ color: 'var(--text-secondary, #64748b)', marginBottom: '16px' }}>
+                Мы отправили письмо с кодом подтверждения на ваш email <strong>{savedEmail}</strong>.
+              </p>
+
+              <form className="twofa-verify-form" onSubmit={verifyEmailCodeAndGenerate}>
+                <label htmlFor="email-code">Код из письма</label>
+                <div style={{ display: 'flex', gap: '12px' }}>
+                  <input
+                    id="email-code"
+                    type="text"
+                    value={emailCode}
+                    onChange={(event) => setEmailCode(event.target.value.trim())}
+                    placeholder="Введите код из письма"
+                    required
+                  />
+                  <button
+                    type="submit"
+                    className="twofa-button twofa-button--primary"
+                    disabled={!emailCode.trim() || Boolean(twoFaAction)}
+                  >
+                    {twoFaAction === 'generate' ? 'Проверяем...' : 'Подтвердить и показать QR'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {!twoFaEnabled && twoFaStage === 'qr_ready' && twoFaSetup && (
           <div className="twofa-setup">
             <div className="twofa-qr">
               <img src={twoFaSetup.qr_code} alt="QR-код для подключения двухфакторной аутентификации" />
@@ -384,10 +466,10 @@ const SecurityPanel = ({ user, token }) => {
             </div>
 
             <div className="twofa-setup-content">
-              <h4>Подтверждение подключения</h4>
+              <h4>Шаг 2 из 2: Сканирование и активация</h4>
               <ol>
-                <li>Отсканируйте QR-код в приложении-аутентификаторе.</li>
-                <li>Введите текущий шестизначный код.</li>
+                <li>Отсканируйте QR-код в приложении-аутентификаторе (Google Authenticator, Yandex Key и др.).</li>
+                <li>Введите текущий шестизначный код из приложения.</li>
               </ol>
 
               <div className="twofa-secret">
@@ -399,7 +481,7 @@ const SecurityPanel = ({ user, token }) => {
               </div>
 
               <form className="twofa-verify-form" onSubmit={verifyTwoFa}>
-                <label htmlFor="twofa-code">Код подтверждения</label>
+                <label htmlFor="twofa-code">Код из приложения 2FA</label>
                 <div>
                   <input
                     id="twofa-code"
@@ -417,7 +499,7 @@ const SecurityPanel = ({ user, token }) => {
                     className="twofa-button twofa-button--primary"
                     disabled={twoFaCode.length !== 6 || Boolean(twoFaAction)}
                   >
-                    {twoFaAction === 'verify' ? 'Проверяем...' : 'Подтвердить'}
+                    {twoFaAction === 'verify' ? 'Проверяем...' : 'Активировать 2FA'}
                   </button>
                 </div>
                 <small id="twofa-code-hint">Код обновляется в приложении каждые 30 секунд.</small>
@@ -515,6 +597,23 @@ const ProfileInfoPanel = ({ user, token, displayName, rows, metrics, onAvatarCha
   const [avatarMessage, setAvatarMessage] = useState('');
   const [avatarError, setAvatarError] = useState('');
   const [avatarPreview, setAvatarPreview] = useState('');
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+  const [imgError, setImgError] = useState(false);
+
+  useEffect(() => {
+    setImgError(false);
+  }, [user?.avatar, avatarPreview]);
+
+  useEffect(() => {
+    if (!isLightboxOpen) return;
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        setIsLightboxOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isLightboxOpen]);
 
   const handleAvatarSelect = async (event) => {
     const input = event.currentTarget;
@@ -565,12 +664,27 @@ const ProfileInfoPanel = ({ user, token, displayName, rows, metrics, onAvatarCha
     }
   };
 
+  const hasValidAvatar = Boolean((avatarPreview || user?.avatar) && !imgError);
+
   return (
     <div className="profile-layout">
       <aside className="profile-photo-card">
-        <div className="profile-avatar" aria-label={`Фото профиля: ${getInitials(displayName)}`}>
-          {avatarPreview || user?.avatar ? (
-            <img src={avatarPreview || user.avatar} alt={`Аватар пользователя ${displayName}`} />
+        <div
+          className={`profile-avatar ${hasValidAvatar ? 'is-clickable' : ''}`}
+          aria-label={`Фото профиля: ${getInitials(displayName)}`}
+          title={hasValidAvatar ? 'Нажмите для просмотра в полном размере' : ''}
+          onClick={() => {
+            if (hasValidAvatar) {
+              setIsLightboxOpen(true);
+            }
+          }}
+        >
+          {hasValidAvatar ? (
+            <img
+              src={avatarPreview || user.avatar}
+              alt={`Аватар пользователя ${displayName}`}
+              onError={() => setImgError(true)}
+            />
           ) : (
             <DefaultAvatar />
           )}
@@ -630,6 +744,32 @@ const ProfileInfoPanel = ({ user, token, displayName, rows, metrics, onAvatarCha
           ))}
         </div>
       </section>
+
+      {isLightboxOpen && hasValidAvatar && (
+        <div
+          className="avatar-lightbox-backdrop"
+          onClick={() => setIsLightboxOpen(false)}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="avatar-lightbox-content" onClick={(event) => event.stopPropagation()}>
+            <button
+              type="button"
+              className="avatar-lightbox-close"
+              onClick={() => setIsLightboxOpen(false)}
+              aria-label="Закрыть просмотр"
+            >
+              ✕
+            </button>
+            <img
+              src={avatarPreview || user?.avatar}
+              alt={`Аватар пользователя ${displayName}`}
+              className="avatar-lightbox-image"
+            />
+            <span className="avatar-lightbox-caption">{displayName}</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

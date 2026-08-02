@@ -2,12 +2,9 @@ package httpserver
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log"
-	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -64,7 +61,9 @@ func (s *Server) Start() {
 	fiberApp.Post("/api/user/email", s.updateEmailHandler)
 	fiberApp.Post("/api/user/email/bind/request", s.requestEmailBindHandler)
 	fiberApp.Post("/api/user/email/bind/confirm", s.confirmEmailBindHandler)
+	fiberApp.Post("/api/user/2fa/request-enable", s.request2FAEnableHandler)
 	fiberApp.Get("/api/user/2fa/generate", s.generate2faHandler)
+	fiberApp.Post("/api/user/2fa/generate", s.generate2faHandler)
 	fiberApp.Post("/api/user/2fa/verify", s.verify2faHandler)
 	fiberApp.Post("/api/user/2fa/disable", s.disable2faHandler)
 	fiberApp.Get("/api/semesters", s.semestersListHandler)
@@ -73,6 +72,7 @@ func (s *Server) Start() {
 	fiberApp.Patch("/api/admin/semesters/:semester_id/activate", s.activateSemesterHandler)
 	fiberApp.Patch("/api/admin/semesters/:semester_id/close", s.closeSemesterHandler)
 	fiberApp.Patch("/api/admin/semesters/:semester_id/archive", s.archiveSemesterHandler)
+	fiberApp.Delete("/api/admin/semesters/:semester_id", s.deleteSemesterHandler)
 	fiberApp.Get("/api/admin/users", s.adminUsersListHandler)
 	fiberApp.Get("/api/admin/users/:user_id", s.adminUserGetHandler)
 	fiberApp.Post("/api/admin/users", s.adminUserCreateHandler)
@@ -96,8 +96,10 @@ func (s *Server) Start() {
 	fiberApp.Get("/api/staff/overview/students", s.staffStudentsPageHandler)
 	fiberApp.Get("/api/staff/reports/performance.xlsx", s.staffPerformanceReportHandler)
 	fiberApp.Get("/api/staff/reports/performance.pdf", s.staffPerformanceReportPDFHandler)
-	fiberApp.Get("/api/student/schedule/day", s.studentScheduleDayHandler)
+	fiberApp.Get("/api/user/avatar/:user_id", s.getUserAvatarHandler)
 	fiberApp.Post("/api/user/upload-avatar", s.uploadAvatarHandler)
+	fiberApp.Post("/api/attachments/upload", s.uploadAttachmentHandler)
+	fiberApp.Get("/api/attachments/:id", s.getAttachmentHandler)
 	fiberApp.Post("/api/teacher/grades/items", s.teacherCreateGradeItemHandler)
 	fiberApp.Post("/api/teacher/grades/items/list", s.teacherGradeItemsBySubjectHandler)
 	fiberApp.Delete("/api/teacher/grades/items/:item_id", s.teacherDeleteGradeItemHandler)
@@ -163,13 +165,19 @@ func (s *Server) androidJSONActionHandler(c *fiber.Ctx, requestID, action string
 	if token == "" {
 		return c.Status(fiber.StatusUnauthorized).JSON(app.Response{OK: false, Error: "missing Authorization header"})
 	}
-	if err := c.BodyParser(body); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(app.Response{OK: false, Error: "Error parsing body"})
-	}
 
-	data, err := json.Marshal(body)
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(app.Response{OK: false, Error: "Error marshalling request"})
+	var data []byte
+	var err error
+	if len(c.Body()) > 0 {
+		if err := c.BodyParser(body); err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(app.Response{OK: false, Error: "Error parsing body"})
+		}
+		data, err = json.Marshal(body)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(app.Response{OK: false, Error: "Error marshalling request"})
+		}
+	} else {
+		data = []byte("{}")
 	}
 	raw, err := json.Marshal(app.Request{ID: requestID, Action: action, Token: token, Data: data})
 	if err != nil {
@@ -212,44 +220,71 @@ func (s *Server) androidJSONActionHandler(c *fiber.Ctx, requestID, action string
 // @Failure 400 {object} app.Response
 // @Failure 401 {object} app.Response
 // @Router /api/user/upload-avatar [post]
+func (s *Server) getUserAvatarHandler(c *fiber.Ctx) error {
+	userID, err := strconv.ParseInt(c.Params("user_id"), 10, 32)
+	if err != nil || userID <= 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(app.Response{OK: false, Error: "invalid user_id"})
+	}
+
+	avatar, found, err := s.svc.GetUserAvatar(int32(userID))
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(app.Response{OK: false, Error: "failed to retrieve avatar"})
+	}
+	if !found || len(avatar.ImageData) == 0 {
+		return c.Status(fiber.StatusNotFound).JSON(app.Response{OK: false, Error: "avatar not found"})
+	}
+
+	clientETag := strings.Trim(c.Get("If-None-Match"), `"`)
+	if clientETag != "" && (clientETag == avatar.Hash || (len(avatar.Hash) >= 8 && clientETag == avatar.Hash[:8])) {
+		return c.SendStatus(fiber.StatusNotModified)
+	}
+
+	c.Set("Content-Type", avatar.ContentType)
+	c.Set("ETag", fmt.Sprintf(`"%s"`, avatar.Hash))
+	c.Set("Cache-Control", "public, max-age=31536000, immutable")
+	return c.Send(avatar.ImageData)
+}
+
+// uploadAvatarHandler godoc
+// @Summary Upload current user avatar
+// @Description Resizes avatar image to 256x256, stores in PostgreSQL BYTEA, and returns avatar URL.
+// @Tags profile
+// @Accept mpfd
+// @Produce json
+// @Security BearerAuth
+// @Param avatar formData file true "Avatar image"
+// @Success 200 {object} app.Response
+// @Failure 400 {object} app.Response
+// @Failure 401 {object} app.Response
+// @Router /api/user/upload-avatar [post]
 func (s *Server) uploadAvatarHandler(c *fiber.Ctx) error {
 	token := c.Get("Authorization")
 	if token == "" {
 		return c.Status(fiber.StatusUnauthorized).JSON(app.Response{OK: false, Error: "missing Authorization header"})
 	}
 
-	file, err := c.FormFile("avatar")
+	fileHeader, err := c.FormFile("avatar")
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(app.Response{OK: false, Error: "avatar file is required"})
 	}
-	if file.Size <= 0 || file.Size > 5*1024*1024 {
+	if fileHeader.Size <= 0 || fileHeader.Size > 5*1024*1024 {
 		return c.Status(fiber.StatusBadRequest).JSON(app.Response{OK: false, Error: "avatar file must be between 1 byte and 5 MiB"})
 	}
 
-	extension := strings.ToLower(filepath.Ext(file.Filename))
+	extension := strings.ToLower(filepath.Ext(fileHeader.Filename))
 	allowedExtensions := map[string]bool{".jpg": true, ".jpeg": true, ".png": true, ".webp": true}
 	if !allowedExtensions[extension] {
 		return c.Status(fiber.StatusBadRequest).JSON(app.Response{OK: false, Error: "avatar file type is not supported"})
 	}
 
-	randomBytes := make([]byte, 16)
-	if _, err = rand.Read(randomBytes); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(app.Response{OK: false, Error: "failed to generate avatar filename"})
+	file, err := fileHeader.Open()
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(app.Response{OK: false, Error: "failed to open avatar file"})
 	}
-	filename := hex.EncodeToString(randomBytes) + extension
-	avatarDir := filepath.Join(s.cfg.UploadDir, "avatars")
-	if err = os.MkdirAll(avatarDir, 0o755); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(app.Response{OK: false, Error: "failed to prepare avatar storage"})
-	}
-	avatarPath := filepath.Join(avatarDir, filename)
-	if err = c.SaveFile(file, avatarPath); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(app.Response{OK: false, Error: "failed to save avatar"})
-	}
+	defer file.Close()
 
-	avatarURL := fmt.Sprintf("%s/uploads/avatars/%s", strings.TrimRight(s.cfg.SiteBaseURL, "/"), filename)
-	resp := s.svc.UpdateAvatarByToken(token, avatarURL)
+	resp := s.svc.SaveAvatarData(token, file)
 	if !resp.OK {
-		_ = os.Remove(avatarPath)
 		switch resp.Error {
 		case "invalid token", "session not found", "missing token", "account is not active":
 			return c.Status(fiber.StatusUnauthorized).JSON(resp)
@@ -259,6 +294,49 @@ func (s *Server) uploadAvatarHandler(c *fiber.Ctx) error {
 	}
 	resp.ID = "http-upload-avatar"
 	return c.JSON(resp)
+}
+
+func (s *Server) uploadAttachmentHandler(c *fiber.Ctx) error {
+	token := c.Get("Authorization")
+	if token == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(app.Response{OK: false, Error: "missing Authorization header"})
+	}
+
+	fileHeader, err := c.FormFile("file")
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(app.Response{OK: false, Error: "attachment file is required"})
+	}
+
+	file, err := fileHeader.Open()
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(app.Response{OK: false, Error: "failed to open attachment file"})
+	}
+	defer file.Close()
+
+	resp := s.svc.UploadAttachment(token, fileHeader.Filename, file, fileHeader.Size, fileHeader.Header.Get("Content-Type"))
+	if !resp.OK {
+		return c.Status(fiber.StatusBadRequest).JSON(resp)
+	}
+	return c.JSON(resp)
+}
+
+func (s *Server) getAttachmentHandler(c *fiber.Ctx) error {
+	id, err := strconv.ParseInt(c.Params("id"), 10, 64)
+	if err != nil || id <= 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(app.Response{OK: false, Error: "invalid attachment id"})
+	}
+
+	att, found, err := s.svc.GetAttachmentByID(id)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(app.Response{OK: false, Error: "failed to load attachment"})
+	}
+	if !found {
+		return c.Status(fiber.StatusNotFound).JSON(app.Response{OK: false, Error: "attachment not found"})
+	}
+
+	c.Set("Content-Type", att.MimeType)
+	c.Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, att.Filename))
+	return c.Send(att.Data)
 }
 
 // semestersListHandler godoc
@@ -390,6 +468,28 @@ func (s *Server) closeSemesterHandler(c *fiber.Ctx) error {
 // @Router /api/admin/semesters/{semester_id}/archive [patch]
 func (s *Server) archiveSemesterHandler(c *fiber.Ctx) error {
 	return s.semesterTransitionHandler(c, "http-archive-semester", "archive_semester")
+}
+
+// deleteSemesterHandler godoc
+// @Summary Delete semester
+// @Description Admin deletes a non-open semester.
+// @Tags semesters
+// @Produce json
+// @Security BearerAuth
+// @Param semester_id path int true "Semester ID"
+// @Success 200 {object} app.Response
+// @Failure 400 {object} app.Response
+// @Failure 401 {object} app.Response
+// @Failure 403 {object} app.Response
+// @Failure 404 {object} app.Response
+// @Router /api/admin/semesters/{semester_id} [delete]
+func (s *Server) deleteSemesterHandler(c *fiber.Ctx) error {
+	semesterID, err := c.ParamsInt("semester_id")
+	if err != nil || semesterID <= 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(app.Response{OK: false, Error: "invalid semester_id"})
+	}
+	body := app.SemesterIDData{SemesterID: int32(semesterID)}
+	return s.semesterActionHandler(c, "http-delete-semester", "delete_semester", &body)
 }
 
 func (s *Server) semesterTransitionHandler(c *fiber.Ctx, requestID, action string) error {

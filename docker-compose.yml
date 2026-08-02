@@ -16,19 +16,16 @@ services:
     restart: unless-stopped
 
   migrate:
-    image: golang:1.26.1-alpine
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.migrate
     container_name: ejournal-migrate
-    working_dir: /app
-    volumes:
-      - ./backend:/app
     environment:
       DB_DSN: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-ejournal}?sslmode=disable
     depends_on:
       postgres:
         condition: service_healthy
-    command: >
-      sh -lc "/usr/local/go/bin/go install github.com/pressly/goose/v3/cmd/goose@latest &&
-      /go/bin/goose -dir migrations postgres \"$$DB_DSN\" up"
+    entrypoint: ["sh", "-c", "goose -dir migrations postgres \"$$DB_DSN\" up"]
     restart: "no"
 
   ejournal-backend:
@@ -38,9 +35,9 @@ services:
     container_name: ejournal-backend
     environment:
       JWT_SECRET: ${JWT_SECRET:-dev-secret-change-me}
-      SITE_BASE_URL: ${SITE_BASE_URL:-http://localhost:9999}
+      SITE_BASE_URL: ${SITE_BASE_URL:-https://${DOMAIN:-lms.signal.qlabs.pro}}
       APP_PORT: ${APP_PORT:-8888}
-      CORS_ALLOW_ORIGINS: ${CORS_ALLOW_ORIGINS:-http://localhost:9999,http://127.0.0.1:9999,http://localhost:3000,http://127.0.0.1:3000}
+      CORS_ALLOW_ORIGINS: ${CORS_ALLOW_ORIGINS:-https://${DOMAIN:-lms.signal.qlabs.pro},http://localhost:8888,http://127.0.0.1:8888,http://localhost:3000,http://127.0.0.1:3000}
       DB_DSN: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-ejournal}?sslmode=disable
       ROLE_HASH_TEACHER: ${ROLE_HASH_TEACHER:-TEACHER-HASH-2026}
       ROLE_HASH_STUDENT: ${ROLE_HASH_STUDENT:-STUDENT-HASH-2026}
@@ -58,7 +55,7 @@ services:
       migrate:
         condition: service_completed_successfully
     ports:
-      - "${APP_PORT:-8888}:${APP_PORT:-8888}"
+      - "127.0.0.1:${APP_PORT:-8888}:${APP_PORT:-8888}"
     volumes:
       - avataruploads:/app/uploads
     restart: unless-stopped
@@ -73,11 +70,12 @@ services:
     depends_on:
       - ejournal-backend
     ports:
-      - "${FRONTEND_PORT:-9999}:80"
-      - "${FRONTEND_HTTPS_PORT:-443}:443"
+      - "${FRONTEND_PORT:-9000}:80"
+      - "${FRONTEND_HTTPS_PORT:-9001}:443"
     volumes:
-      - ./certbot/conf:/etc/letsencrypt:ro
+      - ./certbot/conf:/etc/letsencrypt
       - ./certbot/www:/var/www/certbot:ro
+      - ./nginx_htpasswd:/etc/nginx/.htpasswd:ro
     restart: unless-stopped
 
   certbot:
@@ -124,8 +122,6 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    ports:
-      - "9187:9187"
     restart: unless-stopped
 
   prometheus:
@@ -137,24 +133,19 @@ services:
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
-    ports:
-      - "9090:9090"
+      - '--web.external-url=https://${DOMAIN:-lms.signal.qlabs.pro}:${FRONTEND_HTTPS_PORT:-9001}/prometheus/'
+      - '--web.route-prefix=/prometheus/'
     restart: unless-stopped
 
   grafana:
     image: grafana/grafana:10.3.0
     container_name: grafana
     environment:
+      - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=admin
-      - GF_PATHS_DATA=/var/lib/grafana
-      - GF_PATHS_HOME=/usr/share/grafana
-      - GF_PATHS_CONFIG=/etc/grafana/grafana.ini
-      - GF_PATHS_LOGS=/var/log/grafana
-      - GF_PATHS_PLUGINS=/var/lib/grafana/plugins
-      - GF_PATHS_PROVISIONING=/etc/grafana/provisioning
-      - PATH=/usr/share/grafana/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-    ports:
-      - "3000:3000"
+      - GF_SERVER_DOMAIN=${DOMAIN:-lms.signal.qlabs.pro}
+      - GF_SERVER_ROOT_URL=https://${DOMAIN:-lms.signal.qlabs.pro}:${FRONTEND_HTTPS_PORT:-9001}/grafana/
+      - GF_SERVER_SERVE_FROM_SUB_PATH=true
     volumes:
       - grafana-data:/var/lib/grafana
     restart: unless-stopped
@@ -198,6 +189,12 @@ services:
   azimutt:
     image: ghcr.io/azimuttapp/azimutt:main
     container_name: ejournal-azimutt
+    volumes:
+      - ./scripts/gfm-enhancer.js:/tmp/gfm-enhancer.js:ro
+      - azimutt-uploads:/app/priv/static/uploads
+      - azimutt-storage:/app/storage
+    command: >
+      sh -c "JS=/app/lib/azimutt-2.0.1781964598/priv/static/elm/script-8f7f5956bc8dda398697ff2d64397fa3.js; grep -q 'gfmV3' \"$$JS\" || (echo '' >> \"$$JS\" && echo ';' >> \"$$JS\" && cat /tmp/gfm-enhancer.js >> \"$$JS\" && rm -f \"$${JS}.gz\"); /app/bin/migrate && /app/bin/server"
     environment:
       PORT: ${AZIMUTT_PORT:-4000}
       PHX_HOST: ${AZIMUTT_HOST:-localhost}
@@ -206,11 +203,9 @@ services:
       DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/azimutt_db?sslmode=disable
       FILE_STORAGE_ADAPTER: local
       AUTH_PASSWORD: "true"
-      PUBLIC_SITE: "false"
+      PUBLIC_SITE: "true"
       SKIP_ONBOARDING: "true"
       GATEWAY_URL: "http://localhost:4177"
-    ports:
-      - "${AZIMUTT_PORT:-4000}:${AZIMUTT_PORT:-4000}"
     depends_on:
       postgres:
         condition: service_healthy
@@ -225,8 +220,6 @@ services:
       NODE_PATH: "/usr/local/lib/node_modules"
     command: >
       sh -c "npm install -g @azimutt/gateway && node -e \"const g = require('/usr/local/lib/node_modules/@azimutt/gateway'); g.startServer(g.buildConfig({ NODE_ENV: 'production', LOG_LEVEL: 'info', API_HOST: '0.0.0.0', API_PORT: '4177', CORS_ALLOW_ORIGIN: '*' }));\""
-    ports:
-      - "4177:4177"
     depends_on:
       postgres:
         condition: service_healthy
@@ -240,3 +233,5 @@ volumes:
   mail-config:
   prometheus-data:
   grafana-data:
+  azimutt-uploads:
+  azimutt-storage:

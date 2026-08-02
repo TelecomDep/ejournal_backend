@@ -189,9 +189,9 @@ func (r *SemesterRepository) Create(ctx context.Context, semester Semester, acto
 		     created_by_user_id, opened_at, opened_by_user_id
 		 )
 		 VALUES (
-		     $1, $2, $3, $4, $5, $6, $6 = 'open',
-		     $7, CASE WHEN $6 = 'open' THEN now() END,
-		     CASE WHEN $6 = 'open' THEN $7 END
+		     $1, $2, $3, $4, $5, $6::text, $6::text = 'open',
+		     $7::integer, CASE WHEN $6::text = 'open' THEN now() END,
+		     CASE WHEN $6::text = 'open' THEN $7::integer END
 		 )
 		 RETURNING `+semesterColumns,
 		semester.AcademicYear,
@@ -442,4 +442,15 @@ func (r *SemesterRepository) transition(
 		return Semester{}, false, fmt.Errorf("commit semester transition: %w", err)
 	}
 	return out, true, nil
+}
+
+func (r *SemesterRepository) Delete(ctx context.Context, id int32) (bool, error) {
+	if id <= 0 {
+		return false, fmt.Errorf("semester id is required")
+	}
+	res, err := r.pool.Exec(ctx, `DELETE FROM semesters WHERE semester_id = $1 AND status != 'open'`, id)
+	if err != nil {
+		return false, fmt.Errorf("delete semester: %w", err)
+	}
+	return res.RowsAffected() > 0, nil
 }

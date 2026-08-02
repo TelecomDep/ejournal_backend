@@ -57,3 +57,5 @@ parsers/
 ssl/
 certbot/
 tests/karate.jar
+tests/target/
+schema.dbml

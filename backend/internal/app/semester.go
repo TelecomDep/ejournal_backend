@@ -368,3 +368,32 @@ func (s *Service) transitionSemester(sessionToken string, data SemesterIDData, t
 		},
 	}
 }
+
+func (s *Service) deleteSemester(sessionToken string, data SemesterIDData) Response {
+	user, err := s.userBySessionToken(sessionToken)
+	if err != nil {
+		return Response{OK: false, Error: err.Error()}
+	}
+	if user.Role != RoleAdmin {
+		return Response{OK: false, Error: "forbidden: admin role required"}
+	}
+
+	ctx, cancel := s.dbContext()
+	defer cancel()
+
+	found, err := s.store.Semesters.Delete(ctx, data.SemesterID)
+	if err != nil {
+		return Response{OK: false, Error: "failed to delete semester"}
+	}
+	if !found {
+		return Response{OK: false, Error: "semester not found or active"}
+	}
+
+	return Response{
+		OK: true,
+		Result: map[string]any{
+			"deleted":     true,
+			"semester_id": data.SemesterID,
+		},
+	}
+}

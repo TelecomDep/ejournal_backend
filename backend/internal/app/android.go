@@ -5,12 +5,14 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"io"
 	"math"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/TelecomDep/ejournal_backend/internal/db"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -402,4 +404,34 @@ func (s *Service) UpdateAvatarByToken(sessionToken, avatarURL string) Response {
 		return Response{OK: false, Error: "user not found"}
 	}
 	return Response{OK: true, Result: avatarURL}
+}
+
+func (s *Service) SaveAvatarData(sessionToken string, rawReader io.Reader) Response {
+	user, err := s.userBySessionToken(sessionToken)
+	if err != nil {
+		return Response{OK: false, Error: err.Error()}
+	}
+
+	data, contentType, hash, err := ResizeAndEncodeAvatar(rawReader, 1600)
+	if err != nil {
+		return Response{OK: false, Error: err.Error()}
+	}
+
+	ctx, cancel := s.dbContext()
+	defer cancel()
+
+	if err := s.store.Users.SaveAvatar(ctx, user.ID, data, contentType, hash); err != nil {
+		return Response{OK: false, Error: "failed to store avatar in database"}
+	}
+
+	avatarURL := fmt.Sprintf("/api/user/avatar/%d?v=%s", user.ID, hash[:8])
+	_, _ = s.store.Pool().Exec(ctx, `UPDATE users SET avatar_url = $2 WHERE id = $1`, user.ID, avatarURL)
+
+	return Response{OK: true, Result: avatarURL}
+}
+
+func (s *Service) GetUserAvatar(userID int32) (db.UserAvatar, bool, error) {
+	ctx, cancel := s.dbContext()
+	defer cancel()
+	return s.store.Users.GetAvatar(ctx, userID)
 }

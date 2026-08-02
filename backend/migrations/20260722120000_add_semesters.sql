@@ -37,7 +37,7 @@ ALTER TABLE attendance_sessions
 INSERT INTO semesters (academic_year, term_num, name, starts_at, ends_at, is_current)
 VALUES
     ('2025/2026', 1, '2025/2026, осенний семестр', TIMESTAMPTZ '2025-09-01 00:00:00+07', TIMESTAMPTZ '2026-01-31 23:59:59+07', FALSE),
-    ('2025/2026', 2, '2025/2026, весенний семестр', TIMESTAMPTZ '2026-02-01 00:00:00+07', TIMESTAMPTZ '2026-06-30 23:59:59+07', TRUE)
+    ('2025/2026', 2, '2025/2026, весенний семестр', TIMESTAMPTZ '2026-02-01 00:00:00+07', TIMESTAMPTZ '2027-06-30 23:59:59+07', TRUE)
 ON CONFLICT (academic_year, term_num) DO UPDATE
 SET name = EXCLUDED.name,
     starts_at = EXCLUDED.starts_at,

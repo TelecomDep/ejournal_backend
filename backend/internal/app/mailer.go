@@ -224,3 +224,87 @@ func (m *Mailer) SendEmailConfirmation(to, code string) error {
 
 	return client.Quit()
 }
+
+func (m *Mailer) Send2FAEnableConfirmation(to, code string) error {
+	if m.host == "" {
+		log.Printf("SMTP_HOST is not configured; skipping sending 2FA activation code to %s (code: %s)", to, code)
+		return nil
+	}
+
+	subject := "Подтверждение включения 2FA / Enable 2FA Confirmation"
+	body := fmt.Sprintf("Здравствуйте!\n\nВаш код для разрешения подключения 2FA: %s\n\nНикому не сообщайте этот код. Код действителен 15 минут.\n\n---\n\nHello!\n\nYour 2FA enablement confirmation code is: %s\n\nDo not share this code with anyone. Valid for 15 minutes.", code, code)
+
+	randBytes := make([]byte, 16)
+	_, _ = rand.Read(randBytes)
+	msgID := fmt.Sprintf("<%x@signal.qlabs.pro>", randBytes)
+	dateHeader := time.Now().Format(time.RFC1123Z)
+
+	encodedSubject := fmt.Sprintf("=?UTF-8?B?%s?=", base64.StdEncoding.EncodeToString([]byte(subject)))
+
+	msg := []byte(fmt.Sprintf("To: %s\r\n"+
+		"From: %s\r\n"+
+		"Subject: %s\r\n"+
+		"Date: %s\r\n"+
+		"Message-ID: %s\r\n"+
+		"Content-Type: text/plain; charset=UTF-8\r\n"+
+		"\r\n"+
+		"%s\r\n", to, m.from, encodedSubject, dateHeader, msgID, body))
+
+	addr := net.JoinHostPort(m.host, m.port)
+
+	conn, err := net.Dial("tcp", addr)
+	if err != nil {
+		return fmt.Errorf("dial smtp server: %w", err)
+	}
+	defer conn.Close()
+
+	client, err := smtp.NewClient(conn, m.host)
+	if err != nil {
+		return fmt.Errorf("new smtp client: %w", err)
+	}
+	defer client.Close()
+
+	if m.port == "587" || m.port == "25" {
+		tlsConfig := &tls.Config{
+			ServerName:         m.host,
+			InsecureSkipVerify: true,
+		}
+		_ = client.StartTLS(tlsConfig)
+	}
+
+	if m.user != "" && m.password != "" {
+		auth := &unencryptedAuth{
+			identity: "",
+			username: m.user,
+			password: m.password,
+			host:     m.host,
+		}
+		if err = client.Auth(auth); err != nil {
+			return fmt.Errorf("smtp auth: %w", err)
+		}
+	}
+
+	if err = client.Mail(m.from); err != nil {
+		return fmt.Errorf("mail from: %w", err)
+	}
+
+	if err = client.Rcpt(to); err != nil {
+		return fmt.Errorf("rcpt to: %w", err)
+	}
+
+	w, err := client.Data()
+	if err != nil {
+		return fmt.Errorf("data command: %w", err)
+	}
+
+	if _, err = w.Write(msg); err != nil {
+		return fmt.Errorf("write message: %w", err)
+	}
+
+	if err = w.Close(); err != nil {
+		return fmt.Errorf("close data: %w", err)
+	}
+
+	return client.Quit()
+}
+

@@ -1,0 +1,14 @@
+FROM golang:1.26.1-alpine AS fetcher
+
+RUN wget -q -O /usr/local/bin/goose https://github.com/pressly/goose/releases/download/v3.24.1/goose_linux_x86_64 && \
+    chmod +x /usr/local/bin/goose
+
+FROM alpine:latest
+
+COPY --from=fetcher /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+COPY --from=fetcher /usr/local/bin/goose /usr/local/bin/goose
+
+WORKDIR /app
+COPY migrations ./migrations
+
+ENTRYPOINT ["goose"]

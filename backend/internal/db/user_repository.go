@@ -360,3 +360,84 @@ func (r *UserRepository) AdminGetByID(ctx context.Context, userID int32) (AdminU
 
 	return item, true, nil
 }
+
+type UserAvatar struct {
+	UserID      int32
+	ImageData   []byte
+	ContentType string
+	Hash        string
+	UpdatedAt   time.Time
+}
+
+func (r *UserRepository) SaveAvatar(ctx context.Context, userID int32, imageData []byte, contentType, hash string) error {
+	_, err := r.pool.Exec(ctx, `
+		INSERT INTO user_avatars (user_id, image_data, content_type, hash, updated_at)
+		VALUES ($1, $2, $3, $4, NOW())
+		ON CONFLICT (user_id) DO UPDATE SET
+			image_data = EXCLUDED.image_data,
+			content_type = EXCLUDED.content_type,
+			hash = EXCLUDED.hash,
+			updated_at = NOW()
+	`, userID, imageData, contentType, hash)
+	if err != nil {
+		return fmt.Errorf("save user avatar: %w", err)
+	}
+	return nil
+}
+
+func (r *UserRepository) GetAvatar(ctx context.Context, userID int32) (UserAvatar, bool, error) {
+	var avatar UserAvatar
+	err := r.pool.QueryRow(ctx, `
+		SELECT user_id, image_data, content_type, hash, updated_at
+		FROM user_avatars
+		WHERE user_id = $1
+	`, userID).Scan(&avatar.UserID, &avatar.ImageData, &avatar.ContentType, &avatar.Hash, &avatar.UpdatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return UserAvatar{}, false, nil
+	}
+	if err != nil {
+		return UserAvatar{}, false, fmt.Errorf("get user avatar: %w", err)
+	}
+	return avatar, true, nil
+}
+
+type Attachment struct {
+	ID          int64     `json:"id"`
+	OwnerID     int32     `json:"owner_id"`
+	Filename    string    `json:"filename"`
+	FileSize    int64     `json:"file_size"`
+	MimeType    string    `json:"mime_type"`
+	StorageType string    `json:"storage_type"`
+	Data        []byte    `json:"-"`
+	StoragePath string    `json:"storage_path,omitempty"`
+	CreatedAt   time.Time `json:"created_at"`
+}
+
+func (r *UserRepository) SaveAttachment(ctx context.Context, att Attachment) (int64, error) {
+	var id int64
+	err := r.pool.QueryRow(ctx, `
+		INSERT INTO attachments (owner_id, filename, file_size, mime_type, storage_type, data, storage_path, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+		RETURNING id
+	`, att.OwnerID, att.Filename, att.FileSize, att.MimeType, att.StorageType, att.Data, att.StoragePath).Scan(&id)
+	if err != nil {
+		return 0, fmt.Errorf("save attachment: %w", err)
+	}
+	return id, nil
+}
+
+func (r *UserRepository) GetAttachmentByID(ctx context.Context, id int64) (Attachment, bool, error) {
+	var att Attachment
+	err := r.pool.QueryRow(ctx, `
+		SELECT id, owner_id, filename, file_size, mime_type, storage_type, data, COALESCE(storage_path, ''), created_at
+		FROM attachments
+		WHERE id = $1
+	`, id).Scan(&att.ID, &att.OwnerID, &att.Filename, &att.FileSize, &att.MimeType, &att.StorageType, &att.Data, &att.StoragePath, &att.CreatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Attachment{}, false, nil
+	}
+	if err != nil {
+		return Attachment{}, false, fmt.Errorf("get attachment: %w", err)
+	}
+	return att, true, nil
+}

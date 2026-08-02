@@ -2019,8 +2019,16 @@ func (s *Service) handleRequest(raw string) Response {
 		resp := s.updateEmail(req.Token, data)
 		resp.ID = req.ID
 		return resp
+	case "request_2fa_enable":
+		resp := s.request2FAEnable(req.Token)
+		resp.ID = req.ID
+		return resp
 	case "generate_2fa":
-		resp := s.generate2fa(req.Token)
+		var data Generate2FAData
+		if len(req.Data) > 0 && string(req.Data) != "{}" {
+			_ = json.Unmarshal(req.Data, &data)
+		}
+		resp := s.generate2fa(req.Token, data)
 		resp.ID = req.ID
 		return resp
 	case "verify_2fa":
@@ -2089,6 +2097,14 @@ func (s *Service) handleRequest(raw string) Response {
 			return Response{ID: req.ID, OK: false, Error: "invalid archive_semester payload"}
 		}
 		resp := s.archiveSemester(req.Token, data)
+		resp.ID = req.ID
+		return resp
+	case "delete_semester":
+		var data SemesterIDData
+		if err := json.Unmarshal(req.Data, &data); err != nil {
+			return Response{ID: req.ID, OK: false, Error: "invalid delete_semester payload"}
+		}
+		resp := s.deleteSemester(req.Token, data)
 		resp.ID = req.ID
 		return resp
 	case "create_attendance_link":

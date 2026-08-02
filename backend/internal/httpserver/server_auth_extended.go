@@ -5,18 +5,33 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-// generate2faHandler godoc
-// @Summary Generate 2FA setup
-// @Description Generates a TOTP secret and QR code for the current user.
+// request2FAEnableHandler godoc
+// @Summary Request 2FA enablement code
+// @Description Sends a confirmation code to user's bound email before allowing 2FA QR code generation.
 // @Tags profile
 // @Produce json
 // @Security BearerAuth
 // @Success 200 {object} app.Response
 // @Failure 400 {object} app.Response
 // @Failure 401 {object} app.Response
-// @Router /api/user/2fa/generate [get]
-func (s *Server) generate2faHandler(c *fiber.Ctx) error {
+// @Router /api/user/2fa/request-enable [post]
+func (s *Server) request2FAEnableHandler(c *fiber.Ctx) error {
 	var body any
+	return s.androidJSONActionHandler(c, "http-request-2fa-enable", "request_2fa_enable", &body)
+}
+
+// generate2faHandler godoc
+// @Summary Generate 2FA setup
+// @Description Generates a TOTP secret and QR code for the current user after validating email confirmation code.
+// @Tags profile
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} app.Response
+// @Failure 400 {object} app.Response
+// @Failure 401 {object} app.Response
+// @Router /api/user/2fa/generate [post]
+func (s *Server) generate2faHandler(c *fiber.Ctx) error {
+	var body app.Generate2FAData
 	return s.androidJSONActionHandler(c, "http-generate-2fa", "generate_2fa", &body)
 }
 

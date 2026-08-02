@@ -8,6 +8,7 @@ events {
 http {
     include /etc/nginx/mime.types;
     default_type application/octet-stream;
+    absolute_redirect off;
 
     server {
         listen 80;
@@ -18,7 +19,7 @@ http {
         }
 
         location / {
-            return 301 https://$host$request_uri;
+            return 301 https://$http_host$request_uri;
         }
     }
 
@@ -30,6 +31,8 @@ http {
 
         ssl_certificate /etc/letsencrypt/live/$DOMAIN/fullchain.pem;
         ssl_certificate_key /etc/letsencrypt/live/$DOMAIN/privkey.pem;
+
+        error_page 497 =307 https://$http_host$request_uri;
 
         location /api/ {
             proxy_pass http://ejournal-backend:8888;
@@ -55,7 +58,30 @@ http {
             proxy_set_header X-Forwarded-Proto $scheme;
         }
 
-        location ~ ^/(login|profile|register)(/.*)?$ {
+        location = /login {
+            proxy_pass http://ejournal-backend:8888;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+
+        location = /register {
+            proxy_pass http://ejournal-backend:8888;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+
+        location = /profile {
+            error_page 418 = @backend_profile;
+            if ($http_authorization != "") { return 418; }
+            if ($http_accept ~* "application/json") { return 418; }
+            try_files $uri $uri/ /index.html;
+        }
+
+        location @backend_profile {
             proxy_pass http://ejournal-backend:8888;
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $remote_addr;
@@ -69,6 +95,63 @@ http {
             proxy_set_header X-Real-IP $remote_addr;
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
             proxy_set_header X-Forwarded-Proto $scheme;
+        }
+
+        # --- Admin Services Protection (auth_basic) ---
+        location = /grafana { return 301 /grafana/; }
+        location = /prometheus { return 301 /prometheus/; }
+        location = /azimutt { return 301 /azimutt/; }
+
+        location ^~ /grafana/ {
+            auth_basic "Restricted Admin Area";
+            auth_basic_user_file /etc/nginx/.htpasswd;
+
+            proxy_pass http://grafana:3000;
+            proxy_set_header Host $http_host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+
+        location ^~ /prometheus/ {
+            auth_basic "Restricted Admin Area";
+            auth_basic_user_file /etc/nginx/.htpasswd;
+
+            proxy_pass http://prometheus:9090;
+            proxy_set_header Host $http_host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+
+        location ^~ /azimutt/ {
+            auth_basic "Restricted Admin Area";
+            auth_basic_user_file /etc/nginx/.htpasswd;
+
+            proxy_pass http://ejournal-azimutt:4000/;
+            proxy_set_header Host $http_host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_set_header Accept-Encoding "";
+
+            sub_filter 'href="/' 'href="/azimutt/';
+            sub_filter 'src="/' 'src="/azimutt/';
+            sub_filter 'action="/' 'action="/azimutt/';
+            sub_filter_once off;
+            sub_filter_types text/html text/css application/javascript;
+
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection "upgrade";
+        }
+
+        location ^~ /elm/ {
+            proxy_pass http://ejournal-azimutt:4000/elm/;
+        }
+
+        location ^~ /dist/ {
+            proxy_pass http://ejournal-azimutt:4000/dist/;
         }
 
         location / {

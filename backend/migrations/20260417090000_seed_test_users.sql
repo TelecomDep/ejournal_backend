@@ -21,6 +21,10 @@ SELECT id, 'student', 'Test Student'
 FROM users
 WHERE login = 'student_test' AND role = 'student'
 ON CONFLICT (student_id) DO NOTHING;
+
+INSERT INTO users (login, password_hash, role)
+VALUES ('admin_test', crypt('123456', gen_salt('bf', 10)), 'admin')
+ON CONFLICT (login) DO NOTHING;
 -- +goose StatementEnd
 
 -- +goose Down

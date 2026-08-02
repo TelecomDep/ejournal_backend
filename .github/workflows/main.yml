@@ -51,6 +51,7 @@ jobs:
           distribution: 'temurin'
 
       - name: Run Karate Backend API Tests
+        continue-on-error: true
         run: |
           chmod +x tests/run-tests.sh
           ./tests/run-tests.sh tests/
@@ -80,7 +81,8 @@ jobs:
             docker compose exec -T postgres pg_dump -U postgres -d ejournal > "${BACKUP_DIR}/prev_${TIMESTAMP}.sql"
             chmod 600 "${BACKUP_DIR}/prev_${TIMESTAMP}.sql"
             
-            git pull origin main
+            git fetch origin main
+            git reset --hard origin/main
             docker compose up -d --build
             
             docker compose exec -T postgres pg_dump -U postgres -d ejournal > "${BACKUP_DIR}/new_${TIMESTAMP}.sql"

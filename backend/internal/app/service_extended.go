@@ -15,6 +15,10 @@ type TwoFaCodeData struct {
 	Code string `json:"code"`
 }
 
+type Generate2FAData struct {
+	EmailCode string `json:"email_code"`
+}
+
 type RequestEmailData struct {
 	Email string `json:"email"`
 }
@@ -23,11 +27,68 @@ type ConfirmEmailData struct {
 	Code string `json:"code"`
 }
 
-func (s *Service) generate2fa(token string) Response {
+func (s *Service) request2FAEnable(token string) Response {
 	user, err := s.userBySessionToken(token)
 	if err != nil {
 		return Response{OK: false, Error: err.Error()}
 	}
+
+	if user.Email == "" {
+		return Response{OK: false, Error: "email_required"}
+	}
+
+	b := make([]byte, 3)
+	rand.Read(b)
+	code := hex.EncodeToString(b) // 6 chars hex
+
+	ctx, cancel := s.dbContext()
+	defer cancel()
+
+	_, err = s.store.Pool().Exec(ctx, `
+		INSERT INTO password_reset_tokens (user_id, token, expires_at) 
+		VALUES ($1, $2, $3)
+	`, user.ID, "2FA_ENABLE_"+code, time.Now().Add(15*time.Minute))
+
+	if err != nil {
+		return Response{OK: false, Error: "failed to generate confirmation code"}
+	}
+
+	if s.mailer != nil {
+		go s.mailer.Send2FAEnableConfirmation(user.Email, code)
+	}
+
+	return Response{OK: true, Result: "confirmation code sent to email"}
+}
+
+func (s *Service) generate2fa(token string, data Generate2FAData) Response {
+	user, err := s.userBySessionToken(token)
+	if err != nil {
+		return Response{OK: false, Error: err.Error()}
+	}
+
+	if user.Email == "" {
+		return Response{OK: false, Error: "email_required"}
+	}
+
+	if data.EmailCode == "" {
+		return Response{OK: false, Error: "email confirmation code is required"}
+	}
+
+	ctx, cancel := s.dbContext()
+	defer cancel()
+
+	var dbToken string
+	err = s.store.Pool().QueryRow(ctx, `
+		SELECT token FROM password_reset_tokens 
+		WHERE user_id = $1 AND token = $2 AND expires_at > NOW()
+	`, user.ID, "2FA_ENABLE_"+data.EmailCode).Scan(&dbToken)
+
+	if err != nil {
+		return Response{OK: false, Error: "invalid or expired email confirmation code"}
+	}
+
+	// Code is valid, remove used token
+	_, _ = s.store.Pool().Exec(ctx, "DELETE FROM password_reset_tokens WHERE user_id = $1 AND token = $2", user.ID, "2FA_ENABLE_"+data.EmailCode)
 
 	key, err := totp.Generate(totp.GenerateOpts{
 		Issuer:      "TelecomDep E-Journal",
@@ -36,9 +97,6 @@ func (s *Service) generate2fa(token string) Response {
 	if err != nil {
 		return Response{OK: false, Error: "failed to generate TOTP secret"}
 	}
-
-	ctx, cancel := s.dbContext()
-	defer cancel()
 
 	_, err = s.store.Pool().Exec(ctx, "UPDATE users SET totp_secret = $1 WHERE id = $2", key.Secret(), user.ID)
 	if err != nil {
