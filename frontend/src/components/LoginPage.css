@@ -142,6 +142,62 @@
   box-shadow: 0 0 0 3px rgba(44, 68, 184, 0.16);
 }
 
+.registration-consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  margin: 2px 0 4px;
+  padding: 13px 14px;
+  border: 1px solid #d8ddec;
+  border-radius: 12px;
+  background: #f7f8fc;
+}
+
+.login-form .registration-consent input[type='checkbox'] {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  margin: 2px 0 0;
+  padding: 0;
+  border-radius: 4px;
+  accent-color: var(--sib-blue);
+  cursor: pointer;
+}
+
+.registration-consent > div {
+  min-width: 0;
+}
+
+.login-form .registration-consent label {
+  display: block;
+  margin: 0;
+  color: #343b5f;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+  cursor: pointer;
+}
+
+.registration-consent a {
+  display: inline-block;
+  margin-top: 4px;
+  color: var(--sib-blue);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.35;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.registration-consent a:hover {
+  color: #15226e;
+}
+
+.registration-consent:focus-within {
+  border-color: var(--sib-blue);
+  box-shadow: 0 0 0 3px rgba(44, 68, 184, 0.12);
+}
+
 .login-form button {
   width: 100%;
   margin-top: 20px;

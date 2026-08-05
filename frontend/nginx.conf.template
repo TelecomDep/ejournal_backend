@@ -9,6 +9,12 @@ http {
     include /etc/nginx/mime.types;
     default_type application/octet-stream;
     absolute_redirect off;
+    resolver 127.0.0.11 valid=10s ipv6=off;
+
+    map $http_host $https_redirect_host {
+        default $host;
+        ~^(?<local_host>localhost|127\.0\.0\.1):9000$ $local_host:9001;
+    }
 
     server {
         listen 80;
@@ -19,7 +25,7 @@ http {
         }
 
         location / {
-            return 301 https://$http_host$request_uri;
+            return 301 https://$https_redirect_host$request_uri;
         }
     }
 
@@ -106,7 +112,8 @@ http {
             auth_basic "Restricted Admin Area";
             auth_basic_user_file /etc/nginx/.htpasswd;
 
-            proxy_pass http://grafana:3000;
+            set $grafana_upstream http://grafana:3000;
+            proxy_pass $grafana_upstream;
             proxy_set_header Host $http_host;
             proxy_set_header X-Real-IP $remote_addr;
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -117,7 +124,8 @@ http {
             auth_basic "Restricted Admin Area";
             auth_basic_user_file /etc/nginx/.htpasswd;
 
-            proxy_pass http://prometheus:9090;
+            set $prometheus_upstream http://prometheus:9090;
+            proxy_pass $prometheus_upstream;
             proxy_set_header Host $http_host;
             proxy_set_header X-Real-IP $remote_addr;
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -128,7 +136,9 @@ http {
             auth_basic "Restricted Admin Area";
             auth_basic_user_file /etc/nginx/.htpasswd;
 
-            proxy_pass http://ejournal-azimutt:4000/;
+            set $azimutt_upstream http://ejournal-azimutt:4000;
+            rewrite ^/azimutt/(.*)$ /$1 break;
+            proxy_pass $azimutt_upstream;
             proxy_set_header Host $http_host;
             proxy_set_header X-Real-IP $remote_addr;
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -139,7 +149,7 @@ http {
             sub_filter 'src="/' 'src="/azimutt/';
             sub_filter 'action="/' 'action="/azimutt/';
             sub_filter_once off;
-            sub_filter_types text/html text/css application/javascript;
+            sub_filter_types text/css application/javascript;
 
             proxy_http_version 1.1;
             proxy_set_header Upgrade $http_upgrade;
@@ -147,11 +157,13 @@ http {
         }
 
         location ^~ /elm/ {
-            proxy_pass http://ejournal-azimutt:4000/elm/;
+            set $azimutt_elm_upstream http://ejournal-azimutt:4000;
+            proxy_pass $azimutt_elm_upstream;
         }
 
         location ^~ /dist/ {
-            proxy_pass http://ejournal-azimutt:4000/dist/;
+            set $azimutt_dist_upstream http://ejournal-azimutt:4000;
+            proxy_pass $azimutt_dist_upstream;
         }
 
         location / {

@@ -508,6 +508,17 @@ const SecurityPanel = ({ user, token }) => {
           </div>
         )}
       </section>
+
+      <div className="security-section-divider" />
+
+      <button
+        type="button"
+        className="consent-revoke-button"
+        disabled
+        title="Для отзыва согласия требуется backend-ручка"
+      >
+        Отозвать согласие на обработку персональных данных
+      </button>
     </section>
   );
 };

@@ -698,6 +698,24 @@
   cursor: wait;
 }
 
+.consent-revoke-button {
+  width: fit-content;
+  min-height: 42px;
+  padding: 0 18px;
+  border: 1px solid #e6b8bd;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #a3212b;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 750;
+}
+
+.consent-revoke-button:disabled {
+  opacity: 0.68;
+  cursor: not-allowed;
+}
+
 .twofa-setup {
   display: grid;
   grid-template-columns: 224px minmax(0, 1fr);
@@ -4473,6 +4491,13 @@
   .twofa-controls {
     grid-column: 1 / -1;
     justify-content: space-between;
+  }
+
+  .consent-revoke-button {
+    width: 100%;
+    min-height: 46px;
+    padding: 10px 14px;
+    line-height: 1.35;
   }
 
   .twofa-setup {

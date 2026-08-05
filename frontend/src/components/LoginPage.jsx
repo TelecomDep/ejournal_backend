@@ -8,6 +8,7 @@ const LoginPage = ({ onLogin, onRegister, loading, error }) => {
   const [login, setLogin] = useState('');
   const [password, setPassword] = useState('');
   const [registrationCode, setRegistrationCode] = useState('');
+  const [personalDataConsent, setPersonalDataConsent] = useState(false);
   const [twoFaCode, setTwoFaCode] = useState('');
 
   // Password reset fields
@@ -46,6 +47,10 @@ const LoginPage = ({ onLogin, onRegister, loading, error }) => {
     setLocalMessage('');
 
     if (view === 'register') {
+      if (!personalDataConsent) {
+        setLocalError('Для регистрации необходимо согласие на обработку персональных данных');
+        return;
+      }
       onRegister(login.trim(), password, registrationCode.trim());
     } else if (view === 'login') {
       onLogin(login.trim(), password, twoFaCode.trim());
@@ -189,16 +194,43 @@ const LoginPage = ({ onLogin, onRegister, loading, error }) => {
             )}
 
             {view === 'register' && (
-              <label>
-                Код регистрации
-                <input
-                  type="text"
-                  value={registrationCode}
-                  onChange={(e) => setRegistrationCode(e.target.value)}
-                  placeholder="Введите код из БД"
-                  required
-                />
-              </label>
+              <>
+                <label>
+                  Код регистрации
+                  <input
+                    type="text"
+                    value={registrationCode}
+                    onChange={(e) => setRegistrationCode(e.target.value)}
+                    placeholder="Введите код из БД"
+                    required
+                  />
+                </label>
+
+                <div className="registration-consent">
+                  <input
+                    id="personal-data-consent"
+                    type="checkbox"
+                    checked={personalDataConsent}
+                    onChange={(event) => {
+                      setPersonalDataConsent(event.target.checked);
+                      if (event.target.checked) setLocalError('');
+                    }}
+                    required
+                  />
+                  <div>
+                    <label htmlFor="personal-data-consent">
+                      Я даю согласие на обработку персональных данных
+                    </label>
+                    <a
+                      href={`${process.env.PUBLIC_URL}/personal-data-consent.pdf`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      Открыть согласие (PDF)
+                    </a>
+                  </div>
+                </div>
+              </>
             )}
 
             {view === 'forgot' && (
@@ -255,7 +287,10 @@ const LoginPage = ({ onLogin, onRegister, loading, error }) => {
           {(error || localError) && error !== 'requires_2fa' && <div className="login-error">{error || localError}</div>}
           {localMessage && <div className="login-success">{localMessage}</div>}
 
-          <button type="submit" disabled={loading || localLoading}>
+          <button
+            type="submit"
+            disabled={loading || localLoading || (view === 'register' && !personalDataConsent)}
+          >
             {loading || localLoading
               ? (view === 'register' ? 'Регистрация...' : view === 'forgot' ? 'Отправка...' : view === 'reset' ? 'Сброс...' : 'Выполняется вход...')
               : (view === 'register' ? 'Зарегистрироваться' : view === 'forgot' ? 'Восстановить пароль' : view === 'reset' ? 'Сбросить пароль' : 'Войти')}
