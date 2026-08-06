@@ -100,3 +100,8 @@ func (s *Server) confirmEmailBindHandler(c *fiber.Ctx) error {
 	var body app.ConfirmEmailData
 	return s.androidJSONActionHandler(c, "http-confirm-email-bind", "confirm_email_bind", &body)
 }
+
+func (s *Server) deleteEmailHandler(c *fiber.Ctx) error {
+	var body any
+	return s.androidJSONActionHandler(c, "http-delete-email", "delete_email", &body)
+}

@@ -45,7 +45,7 @@ func (s *Server) Start() {
 
 	fiberApp.Use(cors.New(cors.Config{
 		AllowOrigins: s.cfg.CORSAllowOrigins,
-		AllowMethods: "GET,POST,DELETE,PATCH,OPTIONS",
+		AllowMethods: "GET,POST,PUT,DELETE,PATCH,OPTIONS",
 		AllowHeaders: "Origin, Content-Type, Accept, Authorization",
 	}))
 
@@ -61,6 +61,12 @@ func (s *Server) Start() {
 	fiberApp.Post("/api/user/email", s.updateEmailHandler)
 	fiberApp.Post("/api/user/email/bind/request", s.requestEmailBindHandler)
 	fiberApp.Post("/api/user/email/bind/confirm", s.confirmEmailBindHandler)
+	fiberApp.Get("/api/user/notifications", s.notificationsListHandler)
+	fiberApp.Get("/api/user/notifications/unread-count", s.notificationsUnreadCountHandler)
+	fiberApp.Patch("/api/user/notifications/read-all", s.notificationsMarkAllReadHandler)
+	fiberApp.Patch("/api/user/notifications/:notification_id/read", s.notificationMarkReadHandler)
+	fiberApp.Get("/api/user/notification-settings", s.notificationSettingsGetHandler)
+	fiberApp.Put("/api/user/notification-settings", s.notificationSettingsUpdateHandler)
 	fiberApp.Post("/api/user/2fa/request-enable", s.request2FAEnableHandler)
 	fiberApp.Get("/api/user/2fa/generate", s.generate2faHandler)
 	fiberApp.Post("/api/user/2fa/generate", s.generate2faHandler)
@@ -78,6 +84,10 @@ func (s *Server) Start() {
 	fiberApp.Post("/api/admin/users", s.adminUserCreateHandler)
 	fiberApp.Patch("/api/admin/users/:user_id", s.adminUserUpdateHandler)
 	fiberApp.Delete("/api/admin/users/:user_id", s.adminUserDeleteHandler)
+	fiberApp.Get("/api/admin/notifications", s.adminNotificationsListHandler)
+	fiberApp.Post("/api/admin/notifications", s.adminNotificationsCreateHandler)
+	fiberApp.Patch("/api/admin/notifications/:notification_id", s.adminNotificationsUpdateHandler)
+	fiberApp.Delete("/api/admin/notifications/:notification_id", s.adminNotificationsDeleteHandler)
 
 	fiberApp.Post("/api/teacher/attendance-link", s.teacherAttendanceLinkHandler)
 	fiberApp.Post("/api/teacher/attendance/session", s.teacherAttendanceLinkHandler)
@@ -115,6 +125,7 @@ func (s *Server) Start() {
 	fiberApp.Static("/uploads", s.cfg.UploadDir)
 	fiberApp.Get("/swagger/*", swagger.HandlerDefault)
 	fiberApp.Get("/healthz", s.healthzHandler)
+	fiberApp.Delete("/api/user/email", s.deleteEmailHandler)
 
 	addr := fmt.Sprintf(":%s", s.cfg.AppPort)
 	log.Printf("Starting HTTP server on %s", addr)
@@ -208,18 +219,17 @@ func (s *Server) androidJSONActionHandler(c *fiber.Ctx, requestID, action string
 	return c.JSON(resp)
 }
 
-// uploadAvatarHandler godoc
-// @Summary Upload current user avatar
-// @Description Saves a JPEG, PNG, or WebP profile picture up to 5 MiB and returns its public URL.
+// getUserAvatarHandler godoc
+// @Summary Get user avatar
+// @Description Returns the avatar image for the selected user.
 // @Tags profile
-// @Accept mpfd
-// @Produce json
-// @Security BearerAuth
-// @Param avatar formData file true "Avatar image"
-// @Success 200 {object} app.Response
+// @Produce octet-stream
+// @Param user_id path int true "User ID"
+// @Success 200 {file} binary
 // @Failure 400 {object} app.Response
-// @Failure 401 {object} app.Response
-// @Router /api/user/upload-avatar [post]
+// @Failure 404 {object} app.Response
+// @Failure 500 {object} app.Response
+// @Router /api/user/avatar/{user_id} [get]
 func (s *Server) getUserAvatarHandler(c *fiber.Ctx) error {
 	userID, err := strconv.ParseInt(c.Params("user_id"), 10, 32)
 	if err != nil || userID <= 0 {

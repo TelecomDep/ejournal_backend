@@ -322,6 +322,19 @@ func (s *Service) upsertGradeByTeacher(sessionToken string, data GradeUpsertData
 		return Response{OK: false, Error: "failed to save grade"}
 	}
 
+	event_type := "grade_created"
+
+	if !grade.CreatedAt.Equal(grade.UpdatedAt) {
+		event_type = "grade_updated"
+	}
+
+	_ = s.create_grade_notification(
+		ctx,
+		grade,
+		item,
+		event_type,
+	)
+
 	return Response{OK: true, Result: grade}
 }
 

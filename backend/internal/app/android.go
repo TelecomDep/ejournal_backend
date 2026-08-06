@@ -192,6 +192,12 @@ func (s *Service) createLessonForAndroid(sessionToken string, data AndroidLesson
 		return Response{OK: false, Error: "failed to create attendance session"}
 	}
 
+	_ = s.create_attendance_opened_notification(
+		ctx,
+		session,
+		groupIDs,
+	)
+
 	return Response{
 		OK: true,
 		Result: map[string]any{
@@ -375,6 +381,41 @@ func (s *Service) markAttendanceForAndroid(sessionToken string, data AndroidAtte
 		return Response{OK: false, Error: "forbidden: student is not in session roster"}
 	case "already":
 		return Response{OK: false, Error: "attendance already confirmed"}
+	}
+
+	if markResult == "fraud" {
+		var saved_fraud_reason string
+
+		_ = s.store.Pool().QueryRow(
+			ctx,
+			`SELECT COALESCE(fraud_reason, '')
+			 FROM attendance_session_students
+			 WHERE session_id = $1
+			   AND student_id = $2`,
+			session.ID,
+			studentProfile.ID,
+		).Scan(&saved_fraud_reason)
+
+		_ = s.create_attendance_result_notification(
+			ctx,
+			studentProfile.ID,
+			session,
+			false,
+		)
+
+		_ = s.create_fraud_notification(
+			ctx,
+			studentProfile.ID,
+			session,
+			saved_fraud_reason,
+		)
+	} else {
+		_ = s.create_attendance_result_notification(
+			ctx,
+			studentProfile.ID,
+			session,
+			true,
+		)
 	}
 
 	result, err := s.studentAndroidResult(ctx, studentUser, markResult == "fraud")

@@ -1,5 +1,41 @@
 basePath: /
 definitions:
+  app.AdminNotificationCreateData:
+    properties:
+      audience:
+        type: string
+      category:
+        type: string
+      event_type:
+        type: string
+      expires_at:
+        type: string
+      group_ids:
+        items:
+          type: integer
+        type: array
+      message:
+        type: string
+      role:
+        type: string
+      title:
+        type: string
+      user_ids:
+        items:
+          type: integer
+        type: array
+    type: object
+  app.AdminNotificationUpdateData:
+    properties:
+      expires_at:
+        type: string
+      message:
+        type: string
+      notification_id:
+        type: integer
+      title:
+        type: string
+    type: object
   app.AdminUserCreateData:
     properties:
       email:
@@ -174,6 +210,17 @@ definitions:
         type: string
       two_fa_code:
         type: string
+    type: object
+  app.NotificationSettingsData:
+    properties:
+      attendance:
+        type: boolean
+      grades:
+        type: boolean
+      schedule:
+        type: boolean
+      system:
+        type: boolean
     type: object
   app.RegisterByInviteData:
     properties:
@@ -941,6 +988,89 @@ info:
   title: EJournal Backend API
   version: "1.0"
 paths:
+  /api/admin/notifications:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/app.Response'
+      security:
+      - BearerAuth: []
+      summary: List notifications for admin
+      tags:
+      - admin notifications
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Notification payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/app.AdminNotificationCreateData'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/app.Response'
+      security:
+      - BearerAuth: []
+      summary: Create admin update notification
+      tags:
+      - admin notifications
+  /api/admin/notifications/{notification_id}:
+    delete:
+      parameters:
+      - description: Notification ID
+        in: path
+        name: notification_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/app.Response'
+      security:
+      - BearerAuth: []
+      summary: Delete admin notification
+      tags:
+      - admin notifications
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: Notification ID
+        in: path
+        name: notification_id
+        required: true
+        type: integer
+      - description: Notification payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/app.AdminNotificationUpdateData'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/app.Response'
+      security:
+      - BearerAuth: []
+      summary: Update admin notification
+      tags:
+      - admin notifications
   /api/admin/semesters:
     post:
       consumes:
@@ -979,6 +1109,43 @@ paths:
       security:
       - BearerAuth: []
       summary: Create semester
+      tags:
+      - semesters
+  /api/admin/semesters/{semester_id}:
+    delete:
+      description: Admin deletes a non-open semester.
+      parameters:
+      - description: Semester ID
+        in: path
+        name: semester_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/app.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/app.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/app.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/app.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/app.Response'
+      security:
+      - BearerAuth: []
+      summary: Delete semester
       tags:
       - semesters
   /api/admin/semesters/{semester_id}/activate:
@@ -2593,8 +2760,9 @@ paths:
       tags:
       - profile
   /api/user/2fa/generate:
-    get:
-      description: Generates a TOTP secret and QR code for the current user.
+    post:
+      description: Generates a TOTP secret and QR code for the current user after
+        validating email confirmation code.
       produces:
       - application/json
       responses:
@@ -2613,6 +2781,30 @@ paths:
       security:
       - BearerAuth: []
       summary: Generate 2FA setup
+      tags:
+      - profile
+  /api/user/2fa/request-enable:
+    post:
+      description: Sends a confirmation code to user's bound email before allowing
+        2FA QR code generation.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/app.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/app.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/app.Response'
+      security:
+      - BearerAuth: []
+      summary: Request 2FA enablement code
       tags:
       - profile
   /api/user/2fa/verify:
@@ -2645,6 +2837,37 @@ paths:
       security:
       - BearerAuth: []
       summary: Verify and enable 2FA
+      tags:
+      - profile
+  /api/user/avatar/{user_id}:
+    get:
+      description: Returns the avatar image for the selected user.
+      parameters:
+      - description: User ID
+        in: path
+        name: user_id
+        required: true
+        type: integer
+      produces:
+      - application/octet-stream
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: file
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/app.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/app.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/app.Response'
+      summary: Get user avatar
       tags:
       - profile
   /api/user/email:
@@ -2747,12 +2970,127 @@ paths:
       summary: Request email binding
       tags:
       - profile
+  /api/user/notification-settings:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/app.Response'
+      security:
+      - BearerAuth: []
+      summary: Get notification settings
+      tags:
+      - notifications
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: Notification settings
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/app.NotificationSettingsData'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/app.Response'
+      security:
+      - BearerAuth: []
+      summary: Update notification settings
+      tags:
+      - notifications
+  /api/user/notifications:
+    get:
+      parameters:
+      - description: Page
+        in: query
+        name: page
+        type: integer
+      - description: Page size
+        in: query
+        name: page_size
+        type: integer
+      - description: grades, schedule, attendance or system
+        in: query
+        name: category
+        type: string
+      - description: Only unread notifications
+        in: query
+        name: unread_only
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/app.Response'
+      security:
+      - BearerAuth: []
+      summary: List current user notifications
+      tags:
+      - notifications
+  /api/user/notifications/{notification_id}/read:
+    patch:
+      parameters:
+      - description: Notification ID
+        in: path
+        name: notification_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/app.Response'
+      security:
+      - BearerAuth: []
+      summary: Mark notification as read
+      tags:
+      - notifications
+  /api/user/notifications/read-all:
+    patch:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/app.Response'
+      security:
+      - BearerAuth: []
+      summary: Mark all notifications as read
+      tags:
+      - notifications
+  /api/user/notifications/unread-count:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/app.Response'
+      security:
+      - BearerAuth: []
+      summary: Get unread notifications count
+      tags:
+      - notifications
   /api/user/upload-avatar:
     post:
       consumes:
       - multipart/form-data
-      description: Saves a JPEG, PNG, or WebP profile picture up to 5 MiB and returns
-        its public URL.
+      description: Resizes avatar image to 256x256, stores in PostgreSQL BYTEA, and
+        returns avatar URL.
       parameters:
       - description: Avatar image
         in: formData

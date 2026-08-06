@@ -26,6 +26,7 @@ type Store struct {
 	Students        *StudentRepository
 	Attendance      *AttendanceRepository
 	Grades          *GradeRepository
+	Notifications   *NotificationRepository
 }
 
 func NewStore(ctx context.Context, dsn string) (*Store, error) {
@@ -61,6 +62,7 @@ func NewStore(ctx context.Context, dsn string) (*Store, error) {
 		Students:        NewStudentRepository(pool),
 		Attendance:      NewAttendanceRepository(pool),
 		Grades:          NewGradeRepository(pool),
+		Notifications:   NewNotificationRepository(pool),
 	}
 
 	return store, nil

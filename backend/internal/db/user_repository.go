@@ -441,3 +441,18 @@ func (r *UserRepository) GetAttachmentByID(ctx context.Context, id int64) (Attac
 	}
 	return att, true, nil
 }
+
+func (r *UserRepository) DeleteEmail(ctx context.Context, userID int32) error {
+	if userID <= 0 {
+		return fmt.Errorf("invalid userID")
+	}
+
+	_, err := r.pool.Exec(ctx,
+		`UPDATE users SET email = NULL WHERE id = $1`, userID)
+
+	if err != nil {
+		return fmt.Errorf("delete email: %w", err)
+	}
+
+	return nil
+}

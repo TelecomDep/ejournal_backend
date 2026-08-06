@@ -1095,6 +1095,12 @@ func (s *Service) createAttendanceLinkByTeacher(sessionToken string, data Attend
 		return Response{OK: false, Error: "failed to generate invite token"}
 	}
 
+	_ = s.create_attendance_opened_notification(
+		ctx,
+		session,
+		groupIDs,
+	)
+
 	joinURL := buildAttendanceJoinURL(s.siteBaseURL, inviteToken)
 	lessonName := strings.TrimSpace(data.LessonName)
 	if lessonName == "" {
@@ -1189,6 +1195,13 @@ func (s *Service) confirmAttendanceByStudent(sessionToken string, data Attendanc
 
 	// Recalculate auto attendance grades
 	_ = s.updateAutoAttendanceGrades(ctx, session.SubjectID, session.SemesterID, &studentProfile.ID, session.TeacherID)
+
+	_ = s.create_attendance_result_notification(
+		ctx,
+		studentProfile.ID,
+		session,
+		true,
+	)
 
 	return Response{
 		OK: true,
@@ -1995,6 +2008,38 @@ func (s *Service) handleRequest(raw string) Response {
 		resp := s.admin_user_delete(req.Token, data.UserID)
 		resp.ID = req.ID
 		return resp
+	case "admin_notifications_create":
+		var data AdminNotificationCreateData
+		if err := json.Unmarshal(req.Data, &data); err != nil {
+			return Response{ID: req.ID, OK: false, Error: "invalid admin_notifications_create payload"}
+		}
+		resp := s.admin_notifications_create(req.Token, data)
+		resp.ID = req.ID
+		return resp
+	case "admin_notifications_list":
+		var data NotificationsListData
+		if err := json.Unmarshal(req.Data, &data); err != nil {
+			return Response{ID: req.ID, OK: false, Error: "invalid admin_notifications_list payload"}
+		}
+		resp := s.admin_notifications_list(req.Token, data)
+		resp.ID = req.ID
+		return resp
+	case "admin_notifications_update":
+		var data AdminNotificationUpdateData
+		if err := json.Unmarshal(req.Data, &data); err != nil {
+			return Response{ID: req.ID, OK: false, Error: "invalid admin_notifications_update payload"}
+		}
+		resp := s.admin_notifications_update(req.Token, data)
+		resp.ID = req.ID
+		return resp
+	case "admin_notifications_delete":
+		var data NotificationIDData
+		if err := json.Unmarshal(req.Data, &data); err != nil {
+			return Response{ID: req.ID, OK: false, Error: "invalid admin_notifications_delete payload"}
+		}
+		resp := s.admin_notifications_delete(req.Token, data.NotificationID)
+		resp.ID = req.ID
+		return resp
 	case "forgot_password":
 		var data ForgotPasswordData
 		if err := json.Unmarshal(req.Data, &data); err != nil {
@@ -2017,6 +2062,42 @@ func (s *Service) handleRequest(raw string) Response {
 			return Response{ID: req.ID, OK: false, Error: "invalid update_email payload"}
 		}
 		resp := s.updateEmail(req.Token, data)
+		resp.ID = req.ID
+		return resp
+	case "notifications_list":
+		var data NotificationsListData
+		if err := json.Unmarshal(req.Data, &data); err != nil {
+			return Response{ID: req.ID, OK: false, Error: "invalid notifications_list payload"}
+		}
+		resp := s.notifications_list(req.Token, data)
+		resp.ID = req.ID
+		return resp
+	case "notifications_unread_count":
+		resp := s.notifications_unread_count(req.Token)
+		resp.ID = req.ID
+		return resp
+	case "notification_mark_read":
+		var data NotificationIDData
+		if err := json.Unmarshal(req.Data, &data); err != nil {
+			return Response{ID: req.ID, OK: false, Error: "invalid notification_mark_read payload"}
+		}
+		resp := s.notification_mark_read(req.Token, data.NotificationID)
+		resp.ID = req.ID
+		return resp
+	case "notifications_mark_all_read":
+		resp := s.notifications_mark_all_read(req.Token)
+		resp.ID = req.ID
+		return resp
+	case "notification_settings_get":
+		resp := s.notification_settings_get(req.Token)
+		resp.ID = req.ID
+		return resp
+	case "notification_settings_update":
+		var data NotificationSettingsData
+		if err := json.Unmarshal(req.Data, &data); err != nil {
+			return Response{ID: req.ID, OK: false, Error: "invalid notification_settings_update payload"}
+		}
+		resp := s.notification_settings_update(req.Token, data)
 		resp.ID = req.ID
 		return resp
 	case "request_2fa_enable":
@@ -2319,8 +2400,16 @@ func (s *Service) handleRequest(raw string) Response {
 		resp := s.staffStudentsPage(req.Token, data)
 		resp.ID = req.ID
 		return resp
+
+	case "delete_email":
+		resp := s.deleteEmail(req.Token)
+		resp.ID = req.ID
+
+		return resp
+
 	default:
 		return Response{ID: req.ID, OK: false, Error: "unknown_action: " + req.Action}
+
 	}
 }
 
@@ -2359,6 +2448,31 @@ func (s *Service) validateJWT(tokenString string) (string, error) {
 	}
 
 	return "", fmt.Errorf("no user id found in claims")
+}
+
+func (s *Service) deleteEmail(sessionToken string) Response {
+	user, err := s.userBySessionToken(sessionToken)
+	if err != nil {
+		return Response{
+			OK:    false,
+			Error: err.Error(),
+		}
+	}
+
+	ctx, cancel := s.dbContext()
+	defer cancel()
+
+	if err := s.store.Users.DeleteEmail(ctx, user.ID); err != nil {
+		return Response{
+			OK:    false,
+			Error: fmt.Sprintf("failed to delete email: %v", err),
+		}
+	}
+
+	return Response{
+		OK:     true,
+		Result: "Email has been successfully deleted",
+	}
 }
 
 func (s *Service) forgotPassword(data ForgotPasswordData) Response {
