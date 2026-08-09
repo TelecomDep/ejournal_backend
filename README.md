@@ -202,6 +202,22 @@ Swagger UI: `/swagger/index.html` (там же, где фронтенд — ngin
 | `POST /api/admin/users` | admin | создать пользователя и профиль его роли |
 | `PATCH /api/admin/users/:user_id` | admin | изменить данные, роль или статус |
 | `DELETE /api/admin/users/:user_id` | admin | мягко удалить пользователя (`status=archived`) |
+| `GET /api/admin/stats` | admin, minister | системная статистика: пользователи по ролям, группы, семестр, Go-runtime |
+| `GET /api/admin/org-structure` | admin, minister, director, dean | иерархическое дерево оргструктуры: факультеты → кафедры → группы |
+| `GET /api/admin/roles` | admin | матрица ролевых прав и видимости данных (RBAC spectrum) |
+| `PATCH /api/admin/roles/:role` | admin | динамическое переключение возможностей и прав роли |
+| `GET /api/admin/antifraud/logs` | admin, minister, dean, director | журнал попыток обмана посещаемости и дублирования Device ID |
+| `GET /api/admin/antifraud/top-cheaters` | admin, minister, dean, director | рейтинг студентов по количеству попыток читерства |
+| `GET /api/admin/services` | admin, minister | Launchpad быстрой навигации: Grafana, Prometheus, Azimutt, Webmail |
+| `GET /api/admin/audit-logs` | admin, minister | журнал административных действий и изменений конфигураций |
+| `GET /api/admin/system/maintenance` | admin, minister | текущий статус режима технического обслуживания |
+| `POST /api/admin/system/maintenance` | admin | переключатель режима Maintenance Mode (kill-switch) |
+| `POST /api/user/device-token` | авториз. юзер | регистрация FCM Push-токена Android-устройства |
+| `GET /api/user/device-tokens` | авториз. юзер | список зарегистрированных устройств пользователя |
+| `DELETE /api/user/device-token` | авториз. юзер | отвязка Push-токена устройства |
+
+### Двухфакторная аутентификация (2FA) и Push-уведомления
+Если у пользователя включена двухфакторная аутентификация (`is_2fa_enabled = true`), при первичном входе через `/login` (без кода `two_fa_code`) бэкенд возвращает ответ `requires_2fa` и автоматически отправляет событийное событие Push-уведомления (Event-driven FCM Push) с текущим кодом TOTP на зарегистрированные Android-устройства пользователя. Данный подкод не требует фонового мониторинга 24/7 и оптимизирует энергопотребление смартфона.
 
 Lifecycle семестра: `planned → open → closed → archived`. Одновременно может быть открыт только один семестр. Создание занятий, контрольных точек и изменение оценок разрешено только в открытом семестре и только между `starts_at` и `ends_at`. Закрытие и переключение блокируются, пока в текущем семестре есть активная attendance-сессия. При отсутствии `semester_id` backend использует открытый семестр; для исторического чтения можно передать ID закрытого или архивного периода.
 
@@ -450,6 +466,24 @@ Frontend (`frontend/src/`):
 - `hooks/useHashRoute.js` — hash-роутинг
 
 Инфраструктура (корень репозитория):
-- `docker-compose.yml` — postgres, migrate, ejournal-backend, web (nginx+frontend), certbot, mailserver
+- `docker-compose.yml` — postgres, migrate, ejournal-backend, web (nginx+frontend), certbot, mailserver, prometheus, grafana, azimutt
 - `frontend/nginx.conf.template` + `frontend/40-envsubst-domain.sh` — nginx-конфиг с доменом из `$DOMAIN`
 - `init-letsencrypt.sh` — bootstrap первого Let's Encrypt сертификата
+- `grafana/provisioning/` — автоматический провижининг Prometheus datasource и LMS Production Overview дашборда
+- `scripts/manage_azimutt_users.py` — утилита управления разработчиками в Azimutt (активация плана Enterprise via DB trigger)
+
+## Мониторинг Grafana и Azimutt
+
+### Авто-провижининг Grafana
+Система поставляется с готовыми конфигурациями провижининга Grafana (`grafana/provisioning/datasources` и `grafana/provisioning/dashboards`). При запуске Docker Compose дашборд **"LMS Production Overview"** становится сразу доступен без необходимости ручной настройки.
+- URL: `https://<DOMAIN>:9001/grafana/`
+- Метрики: Backend HTTP RPS, p95/p99 Latency, Go Goroutines/Allocated Memory, PostgreSQL Active Connections & Transactions.
+
+### Управление Azimutt
+Для предоставления разработчикам доступа к ERD-схемам Azimutt с разблокированным Enterprise-функционалом используется скрипт:
+```bash
+python3 scripts/manage_azimutt_users.py list
+python3 scripts/manage_azimutt_users.py elevate user@example.com
+```
+Скрипт автоматически обновляет статус подписки в PostgreSQL Azimutt через внутренние триггеры.
+

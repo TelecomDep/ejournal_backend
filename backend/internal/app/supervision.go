@@ -41,34 +41,34 @@ type VisibilityScope struct {
 // endpoints only.
 func (s *Service) scopeForUser(ctx context.Context, user User) (VisibilityScope, error) {
 	switch user.Role {
-	case RoleAdmin:
-		return VisibilityScope{Role: RoleAdmin, All: true, Label: "Вся организация"}, nil
+	case RoleAdmin, RoleMinister:
+		return VisibilityScope{Role: user.Role, All: true, Label: "Вся организация"}, nil
 
-	case RoleDean:
+	case RoleDean, RoleDirector:
 		facultyIDs, err := s.scopeFacultyIDs(ctx, user.ID)
 		if err != nil {
 			return VisibilityScope{}, err
 		}
 		if len(facultyIDs) == 0 {
-			return VisibilityScope{Role: RoleDean, Label: "Факультет не назначен"}, nil
+			return VisibilityScope{Role: user.Role, Label: "Факультет/Институт не назначен"}, nil
 		}
 		lecternIDs, err := s.lecternIDsByFaculty(ctx, facultyIDs)
 		if err != nil {
 			return VisibilityScope{}, err
 		}
 		label, _ := s.facultyLabel(ctx, facultyIDs)
-		return VisibilityScope{Role: RoleDean, LecternIDs: lecternIDs, Label: label}, nil
+		return VisibilityScope{Role: user.Role, LecternIDs: lecternIDs, Label: label}, nil
 
-	case RoleHead:
+	case RoleHead, RoleSecretary, RoleProgramCreator:
 		lecternIDs, err := s.scopeLecternIDs(ctx, user.ID)
 		if err != nil {
 			return VisibilityScope{}, err
 		}
 		if len(lecternIDs) == 0 {
-			return VisibilityScope{Role: RoleHead, Label: "Кафедра не назначена"}, nil
+			return VisibilityScope{Role: user.Role, Label: "Кафедра не назначена"}, nil
 		}
 		label, _ := s.lecternLabel(ctx, lecternIDs)
-		return VisibilityScope{Role: RoleHead, LecternIDs: lecternIDs, Label: label}, nil
+		return VisibilityScope{Role: user.Role, LecternIDs: lecternIDs, Label: label}, nil
 
 	case RoleTeacher:
 		teacherID, err := s.teacherIDForUser(ctx, user.ID)

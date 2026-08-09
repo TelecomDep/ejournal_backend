@@ -140,14 +140,16 @@ services:
   grafana:
     image: grafana/grafana:10.3.0
     container_name: grafana
+    entrypoint: ["/usr/share/grafana/bin/grafana-server", "--homepath=/usr/share/grafana", "cfg:default.paths.logs=/var/log/grafana", "cfg:default.paths.data=/var/lib/grafana", "cfg:default.paths.plugins=/var/lib/grafana/plugins", "cfg:default.paths.provisioning=/etc/grafana/provisioning"]
     environment:
-      - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=admin
-      - GF_SERVER_DOMAIN=${DOMAIN:-lms.signal.qlabs.pro}
-      - GF_SERVER_ROOT_URL=https://${DOMAIN:-lms.signal.qlabs.pro}:${FRONTEND_HTTPS_PORT:-9001}/grafana/
-      - GF_SERVER_SERVE_FROM_SUB_PATH=true
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_SERVER_DOMAIN: ${DOMAIN:-lms.signal.qlabs.pro}
+      GF_SERVER_ROOT_URL: https://${DOMAIN:-lms.signal.qlabs.pro}:${FRONTEND_HTTPS_PORT:-9001}/grafana/
+      GF_SERVER_SERVE_FROM_SUB_PATH: "true"
     volumes:
       - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
     restart: unless-stopped
   init-azimutt-db:
     image: postgres:16-alpine

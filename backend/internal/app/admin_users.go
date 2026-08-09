@@ -49,12 +49,7 @@ type AdminUserIDData struct {
 }
 
 func valid_admin_role(role string) bool {
-	switch strings.ToLower(strings.TrimSpace(role)) {
-	case RoleStudent, RoleTeacher, RoleHead, RoleDean, RoleAdmin:
-		return true
-	default:
-		return false
-	}
+	return IsValidRole(role)
 }
 
 func valid_user_status(status string) bool {
@@ -93,13 +88,13 @@ func validate_admin_user_create(data AdminUserCreateData) error {
 		if data.FullName == "" {
 			return errors.New("full_name is required for student or teacher")
 		}
-	case RoleHead:
+	case RoleHead, RoleSecretary, RoleProgramCreator:
 		if data.LecternID <= 0 {
-			return errors.New("lectern_id is required for head")
+			return errors.New("lectern_id is required for head, secretary or program_creator")
 		}
-	case RoleDean:
+	case RoleDean, RoleDirector:
 		if data.FacultyID <= 0 {
-			return errors.New("faculty_id is required for dean")
+			return errors.New("faculty_id is required for dean or director")
 		}
 	}
 
@@ -641,4 +636,170 @@ func (s *Service) admin_user_delete(token string, user_id int32) Response {
 		"user_id": user_id,
 		"status":  "archived",
 	}}
+}
+
+type AdminOrgFaculty struct {
+	FacultyID int32             `json:"faculty_id"`
+	Name      string            `json:"name"`
+	Lecterns  []AdminOrgLectern `json:"lecterns"`
+}
+
+type AdminOrgLectern struct {
+	LecternID int32           `json:"lectern_id"`
+	FacultyID int32           `json:"faculty_id"`
+	Name      string          `json:"name"`
+	Groups    []AdminOrgGroup `json:"groups"`
+}
+
+type AdminOrgGroup struct {
+	GroupID   int32  `json:"group_id"`
+	LecternID int32  `json:"lectern_id"`
+	Name      string `json:"name"`
+}
+
+func (s *Service) admin_system_stats(token string) Response {
+	actor, err := s.userBySessionToken(token)
+	if err != nil {
+		return Response{OK: false, Error: "unauthorized"}
+	}
+	if actor.Role != RoleAdmin && actor.Role != RoleMinister {
+		return Response{OK: false, Error: "forbidden: admin or minister role required"}
+	}
+
+	ctx, cancel := s.dbContext()
+	defer cancel()
+
+	roleCounts := make(map[string]int32)
+	rows, err := s.store.Pool().Query(ctx, `SELECT role::text, COUNT(*)::INTEGER FROM users GROUP BY role`)
+	if err == nil {
+		for rows.Next() {
+			var r string
+			var cnt int32
+			if scanErr := rows.Scan(&r, &cnt); scanErr == nil {
+				roleCounts[r] = cnt
+			}
+		}
+		rows.Close()
+	}
+
+	var activeSemester string
+	_ = s.store.Pool().QueryRow(ctx, `SELECT name FROM semesters WHERE status = 'open' LIMIT 1`).Scan(&activeSemester)
+	if activeSemester == "" {
+		activeSemester = "None"
+	}
+
+	var totalGroups int32
+	_ = s.store.Pool().QueryRow(ctx, `SELECT COUNT(*)::INTEGER FROM groups`).Scan(&totalGroups)
+
+	runtimeStats := s.RuntimeStats()
+
+	return Response{
+		OK: true,
+		Result: map[string]any{
+			"user_counts":     roleCounts,
+			"active_semester": activeSemester,
+			"total_groups":    totalGroups,
+			"runtime_stats":   runtimeStats,
+		},
+	}
+}
+
+func (s *Service) admin_org_structure(token string) Response {
+	actor, err := s.userBySessionToken(token)
+	if err != nil {
+		return Response{OK: false, Error: "unauthorized"}
+	}
+	if actor.Role != RoleAdmin && actor.Role != RoleMinister && actor.Role != RoleDean && actor.Role != RoleDirector {
+		return Response{OK: false, Error: "forbidden: supervisory role required"}
+	}
+
+	ctx, cancel := s.dbContext()
+	defer cancel()
+
+	facultiesMap := make(map[int32]*AdminOrgFaculty)
+
+	fRows, err := s.store.Pool().Query(ctx, `SELECT faculty_id, name FROM faculties ORDER BY name`)
+	if err == nil {
+		for fRows.Next() {
+			var f AdminOrgFaculty
+			if scanErr := fRows.Scan(&f.FacultyID, &f.Name); scanErr == nil {
+				f.Lecterns = make([]AdminOrgLectern, 0)
+				facultiesMap[f.FacultyID] = &f
+			}
+		}
+		fRows.Close()
+	}
+
+	lecternsMap := make(map[int32]*AdminOrgLectern)
+	lRows, err := s.store.Pool().Query(ctx, `SELECT lectern_id, faculty_id, name FROM lecterns ORDER BY name`)
+	if err == nil {
+		for lRows.Next() {
+			var l AdminOrgLectern
+			if scanErr := lRows.Scan(&l.LecternID, &l.FacultyID, &l.Name); scanErr == nil {
+				l.Groups = make([]AdminOrgGroup, 0)
+				lecternsMap[l.LecternID] = &l
+				if fPtr, ok := facultiesMap[l.FacultyID]; ok {
+					fPtr.Lecterns = append(fPtr.Lecterns, l)
+				}
+			}
+		}
+		lRows.Close()
+	}
+
+	gRows, err := s.store.Pool().Query(ctx, `SELECT group_id, COALESCE(lectern_id, 0), group_name FROM groups ORDER BY group_name`)
+	if err == nil {
+		for gRows.Next() {
+			var g AdminOrgGroup
+			if scanErr := gRows.Scan(&g.GroupID, &g.LecternID, &g.Name); scanErr == nil {
+				if lPtr, ok := lecternsMap[g.LecternID]; ok {
+					lPtr.Groups = append(lPtr.Groups, g)
+				}
+			}
+		}
+		gRows.Close()
+	}
+
+	facultiesList := make([]AdminOrgFaculty, 0, len(facultiesMap))
+	for _, fPtr := range facultiesMap {
+		facultiesList = append(facultiesList, *fPtr)
+	}
+
+	return Response{
+		OK:     true,
+		Result: facultiesList,
+	}
+}
+
+func (s *Service) admin_roles_list(token string) Response {
+	actor, err := s.userBySessionToken(token)
+	if err != nil {
+		return Response{OK: false, Error: "unauthorized"}
+	}
+	if actor.Role != RoleAdmin {
+		return Response{OK: false, Error: "forbidden: admin role required"}
+	}
+	return Response{
+		OK:     true,
+		Result: GetAllRolePermissions(),
+	}
+}
+
+func (s *Service) admin_role_update(token string, role string, payload RolePermissions) Response {
+	actor, err := s.userBySessionToken(token)
+	if err != nil {
+		return Response{OK: false, Error: "unauthorized"}
+	}
+	if actor.Role != RoleAdmin {
+		return Response{OK: false, Error: "forbidden: admin role required"}
+	}
+
+	updated, err := UpdateRolePermissions(role, payload)
+	if err != nil {
+		return Response{OK: false, Error: err.Error()}
+	}
+
+	return Response{
+		OK:     true,
+		Result: updated,
+	}
 }

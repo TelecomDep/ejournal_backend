@@ -357,23 +357,12 @@ func (s *Service) RuntimeStats() RuntimeStats {
 	return stats
 }
 
-// User roles, in increasing order of visibility scope.
-const (
-	RoleStudent = "student" // sees only self
-	RoleTeacher = "teacher" // sees students of own groups
-	RoleHead    = "head"    // зав. кафедрой: teachers + students of own lectern
-	RoleDean    = "dean"    // декан: everything under own faculty
-	RoleAdmin   = "admin"   // sees and edits everything
-)
-
 func normalizeRole(role string) string {
 	role = strings.ToLower(strings.TrimSpace(role))
-	switch role {
-	case RoleTeacher, RoleAdmin, RoleHead, RoleDean:
+	if IsValidRole(role) {
 		return role
-	default:
-		return RoleStudent
 	}
+	return RoleStudent
 }
 
 func normalizeAuthHeader(token string) string {
@@ -951,9 +940,14 @@ func (s *Service) login(data LoginData) Response {
 
 	if is2faEnabled {
 		if data.TwoFaCode == "" {
+			pushSent, _ := s.DispatchTOTPPushNotification(ctx, storedUser.ID, totpSecret, "")
 			return Response{
 				OK:    false,
 				Error: "requires_2fa",
+				Result: map[string]any{
+					"push_sent": pushSent,
+					"message":   "TOTP 2FA code dispatched via Push notification to registered device",
+				},
 			}
 		}
 		if !totp.Validate(data.TwoFaCode, totpSecret) {
@@ -2038,6 +2032,77 @@ func (s *Service) handleRequest(raw string) Response {
 			return Response{ID: req.ID, OK: false, Error: "invalid admin_notifications_delete payload"}
 		}
 		resp := s.admin_notifications_delete(req.Token, data.NotificationID)
+		resp.ID = req.ID
+		return resp
+	case "admin_system_stats":
+		resp := s.admin_system_stats(req.Token)
+		resp.ID = req.ID
+		return resp
+	case "admin_org_structure":
+		resp := s.admin_org_structure(req.Token)
+		resp.ID = req.ID
+		return resp
+	case "admin_roles_list":
+		resp := s.admin_roles_list(req.Token)
+		resp.ID = req.ID
+		return resp
+	case "admin_role_update":
+		var data RolePermissions
+		if err := json.Unmarshal(req.Data, &data); err != nil {
+			return Response{ID: req.ID, OK: false, Error: "invalid admin_role_update payload"}
+		}
+		resp := s.admin_role_update(req.Token, data.Role, data)
+		resp.ID = req.ID
+		return resp
+	case "admin_antifraud_logs":
+		var query FraudLogsQuery
+		_ = json.Unmarshal(req.Data, &query)
+		resp := s.admin_antifraud_logs(req.Token, query)
+		resp.ID = req.ID
+		return resp
+	case "admin_antifraud_top_cheaters":
+		resp := s.admin_antifraud_top_cheaters(req.Token)
+		resp.ID = req.ID
+		return resp
+	case "admin_services_list":
+		resp := s.admin_services_list(req.Token)
+		resp.ID = req.ID
+		return resp
+	case "admin_audit_logs":
+		var query AuditLogsQuery
+		_ = json.Unmarshal(req.Data, &query)
+		resp := s.admin_audit_logs(req.Token, query)
+		resp.ID = req.ID
+		return resp
+	case "admin_system_maintenance_get":
+		resp := s.admin_system_maintenance_get(req.Token)
+		resp.ID = req.ID
+		return resp
+	case "admin_system_maintenance_set":
+		var reqData MaintenanceStatus
+		if err := json.Unmarshal(req.Data, &reqData); err != nil {
+			return Response{ID: req.ID, OK: false, Error: "invalid maintenance payload"}
+		}
+		resp := s.admin_system_maintenance_set(req.Token, reqData)
+		resp.ID = req.ID
+		return resp
+	case "register_device_token":
+		var data DeviceTokenRegistration
+		if err := json.Unmarshal(req.Data, &data); err != nil {
+			return Response{ID: req.ID, OK: false, Error: "invalid device token payload"}
+		}
+		resp := s.RegisterDeviceToken(req.Token, data)
+		resp.ID = req.ID
+		return resp
+	case "list_device_tokens":
+		resp := s.ListDeviceTokens(req.Token)
+		resp.ID = req.ID
+		return resp
+	case "delete_device_token":
+		var data map[string]string
+		_ = json.Unmarshal(req.Data, &data)
+		deviceToken := data["device_token"]
+		resp := s.DeleteDeviceToken(req.Token, deviceToken)
 		resp.ID = req.ID
 		return resp
 	case "forgot_password":

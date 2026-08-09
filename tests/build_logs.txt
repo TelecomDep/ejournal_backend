@@ -1,13 +1,26 @@
+ejournal-azimutt   | Setup Local file storage
+grafana                   | logger=settings t=2026-08-02T10:32:00.425608088Z level=error msg="failed to parse \"/etc/grafana/provisioning\": BOM: read /etc/grafana/provisioning: is a directory"
+grafana                   | logger=settings t=2026-08-02T10:32:01.009134609Z level=error msg="failed to parse \"/etc/grafana/provisioning\": BOM: read /etc/grafana/provisioning: is a directory"
+mailserver                | 2026-08-02 10:32:01+00:00 INFO  start-mailserver.sh: Welcome to docker-mailserver v14.0.0
+mailserver                | 2026-08-02 10:32:01+00:00 INFO  start-mailserver.sh: Checking configuration
+mailserver                | 2026-08-02 10:32:01+00:00 INFO  start-mailserver.sh: Configuring mail server
+mailserver                | 2026-08-02 10:32:01+00:00 WARN  start-mailserver.sh: !! INSECURE !! SSL configured with plain text access - DO NOT USE FOR PRODUCTION DEPLOYMENT
+mailserver                | 2026-08-02 10:32:02+00:00 INFO  start-mailserver.sh: Starting daemons
+mailserver                | 2026-08-02 10:32:03+00:00 INFO  start-mailserver.sh: signal.qlabs.pro is up and running
+mailserver                | 2026-08-02 10:32:46,028 WARN received SIGTERM indicating exit request
+mailserver                | 2026-08-02 10:32:47,029 WARN stopped: update-check (terminated by SIGTERM)
+mailserver                | 2026-08-02 10:47:31+00:00 INFO  start-mailserver.sh: Container was restarted. Skipping setup routines.
+mailserver                | 2026-08-02 10:47:31+00:00 INFO  start-mailserver.sh: Welcome to docker-mailserver v14.0.0
+ejournal-azimutt          | Setup Local email provider
 ejournal-setup-azimutt-triggers  | CREATE FUNCTION
-ejournal-azimutt-gateway         | npm warn deprecated @aws-sdk/node-http-handler@3.374.0: This package has moved to @smithy/node-http-handler
-ejournal-azimutt-gateway         | npm warn deprecated glob@9.3.5: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
-ejournal-azimutt-gateway         | npm warn deprecated node-domexception@1.0.0: Use your platform's native DOMException instead
-ejournal-azimutt-gateway         | npm warn deprecated are-we-there-yet@3.0.1: This package is no longer supported.
-ejournal-azimutt-gateway         | npm warn deprecated gauge@4.0.4: This package is no longer supported.
-ejournal-backend                 | 2026/08/02 10:32:06 PostgreSQL connection initialized
-ejournal-setup-azimutt-triggers  | DROP TRIGGER
-ejournal-backend                 | 2026/08/02 10:32:06 Internal worker pool started with 30 workers
-ejournal-backend                 | 2026/08/02 10:32:06 Starting HTTP server on :8888
+mailserver                | 2026-08-02 10:47:31+00:00 INFO  start-mailserver.sh: Starting daemons
+prometheus                | ts=2026-08-02T10:32:00.132Z caller=main.go:564 level=info msg="No time or size retention was set so using the default time retention" duration=15d
+mailserver                       | 2026-08-02 10:47:32+00:00 INFO  start-mailserver.sh: signal.qlabs.pro is up and running
+mailserver                       | 2026-08-02T10:47:33.094654+00:00 signal postfix/smtp[292]: connect to mail.qlabs.pro[169.47.130.72]:25: Connection refused
+postgres-exporter  | 2026/08/02 10:47:35 Starting postgres-exporter on :9187
+ejournal-backend   | 2026/08/02 10:47:36 PostgreSQL connection initialized
+ejournal-backend                 | 2026/08/02 10:47:36 Internal worker pool started with 30 workers
+ejournal-backend                 | 2026/08/02 10:47:36 Starting HTTP server on :8888
 ejournal-backend                 | 
 ejournal-backend                 |  ┌───────────────────────────────────────────────────┐ 
 ejournal-backend                 |  │                  Fiber v2.52.12                   │ 
@@ -18,167 +31,31 @@ ejournal-backend                 |  │ Handlers ............ 93  Processes ....
 ejournal-backend                 |  │ Prefork ....... Disabled  PID ................. 1 │ 
 ejournal-backend                 |  └───────────────────────────────────────────────────┘ 
 ejournal-backend                 | 
-mailserver                       | 2026-08-02 10:32:01+00:00 INFO  start-mailserver.sh: Welcome to docker-mailserver v14.0.0
-postgres-exporter                | 2026/08/02 10:32:05 Starting postgres-exporter on :9187
-mailserver                       | 2026-08-02 10:32:01+00:00 INFO  start-mailserver.sh: Checking configuration
+ejournal-postgres  | 
+ejournal-postgres                | PostgreSQL Database directory appears to contain a database; Skipping initialization
+ejournal-postgres                | 
+ejournal-postgres                | 2026-08-02 10:32:00.315 UTC [1] LOG:  starting PostgreSQL 16.13 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit
+ejournal-postgres                | 2026-08-02 10:32:00.315 UTC [1] LOG:  listening on IPv4 address "0.0.0.0", port 5432
+ejournal-postgres                | 2026-08-02 10:32:00.315 UTC [1] LOG:  listening on IPv6 address "::", port 5432
+prometheus                       | ts=2026-08-02T10:32:00.132Z caller=main.go:608 level=info msg="Starting Prometheus Server" mode=server version="(version=2.50.0, branch=HEAD, revision=814b920e8a6345d35712b5857ebd4cb5e90fc107)"
+prometheus                       | ts=2026-08-02T10:32:00.132Z caller=main.go:613 level=info build_context="(go=go1.21.7, platform=linux/amd64, user=root@384077e1cf50, date=20240222-09:38:19, tags=netgo,builtinassets,stringlabels)"
 sibsutis_front                   | /docker-entrypoint.sh: /docker-entrypoint.d/ is not empty, will attempt to perform configuration
 sibsutis_front                   | /docker-entrypoint.sh: Looking for shell scripts in /docker-entrypoint.d/
-ejournal-azimutt                 | Setup Local file storage
-ejournal-azimutt                 | Setup Local email provider
-ejournal-azimutt                 | Setup Password auth
-prometheus                       | ts=2026-08-02T10:32:00.132Z caller=main.go:564 level=info msg="No time or size retention was set so using the default time retention" duration=15d
-ejournal-setup-azimutt-triggers  | CREATE TRIGGER
-prometheus                       | ts=2026-08-02T10:32:00.132Z caller=main.go:608 level=info msg="Starting Prometheus Server" mode=server version="(version=2.50.0, branch=HEAD, revision=814b920e8a6345d35712b5857ebd4cb5e90fc107)"
-grafana                          | logger=settings t=2026-08-02T10:32:00.425608088Z level=error msg="failed to parse \"/etc/grafana/provisioning\": BOM: read /etc/grafana/provisioning: is a directory"
-grafana                          | logger=settings t=2026-08-02T10:32:01.009134609Z level=error msg="failed to parse \"/etc/grafana/provisioning\": BOM: read /etc/grafana/provisioning: is a directory"
-grafana                          | logger=settings t=2026-08-02T10:32:01.518357311Z level=error msg="failed to parse \"/etc/grafana/provisioning\": BOM: read /etc/grafana/provisioning: is a directory"
-grafana                          | logger=settings t=2026-08-02T10:32:02.296768754Z level=error msg="failed to parse \"/etc/grafana/provisioning\": BOM: read /etc/grafana/provisioning: is a directory"
-grafana                          | logger=settings t=2026-08-02T10:32:03.418482468Z level=error msg="failed to parse \"/etc/grafana/provisioning\": BOM: read /etc/grafana/provisioning: is a directory"
-grafana                          | logger=settings t=2026-08-02T10:32:05.35563378Z level=error msg="failed to parse \"/etc/grafana/provisioning\": BOM: read /etc/grafana/provisioning: is a directory"
-grafana                          | logger=settings t=2026-08-02T10:32:08.874321762Z level=error msg="failed to parse \"/etc/grafana/provisioning\": BOM: read /etc/grafana/provisioning: is a directory"
-grafana                          | logger=settings t=2026-08-02T10:32:16.037572109Z level=error msg="failed to parse \"/etc/grafana/provisioning\": BOM: read /etc/grafana/provisioning: is a directory"
-grafana                          | logger=settings t=2026-08-02T10:32:29.134300065Z level=error msg="failed to parse \"/etc/grafana/provisioning\": BOM: read /etc/grafana/provisioning: is a directory"
 sibsutis_front                   | /docker-entrypoint.sh: Launching /docker-entrypoint.d/10-listen-on-ipv6-by-default.sh
 sibsutis_front                   | 10-listen-on-ipv6-by-default.sh: info: Getting the checksum of /etc/nginx/conf.d/default.conf
 sibsutis_front                   | 10-listen-on-ipv6-by-default.sh: info: Enabled listen on IPv6 in /etc/nginx/conf.d/default.conf
 sibsutis_front                   | /docker-entrypoint.sh: Sourcing /docker-entrypoint.d/15-local-resolvers.envsh
 sibsutis_front                   | /docker-entrypoint.sh: Launching /docker-entrypoint.d/20-envsubst-on-templates.sh
-sibsutis_front                   | /docker-entrypoint.sh: Launching /docker-entrypoint.d/30-tune-worker-processes.sh
-sibsutis_front                   | /docker-entrypoint.sh: Launching /docker-entrypoint.d/40-envsubst-domain.sh
-sibsutis_front                   | /docker-entrypoint.sh: Configuration complete; ready for start up
-sibsutis_front                   | 2026/08/02 10:32:06 [emerg] 1#1: "proxy_pass" cannot have URI part in location given by regular expression, or inside named location, or inside "if" statement, or inside "limit_except" block in /etc/nginx/nginx.conf:82
-sibsutis_front                   | nginx: [emerg] "proxy_pass" cannot have URI part in location given by regular expression, or inside named location, or inside "if" statement, or inside "limit_except" block in /etc/nginx/nginx.conf:82
-sibsutis_front                   | /docker-entrypoint.sh: /docker-entrypoint.d/ is not empty, will attempt to perform configuration
-sibsutis_front                   | /docker-entrypoint.sh: Looking for shell scripts in /docker-entrypoint.d/
-sibsutis_front                   | /docker-entrypoint.sh: Launching /docker-entrypoint.d/10-listen-on-ipv6-by-default.sh
-ejournal-postgres                | 
-ejournal-postgres                | PostgreSQL Database directory appears to contain a database; Skipping initialization
-ejournal-azimutt-gateway         | npm warn deprecated npmlog@6.0.2: This package is no longer supported.
-ejournal-postgres                | 
-mailserver                       | 2026-08-02 10:32:01+00:00 INFO  start-mailserver.sh: Configuring mail server
-ejournal-postgres                | 2026-08-02 10:32:00.315 UTC [1] LOG:  starting PostgreSQL 16.13 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit
-ejournal-postgres                | 2026-08-02 10:32:00.315 UTC [1] LOG:  listening on IPv4 address "0.0.0.0", port 5432
-ejournal-postgres                | 2026-08-02 10:32:00.315 UTC [1] LOG:  listening on IPv6 address "::", port 5432
-ejournal-postgres                | 2026-08-02 10:32:00.317 UTC [1] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
-ejournal-postgres                | 2026-08-02 10:32:00.322 UTC [29] LOG:  database system was shut down at 2026-08-02 10:31:54 UTC
-ejournal-postgres                | 2026-08-02 10:32:00.328 UTC [1] LOG:  database system is ready to accept connections
-ejournal-postgres                | 2026-08-02 10:32:56.088 UTC [1] LOG:  received fast shutdown request
-ejournal-postgres                | 2026-08-02 10:32:56.089 UTC [1] LOG:  aborting any active transactions
-ejournal-postgres                | 2026-08-02 10:32:56.091 UTC [1] LOG:  background worker "logical replication launcher" (PID 32) exited with exit code 1
-ejournal-postgres                | 2026-08-02 10:32:56.092 UTC [27] LOG:  shutting down
-ejournal-postgres                | 2026-08-02 10:32:56.092 UTC [27] LOG:  checkpoint starting: shutdown immediate
-ejournal-postgres                | 2026-08-02 10:32:56.114 UTC [27] LOG:  checkpoint complete: wrote 16 buffers (0.1%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.010 s, sync=0.008 s, total=0.023 s; sync files=11, longest=0.002 s, average=0.001 s; distance=75 kB, estimate=75 kB; lsn=0/29EC710, redo lsn=0/29EC710
-ejournal-postgres                | 2026-08-02 10:32:56.122 UTC [1] LOG:  database system is shut down
-sibsutis_front                   | 10-listen-on-ipv6-by-default.sh: info: IPv6 listen already enabled
-sibsutis_front                   | /docker-entrypoint.sh: Sourcing /docker-entrypoint.d/15-local-resolvers.envsh
-sibsutis_front                   | /docker-entrypoint.sh: Launching /docker-entrypoint.d/20-envsubst-on-templates.sh
-sibsutis_front                   | /docker-entrypoint.sh: Launching /docker-entrypoint.d/30-tune-worker-processes.sh
-sibsutis_front                   | /docker-entrypoint.sh: Launching /docker-entrypoint.d/40-envsubst-domain.sh
-sibsutis_front                   | /docker-entrypoint.sh: Configuration complete; ready for start up
-sibsutis_front                   | 2026/08/02 10:32:07 [emerg] 1#1: "proxy_pass" cannot have URI part in location given by regular expression, or inside named location, or inside "if" statement, or inside "limit_except" block in /etc/nginx/nginx.conf:82
-sibsutis_front                   | nginx: [emerg] "proxy_pass" cannot have URI part in location given by regular expression, or inside named location, or inside "if" statement, or inside "limit_except" block in /etc/nginx/nginx.conf:82
-sibsutis_front                   | /docker-entrypoint.sh: /docker-entrypoint.d/ is not empty, will attempt to perform configuration
-sibsutis_front                   | /docker-entrypoint.sh: Looking for shell scripts in /docker-entrypoint.d/
-sibsutis_front                   | /docker-entrypoint.sh: Launching /docker-entrypoint.d/10-listen-on-ipv6-by-default.sh
-sibsutis_front                   | 10-listen-on-ipv6-by-default.sh: info: IPv6 listen already enabled
-sibsutis_front                   | /docker-entrypoint.sh: Sourcing /docker-entrypoint.d/15-local-resolvers.envsh
-sibsutis_front                   | /docker-entrypoint.sh: Launching /docker-entrypoint.d/20-envsubst-on-templates.sh
-sibsutis_front                   | /docker-entrypoint.sh: Launching /docker-entrypoint.d/30-tune-worker-processes.sh
-sibsutis_front                   | /docker-entrypoint.sh: Launching /docker-entrypoint.d/40-envsubst-domain.sh
-sibsutis_front                   | /docker-entrypoint.sh: Configuration complete; ready for start up
-sibsutis_front                   | 2026/08/02 10:32:08 [emerg] 1#1: "proxy_pass" cannot have URI part in location given by regular expression, or inside named location, or inside "if" statement, or inside "limit_except" block in /etc/nginx/nginx.conf:82
-sibsutis_front                   | nginx: [emerg] "proxy_pass" cannot have URI part in location given by regular expression, or inside named location, or inside "if" statement, or inside "limit_except" block in /etc/nginx/nginx.conf:82
-sibsutis_front                   | /docker-entrypoint.sh: /docker-entrypoint.d/ is not empty, will attempt to perform configuration
-ejournal-migrate                 | 2026/08/02 10:32:06 goose: no migrations to run. current version: 20260802100000
+ejournal-azimutt                 | Setup Password auth
 ejournal-azimutt                 | 10:32:07.178 [info] Migrations already up
 ejournal-azimutt                 | Setup Local file storage
 ejournal-azimutt                 | Setup Local email provider
-mailserver                       | 2026-08-02 10:32:01+00:00 WARN  start-mailserver.sh: !! INSECURE !! SSL configured with plain text access - DO NOT USE FOR PRODUCTION DEPLOYMENT
-mailserver                       | 2026-08-02 10:32:02+00:00 INFO  start-mailserver.sh: Starting daemons
-mailserver                       | 2026-08-02 10:32:03+00:00 INFO  start-mailserver.sh: signal.qlabs.pro is up and running
-mailserver                       | 2026-08-02 10:32:46,028 WARN received SIGTERM indicating exit request
-ejournal-setup-azimutt-triggers  | CREATE FUNCTION
-ejournal-setup-azimutt-triggers  | DROP TRIGGER
-ejournal-setup-azimutt-triggers  | CREATE TRIGGER
-ejournal-setup-azimutt-triggers  | CREATE FUNCTION
-ejournal-setup-azimutt-triggers  | DROP TRIGGER
-ejournal-setup-azimutt-triggers  | CREATE TRIGGER
-ejournal-azimutt-gateway         | npm warn deprecated tar@6.2.1: Old versions of tar are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
-ejournal-azimutt-gateway         | npm warn deprecated uuid@9.0.1: uuid@10 and below is no longer supported.  For ESM codebases, update to uuid@latest.  For CommonJS codebases, use uuid@11 (but be aware this version will likely be deprecated in 2028).
-ejournal-azimutt-gateway         | npm warn deprecated uuid@8.3.2: uuid@10 and below is no longer supported.  For ESM codebases, update to uuid@latest.  For CommonJS codebases, use uuid@11 (but be aware this version will likely be deprecated in 2028).
-ejournal-azimutt-gateway         | 
-ejournal-azimutt-gateway         | added 434 packages in 31s
-sibsutis_front                   | /docker-entrypoint.sh: Looking for shell scripts in /docker-entrypoint.d/
-sibsutis_front                   | /docker-entrypoint.sh: Launching /docker-entrypoint.d/10-listen-on-ipv6-by-default.sh
-sibsutis_front                   | 10-listen-on-ipv6-by-default.sh: info: IPv6 listen already enabled
-sibsutis_front                   | /docker-entrypoint.sh: Sourcing /docker-entrypoint.d/15-local-resolvers.envsh
-sibsutis_front                   | /docker-entrypoint.sh: Launching /docker-entrypoint.d/20-envsubst-on-templates.sh
-sibsutis_front                   | /docker-entrypoint.sh: Launching /docker-entrypoint.d/30-tune-worker-processes.sh
-sibsutis_front                   | /docker-entrypoint.sh: Launching /docker-entrypoint.d/40-envsubst-domain.sh
-sibsutis_front                   | /docker-entrypoint.sh: Configuration complete; ready for start up
-prometheus                       | ts=2026-08-02T10:32:00.132Z caller=main.go:613 level=info build_context="(go=go1.21.7, platform=linux/amd64, user=root@384077e1cf50, date=20240222-09:38:19, tags=netgo,builtinassets,stringlabels)"
-ejournal-azimutt-gateway         | 
-ejournal-azimutt-gateway         | 52 packages are looking for funding
-ejournal-azimutt-gateway         |   run `npm fund` for details
 ejournal-azimutt                 | Setup Password auth
 ejournal-azimutt                 | 10:32:08.502 [info] Running AzimuttWeb.Endpoint with cowboy 2.12.0 at :::4000 (http)
 ejournal-azimutt                 | 10:32:08.508 [info] Access AzimuttWeb.Endpoint at https://lms.signal.qlabs.pro
-ejournal-azimutt                 | 10:32:16.711 [info] tzdata release in place is from a file last modified Thu, 05 Sep 2024 18:47:42 GMT. Release file on server was last modified Wed, 08 Jul 2026 18:02:48 GMT.
-ejournal-azimutt                 | 10:32:17.799 [info] Tzdata has updated the release from 2024b to 2026c
-sibsutis_front                   | 2026/08/02 10:32:08 [emerg] 1#1: "proxy_pass" cannot have URI part in location given by regular expression, or inside named location, or inside "if" statement, or inside "limit_except" block in /etc/nginx/nginx.conf:82
-sibsutis_front                   | nginx: [emerg] "proxy_pass" cannot have URI part in location given by regular expression, or inside named location, or inside "if" statement, or inside "limit_except" block in /etc/nginx/nginx.conf:82
-sibsutis_front                   | /docker-entrypoint.sh: /docker-entrypoint.d/ is not empty, will attempt to perform configuration
-sibsutis_front                   | /docker-entrypoint.sh: Looking for shell scripts in /docker-entrypoint.d/
-sibsutis_front                   | /docker-entrypoint.sh: Launching /docker-entrypoint.d/10-listen-on-ipv6-by-default.sh
-sibsutis_front                   | 10-listen-on-ipv6-by-default.sh: info: IPv6 listen already enabled
-sibsutis_front                   | /docker-entrypoint.sh: Sourcing /docker-entrypoint.d/15-local-resolvers.envsh
-sibsutis_front                   | /docker-entrypoint.sh: Launching /docker-entrypoint.d/20-envsubst-on-templates.sh
 sibsutis_front                   | /docker-entrypoint.sh: Launching /docker-entrypoint.d/30-tune-worker-processes.sh
 sibsutis_front                   | /docker-entrypoint.sh: Launching /docker-entrypoint.d/40-envsubst-domain.sh
-sibsutis_front                   | /docker-entrypoint.sh: Configuration complete; ready for start up
-sibsutis_front                   | 2026/08/02 10:32:09 [emerg] 1#1: "proxy_pass" cannot have URI part in location given by regular expression, or inside named location, or inside "if" statement, or inside "limit_except" block in /etc/nginx/nginx.conf:82
-sibsutis_front                   | nginx: [emerg] "proxy_pass" cannot have URI part in location given by regular expression, or inside named location, or inside "if" statement, or inside "limit_except" block in /etc/nginx/nginx.conf:82
-sibsutis_front                   | /docker-entrypoint.sh: /docker-entrypoint.d/ is not empty, will attempt to perform configuration
-sibsutis_front                   | /docker-entrypoint.sh: Looking for shell scripts in /docker-entrypoint.d/
-sibsutis_front                   | /docker-entrypoint.sh: Launching /docker-entrypoint.d/10-listen-on-ipv6-by-default.sh
-sibsutis_front                   | 10-listen-on-ipv6-by-default.sh: info: IPv6 listen already enabled
-sibsutis_front                   | /docker-entrypoint.sh: Sourcing /docker-entrypoint.d/15-local-resolvers.envsh
-sibsutis_front                   | /docker-entrypoint.sh: Launching /docker-entrypoint.d/20-envsubst-on-templates.sh
-sibsutis_front                   | /docker-entrypoint.sh: Launching /docker-entrypoint.d/30-tune-worker-processes.sh
-sibsutis_front                   | /docker-entrypoint.sh: Launching /docker-entrypoint.d/40-envsubst-domain.sh
-sibsutis_front                   | /docker-entrypoint.sh: Configuration complete; ready for start up
-sibsutis_front                   | 2026/08/02 10:32:11 [emerg] 1#1: "proxy_pass" cannot have URI part in location given by regular expression, or inside named location, or inside "if" statement, or inside "limit_except" block in /etc/nginx/nginx.conf:82
-sibsutis_front                   | nginx: [emerg] "proxy_pass" cannot have URI part in location given by regular expression, or inside named location, or inside "if" statement, or inside "limit_except" block in /etc/nginx/nginx.conf:82
-sibsutis_front                   | /docker-entrypoint.sh: /docker-entrypoint.d/ is not empty, will attempt to perform configuration
-sibsutis_front                   | /docker-entrypoint.sh: Looking for shell scripts in /docker-entrypoint.d/
-sibsutis_front                   | /docker-entrypoint.sh: Launching /docker-entrypoint.d/10-listen-on-ipv6-by-default.sh
-sibsutis_front                   | 10-listen-on-ipv6-by-default.sh: info: IPv6 listen already enabled
-sibsutis_front                   | /docker-entrypoint.sh: Sourcing /docker-entrypoint.d/15-local-resolvers.envsh
-sibsutis_front                   | /docker-entrypoint.sh: Launching /docker-entrypoint.d/20-envsubst-on-templates.sh
-sibsutis_front                   | /docker-entrypoint.sh: Launching /docker-entrypoint.d/30-tune-worker-processes.sh
-sibsutis_front                   | /docker-entrypoint.sh: Launching /docker-entrypoint.d/40-envsubst-domain.sh
-sibsutis_front                   | /docker-entrypoint.sh: Configuration complete; ready for start up
-sibsutis_front                   | 2026/08/02 10:32:15 [emerg] 1#1: "proxy_pass" cannot have URI part in location given by regular expression, or inside named location, or inside "if" statement, or inside "limit_except" block in /etc/nginx/nginx.conf:82
-sibsutis_front                   | nginx: [emerg] "proxy_pass" cannot have URI part in location given by regular expression, or inside named location, or inside "if" statement, or inside "limit_except" block in /etc/nginx/nginx.conf:82
-sibsutis_front                   | /docker-entrypoint.sh: /docker-entrypoint.d/ is not empty, will attempt to perform configuration
-sibsutis_front                   | /docker-entrypoint.sh: Looking for shell scripts in /docker-entrypoint.d/
-sibsutis_front                   | /docker-entrypoint.sh: Launching /docker-entrypoint.d/10-listen-on-ipv6-by-default.sh
-sibsutis_front                   | 10-listen-on-ipv6-by-default.sh: info: IPv6 listen already enabled
-sibsutis_front                   | /docker-entrypoint.sh: Sourcing /docker-entrypoint.d/15-local-resolvers.envsh
-sibsutis_front                   | /docker-entrypoint.sh: Launching /docker-entrypoint.d/20-envsubst-on-templates.sh
-sibsutis_front                   | /docker-entrypoint.sh: Launching /docker-entrypoint.d/30-tune-worker-processes.sh
-sibsutis_front                   | /docker-entrypoint.sh: Launching /docker-entrypoint.d/40-envsubst-domain.sh
-sibsutis_front                   | /docker-entrypoint.sh: Configuration complete; ready for start up
-sibsutis_front                   | 2026/08/02 10:32:21 [emerg] 1#1: "proxy_pass" cannot have URI part in location given by regular expression, or inside named location, or inside "if" statement, or inside "limit_except" block in /etc/nginx/nginx.conf:82
-sibsutis_front                   | nginx: [emerg] "proxy_pass" cannot have URI part in location given by regular expression, or inside named location, or inside "if" statement, or inside "limit_except" block in /etc/nginx/nginx.conf:82
-sibsutis_front                   | /docker-entrypoint.sh: /docker-entrypoint.d/ is not empty, will attempt to perform configuration
-sibsutis_front                   | /docker-entrypoint.sh: Looking for shell scripts in /docker-entrypoint.d/
-sibsutis_front                   | /docker-entrypoint.sh: Launching /docker-entrypoint.d/10-listen-on-ipv6-by-default.sh
-sibsutis_front                   | 10-listen-on-ipv6-by-default.sh: info: IPv6 listen already enabled
-sibsutis_front                   | /docker-entrypoint.sh: Sourcing /docker-entrypoint.d/15-local-resolvers.envsh
-sibsutis_front                   | /docker-entrypoint.sh: Launching /docker-entrypoint.d/20-envsubst-on-templates.sh
-sibsutis_front                   | /docker-entrypoint.sh: Launching /docker-entrypoint.d/30-tune-worker-processes.sh
-sibsutis_front                   | /docker-entrypoint.sh: Launching /docker-entrypoint.d/40-envsubst-domain.sh
+ejournal-azimutt-gateway  | npm warn deprecated @aws-sdk/node-http-handler@3.374.0: This package has moved to @smithy/node-http-handler
 prometheus                       | ts=2026-08-02T10:32:00.132Z caller=main.go:614 level=info host_details="(Linux 5.15.0-185-generic #195-Ubuntu SMP Fri Jun 19 17:11:50 UTC 2026 x86_64 103b35ba146c (none))"
 prometheus                       | ts=2026-08-02T10:32:00.132Z caller=main.go:615 level=info fd_limits="(soft=1048576, hard=1048576)"
 prometheus                       | ts=2026-08-02T10:32:00.132Z caller=main.go:616 level=info vm_limits="(soft=unlimited, hard=unlimited)"
@@ -194,6 +71,57 @@ prometheus                       | ts=2026-08-02T10:32:00.136Z caller=repair.go:
 prometheus                       | ts=2026-08-02T10:32:00.136Z caller=repair.go:56 level=info component=tsdb msg="Found healthy block" mint=1784980807798 maxt=1785045600000 ulid=01KYF1A5AMMMDCECX58198MY3D
 prometheus                       | ts=2026-08-02T10:32:00.136Z caller=repair.go:56 level=info component=tsdb msg="Found healthy block" mint=1785045607798 maxt=1785110400000 ulid=01KYGZ3H8CG1CYMJQ83YDGN47X
 prometheus                       | ts=2026-08-02T10:32:00.137Z caller=repair.go:56 level=info component=tsdb msg="Found healthy block" mint=1785110404170 maxt=1785175200000 ulid=01KYJWX78SCPM2HS1G8P0RMPD0
+grafana                   | logger=settings t=2026-08-02T10:32:01.518357311Z level=error msg="failed to parse \"/etc/grafana/provisioning\": BOM: read /etc/grafana/provisioning: is a directory"
+grafana                          | logger=settings t=2026-08-02T10:32:02.296768754Z level=error msg="failed to parse \"/etc/grafana/provisioning\": BOM: read /etc/grafana/provisioning: is a directory"
+grafana                          | logger=settings t=2026-08-02T10:32:03.418482468Z level=error msg="failed to parse \"/etc/grafana/provisioning\": BOM: read /etc/grafana/provisioning: is a directory"
+grafana                          | logger=settings t=2026-08-02T10:32:05.35563378Z level=error msg="failed to parse \"/etc/grafana/provisioning\": BOM: read /etc/grafana/provisioning: is a directory"
+grafana                          | logger=settings t=2026-08-02T10:32:08.874321762Z level=error msg="failed to parse \"/etc/grafana/provisioning\": BOM: read /etc/grafana/provisioning: is a directory"
+grafana                          | logger=settings t=2026-08-02T10:32:16.037572109Z level=error msg="failed to parse \"/etc/grafana/provisioning\": BOM: read /etc/grafana/provisioning: is a directory"
+grafana                          | logger=settings t=2026-08-02T10:32:29.134300065Z level=error msg="failed to parse \"/etc/grafana/provisioning\": BOM: read /etc/grafana/provisioning: is a directory"
+grafana                          | logger=settings t=2026-08-02T10:47:29.812892807Z level=error msg="failed to parse \"/etc/grafana/provisioning\": BOM: read /etc/grafana/provisioning: is a directory"
+grafana                          | logger=settings t=2026-08-02T10:47:30.287759951Z level=error msg="failed to parse \"/etc/grafana/provisioning\": BOM: read /etc/grafana/provisioning: is a directory"
+grafana                          | logger=settings t=2026-08-02T10:47:30.793925768Z level=error msg="failed to parse \"/etc/grafana/provisioning\": BOM: read /etc/grafana/provisioning: is a directory"
+grafana                          | logger=settings t=2026-08-02T10:47:31.502435332Z level=error msg="failed to parse \"/etc/grafana/provisioning\": BOM: read /etc/grafana/provisioning: is a directory"
+grafana                          | logger=settings t=2026-08-02T10:47:32.626353422Z level=error msg="failed to parse \"/etc/grafana/provisioning\": BOM: read /etc/grafana/provisioning: is a directory"
+grafana                          | logger=settings t=2026-08-02T10:47:34.518265432Z level=error msg="failed to parse \"/etc/grafana/provisioning\": BOM: read /etc/grafana/provisioning: is a directory"
+grafana                          | logger=settings t=2026-08-02T10:47:38.187602069Z level=error msg="failed to parse \"/etc/grafana/provisioning\": BOM: read /etc/grafana/provisioning: is a directory"
+grafana                          | logger=settings t=2026-08-02T10:47:44.934702283Z level=error msg="failed to parse \"/etc/grafana/provisioning\": BOM: read /etc/grafana/provisioning: is a directory"
+grafana                          | logger=settings t=2026-08-02T10:47:58.056472982Z level=error msg="failed to parse \"/etc/grafana/provisioning\": BOM: read /etc/grafana/provisioning: is a directory"
+grafana                          | logger=settings t=2026-08-02T10:48:23.979205316Z level=error msg="failed to parse \"/etc/grafana/provisioning\": BOM: read /etc/grafana/provisioning: is a directory"
+grafana                          | logger=settings t=2026-08-02T10:49:15.477047508Z level=error msg="failed to parse \"/etc/grafana/provisioning\": BOM: read /etc/grafana/provisioning: is a directory"
+ejournal-azimutt                 | 10:32:16.711 [info] tzdata release in place is from a file last modified Thu, 05 Sep 2024 18:47:42 GMT. Release file on server was last modified Wed, 08 Jul 2026 18:02:48 GMT.
+ejournal-azimutt                 | 10:32:17.799 [info] Tzdata has updated the release from 2024b to 2026c
+ejournal-azimutt                 | Setup Local file storage
+ejournal-azimutt                 | Setup Local email provider
+ejournal-azimutt                 | Setup Password auth
+ejournal-azimutt                 | 10:47:36.712 [info] Migrations already up
+ejournal-azimutt                 | Setup Local file storage
+ejournal-azimutt                 | Setup Local email provider
+ejournal-azimutt                 | Setup Password auth
+ejournal-azimutt                 | 10:47:38.080 [info] Running AzimuttWeb.Endpoint with cowboy 2.12.0 at :::4000 (http)
+ejournal-azimutt                 | 10:47:38.085 [info] Access AzimuttWeb.Endpoint at https://lms.signal.qlabs.pro
+ejournal-setup-azimutt-triggers  | DROP TRIGGER
+ejournal-setup-azimutt-triggers  | CREATE TRIGGER
+ejournal-setup-azimutt-triggers  | CREATE FUNCTION
+ejournal-setup-azimutt-triggers  | DROP TRIGGER
+ejournal-setup-azimutt-triggers  | CREATE TRIGGER
+ejournal-setup-azimutt-triggers  | CREATE FUNCTION
+ejournal-setup-azimutt-triggers  | DROP TRIGGER
+ejournal-setup-azimutt-triggers  | CREATE TRIGGER
+ejournal-setup-azimutt-triggers  | CREATE FUNCTION
+ejournal-setup-azimutt-triggers  | DROP TRIGGER
+ejournal-setup-azimutt-triggers  | CREATE TRIGGER
+ejournal-setup-azimutt-triggers  | CREATE FUNCTION
+ejournal-setup-azimutt-triggers  | DROP TRIGGER
+ejournal-setup-azimutt-triggers  | CREATE TRIGGER
+ejournal-setup-azimutt-triggers  | CREATE FUNCTION
+ejournal-setup-azimutt-triggers  | DROP TRIGGER
+ejournal-setup-azimutt-triggers  | CREATE TRIGGER
+ejournal-migrate   | 2026/08/02 10:47:35 goose: no migrations to run. current version: 20260802100000
+mailserver                       | 2026-08-02T10:47:33.102455+00:00 signal postfix/smtp[292]: 867B31842007: to=<postmaster@qlabs.pro>, relay=none, delay=0.8, delays=0.26/0.01/0.53/0, dsn=4.4.1, status=deferred (connect to mail.qlabs.pro[169.47.130.72]:25: Connection refused)
+mailserver                       | 2026-08-02T10:47:33.211753+00:00 signal postfix/smtp[289]: connect to mail.qlabs.pro[169.47.130.72]:25: Connection refused
+mailserver                       | 2026-08-02T10:47:33.213149+00:00 signal postfix/smtp[289]: 659101840F92: to=<postmaster@qlabs.pro>, relay=none, delay=998, delays=997/0.02/0.65/0, dsn=4.4.1, status=deferred (connect to mail.qlabs.pro[169.47.130.72]:25: Connection refused)
+mailserver                       | 2026-08-02 10:49:58,837 WARN received SIGTERM indicating exit request
 prometheus                       | ts=2026-08-02T10:32:00.137Z caller=repair.go:56 level=info component=tsdb msg="Found healthy block" mint=1785175204170 maxt=1785240000000 ulid=01KYMTPKRENRMNJYMVH7WV1PT2
 prometheus                       | ts=2026-08-02T10:32:00.137Z caller=repair.go:56 level=info component=tsdb msg="Found healthy block" mint=1785240004174 maxt=1785304800000 ulid=01KYPRG9RR8VXFF2RG2PGZ9YXX
 prometheus                       | ts=2026-08-02T10:32:00.137Z caller=repair.go:56 level=info component=tsdb msg="Found healthy block" mint=1785304804173 maxt=1785369600000 ulid=01KYRP9P8KZNA4PVHR8E9WJAYK
@@ -227,6 +155,68 @@ prometheus                       | ts=2026-08-02T10:32:45.765Z caller=main.go:95
 prometheus                       | ts=2026-08-02T10:32:45.765Z caller=main.go:977 level=info msg="Stopping scrape discovery manager..."
 prometheus                       | ts=2026-08-02T10:32:45.765Z caller=main.go:991 level=info msg="Stopping notify discovery manager..."
 prometheus                       | ts=2026-08-02T10:32:45.765Z caller=manager.go:160 level=info component="rule manager" msg="Stopping rule manager..."
+ejournal-azimutt-gateway         | npm warn deprecated glob@9.3.5: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+ejournal-azimutt-gateway         | npm warn deprecated node-domexception@1.0.0: Use your platform's native DOMException instead
+ejournal-azimutt-gateway         | npm warn deprecated are-we-there-yet@3.0.1: This package is no longer supported.
+ejournal-azimutt-gateway         | npm warn deprecated gauge@4.0.4: This package is no longer supported.
+ejournal-azimutt-gateway         | npm warn deprecated npmlog@6.0.2: This package is no longer supported.
+ejournal-azimutt-gateway         | npm warn deprecated tar@6.2.1: Old versions of tar are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+ejournal-azimutt-gateway         | npm warn deprecated uuid@9.0.1: uuid@10 and below is no longer supported.  For ESM codebases, update to uuid@latest.  For CommonJS codebases, use uuid@11 (but be aware this version will likely be deprecated in 2028).
+ejournal-azimutt-gateway         | npm warn deprecated uuid@8.3.2: uuid@10 and below is no longer supported.  For ESM codebases, update to uuid@latest.  For CommonJS codebases, use uuid@11 (but be aware this version will likely be deprecated in 2028).
+ejournal-azimutt-gateway         | 
+ejournal-azimutt-gateway         | added 434 packages in 31s
+ejournal-azimutt-gateway         | 
+ejournal-azimutt-gateway         | 52 packages are looking for funding
+ejournal-azimutt-gateway         |   run `npm fund` for details
+ejournal-azimutt-gateway         | npm notice
+ejournal-azimutt-gateway         | npm notice New major version of npm available! 10.8.2 -> 12.0.2
+ejournal-azimutt-gateway         | npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.0.2
+ejournal-azimutt-gateway         | npm notice To update run: npm install -g npm@12.0.2
+ejournal-azimutt-gateway         | npm notice
+ejournal-azimutt-gateway         | {"level":30,"time":1785666758155,"pid":1,"hostname":"1b8538c493bf","msg":"Server listening at http://0.0.0.0:4177"}
+ejournal-azimutt-gateway         | close application on SIGINT
+ejournal-azimutt-gateway         | npm warn deprecated npmlog@6.0.2: This package is no longer supported.
+ejournal-azimutt-gateway         | npm warn deprecated are-we-there-yet@3.0.1: This package is no longer supported.
+ejournal-azimutt-gateway         | npm warn deprecated @aws-sdk/node-http-handler@3.374.0: This package has moved to @smithy/node-http-handler
+ejournal-azimutt-gateway         | npm warn deprecated gauge@4.0.4: This package is no longer supported.
+ejournal-azimutt-gateway         | npm warn deprecated node-domexception@1.0.0: Use your platform's native DOMException instead
+ejournal-azimutt-gateway         | npm warn deprecated tar@6.2.1: Old versions of tar are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+ejournal-azimutt-gateway         | npm warn deprecated uuid@8.3.2: uuid@10 and below is no longer supported.  For ESM codebases, update to uuid@latest.  For CommonJS codebases, use uuid@11 (but be aware this version will likely be deprecated in 2028).
+ejournal-azimutt-gateway         | npm warn deprecated uuid@9.0.1: uuid@10 and below is no longer supported.  For ESM codebases, update to uuid@latest.  For CommonJS codebases, use uuid@11 (but be aware this version will likely be deprecated in 2028).
+ejournal-azimutt-gateway         | npm warn deprecated glob@9.3.5: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+ejournal-azimutt-gateway         | 
+ejournal-azimutt-gateway         | changed 434 packages in 32s
+ejournal-azimutt-gateway         | 
+ejournal-azimutt-gateway         | 52 packages are looking for funding
+ejournal-azimutt-gateway         |   run `npm fund` for details
+ejournal-azimutt-gateway         | {"level":30,"time":1785667688831,"pid":1,"hostname":"1b8538c493bf","msg":"Server listening at http://0.0.0.0:4177"}
+ejournal-azimutt-gateway         | close application on SIGINT
+ejournal-postgres                | 2026-08-02 10:32:00.317 UTC [1] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+ejournal-postgres                | 2026-08-02 10:32:00.322 UTC [29] LOG:  database system was shut down at 2026-08-02 10:31:54 UTC
+ejournal-postgres                | 2026-08-02 10:32:00.328 UTC [1] LOG:  database system is ready to accept connections
+ejournal-postgres                | 2026-08-02 10:32:56.088 UTC [1] LOG:  received fast shutdown request
+ejournal-postgres                | 2026-08-02 10:32:56.089 UTC [1] LOG:  aborting any active transactions
+ejournal-postgres                | 2026-08-02 10:32:56.091 UTC [1] LOG:  background worker "logical replication launcher" (PID 32) exited with exit code 1
+ejournal-postgres                | 2026-08-02 10:32:56.092 UTC [27] LOG:  shutting down
+ejournal-postgres                | 2026-08-02 10:32:56.092 UTC [27] LOG:  checkpoint starting: shutdown immediate
+ejournal-postgres                | 2026-08-02 10:32:56.114 UTC [27] LOG:  checkpoint complete: wrote 16 buffers (0.1%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.010 s, sync=0.008 s, total=0.023 s; sync files=11, longest=0.002 s, average=0.001 s; distance=75 kB, estimate=75 kB; lsn=0/29EC710, redo lsn=0/29EC710
+ejournal-postgres                | 2026-08-02 10:32:56.122 UTC [1] LOG:  database system is shut down
+ejournal-postgres                | 
+ejournal-postgres                | PostgreSQL Database directory appears to contain a database; Skipping initialization
+ejournal-postgres                | 
+ejournal-postgres                | 2026-08-02 10:47:29.852 UTC [1] LOG:  starting PostgreSQL 16.13 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit
+ejournal-postgres                | 2026-08-02 10:47:29.852 UTC [1] LOG:  listening on IPv4 address "0.0.0.0", port 5432
+ejournal-postgres                | 2026-08-02 10:47:29.852 UTC [1] LOG:  listening on IPv6 address "::", port 5432
+ejournal-postgres                | 2026-08-02 10:47:29.854 UTC [1] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+ejournal-postgres                | 2026-08-02 10:47:29.862 UTC [29] LOG:  database system was shut down at 2026-08-02 10:32:56 UTC
+ejournal-postgres                | 2026-08-02 10:47:29.881 UTC [1] LOG:  database system is ready to accept connections
+ejournal-postgres                | 2026-08-02 10:50:08.634 UTC [1] LOG:  received fast shutdown request
+ejournal-postgres                | 2026-08-02 10:50:08.635 UTC [1] LOG:  aborting any active transactions
+ejournal-postgres                | 2026-08-02 10:50:08.637 UTC [1] LOG:  background worker "logical replication launcher" (PID 32) exited with exit code 1
+ejournal-postgres                | 2026-08-02 10:50:08.644 UTC [27] LOG:  shutting down
+ejournal-postgres                | 2026-08-02 10:50:08.644 UTC [27] LOG:  checkpoint starting: shutdown immediate
+ejournal-postgres                | 2026-08-02 10:50:08.656 UTC [27] LOG:  checkpoint complete: wrote 127 buffers (0.8%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.004 s, sync=0.006 s, total=0.013 s; sync files=21, longest=0.002 s, average=0.001 s; distance=919 kB, estimate=919 kB; lsn=0/2AD2560, redo lsn=0/2AD2560
+ejournal-postgres                | 2026-08-02 10:50:08.663 UTC [1] LOG:  database system is shut down
 prometheus                       | ts=2026-08-02T10:32:45.765Z caller=manager.go:170 level=info component="rule manager" msg="Rule manager stopped"
 prometheus                       | ts=2026-08-02T10:32:45.765Z caller=main.go:1028 level=info msg="Stopping scrape manager..."
 prometheus                       | ts=2026-08-02T10:32:45.765Z caller=main.go:987 level=info msg="Notify discovery manager stopped"
@@ -235,14 +225,141 @@ prometheus                       | ts=2026-08-02T10:32:45.765Z caller=main.go:10
 prometheus                       | ts=2026-08-02T10:32:45.770Z caller=notifier.go:604 level=info component=notifier msg="Stopping notification manager..."
 prometheus                       | ts=2026-08-02T10:32:45.770Z caller=main.go:1250 level=info msg="Notifier manager stopped"
 prometheus                       | ts=2026-08-02T10:32:45.771Z caller=main.go:1262 level=info msg="See you next time!"
-ejournal-azimutt-gateway         | npm notice
-mailserver                       | 2026-08-02 10:32:47,029 WARN stopped: update-check (terminated by SIGTERM)
-ejournal-azimutt-gateway         | npm notice New major version of npm available! 10.8.2 -> 12.0.2
-ejournal-azimutt-gateway         | npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.0.2
-ejournal-azimutt-gateway         | npm notice To update run: npm install -g npm@12.0.2
-ejournal-azimutt-gateway         | npm notice
-ejournal-azimutt-gateway         | {"level":30,"time":1785666758155,"pid":1,"hostname":"1b8538c493bf","msg":"Server listening at http://0.0.0.0:4177"}
-ejournal-azimutt-gateway         | close application on SIGINT
+prometheus                       | ts=2026-08-02T10:47:29.729Z caller=main.go:564 level=info msg="No time or size retention was set so using the default time retention" duration=15d
+prometheus                       | ts=2026-08-02T10:47:29.729Z caller=main.go:608 level=info msg="Starting Prometheus Server" mode=server version="(version=2.50.0, branch=HEAD, revision=814b920e8a6345d35712b5857ebd4cb5e90fc107)"
+prometheus                       | ts=2026-08-02T10:47:29.729Z caller=main.go:613 level=info build_context="(go=go1.21.7, platform=linux/amd64, user=root@384077e1cf50, date=20240222-09:38:19, tags=netgo,builtinassets,stringlabels)"
+prometheus                       | ts=2026-08-02T10:47:29.729Z caller=main.go:614 level=info host_details="(Linux 5.15.0-185-generic #195-Ubuntu SMP Fri Jun 19 17:11:50 UTC 2026 x86_64 103b35ba146c (none))"
+prometheus                       | ts=2026-08-02T10:47:29.729Z caller=main.go:615 level=info fd_limits="(soft=1048576, hard=1048576)"
+prometheus                       | ts=2026-08-02T10:47:29.729Z caller=main.go:616 level=info vm_limits="(soft=unlimited, hard=unlimited)"
+prometheus                       | ts=2026-08-02T10:47:29.733Z caller=web.go:565 level=info component=web msg="Start listening for connections" address=0.0.0.0:9090
+prometheus                       | ts=2026-08-02T10:47:29.734Z caller=main.go:1118 level=info msg="Starting TSDB ..."
+prometheus                       | ts=2026-08-02T10:47:29.735Z caller=tls_config.go:313 level=info component=web msg="Listening on" address=[::]:9090
+prometheus                       | ts=2026-08-02T10:47:29.735Z caller=tls_config.go:316 level=info component=web msg="TLS is disabled." http2=false address=[::]:9090
+prometheus                       | ts=2026-08-02T10:47:29.735Z caller=repair.go:56 level=info component=tsdb msg="Found healthy block" mint=1784332807820 maxt=1784397600000 ulid=01KXVQAR4BJ46VPS1ZQGX8XMYN
+prometheus                       | ts=2026-08-02T10:47:29.736Z caller=repair.go:56 level=info component=tsdb msg="Found healthy block" mint=1784397607820 maxt=1784462400000 ulid=01KXXN49C823XN4W9SHSXWFDF1
+prometheus                       | ts=2026-08-02T10:47:29.736Z caller=repair.go:56 level=info component=tsdb msg="Found healthy block" mint=1784462407817 maxt=1784491200000 ulid=01KY5T1XHRRH3746MY7JYB3N0X
+prometheus                       | ts=2026-08-02T10:47:29.737Z caller=repair.go:56 level=info component=tsdb msg="Found healthy block" mint=1784737552798 maxt=1784786400000 ulid=01KY7A40ACSFASQK8V861E48G9
+prometheus                       | ts=2026-08-02T10:47:29.739Z caller=repair.go:56 level=info component=tsdb msg="Found healthy block" mint=1784786407798 maxt=1784851200000 ulid=01KY97XHJPWWRP6KMMG8FH15FW
+prometheus                       | ts=2026-08-02T10:47:29.739Z caller=repair.go:56 level=info component=tsdb msg="Found healthy block" mint=1784851207798 maxt=1784916000000 ulid=01KYB5Q2TDH2APABYFPNY701K6
+prometheus                       | ts=2026-08-02T10:47:29.740Z caller=repair.go:56 level=info component=tsdb msg="Found healthy block" mint=1784916007798 maxt=1784980800000 ulid=01KYD3GM2PMYRRSHC9RMAXVGF3
+prometheus                       | ts=2026-08-02T10:47:29.741Z caller=repair.go:56 level=info component=tsdb msg="Found healthy block" mint=1784980807798 maxt=1785045600000 ulid=01KYF1A5AMMMDCECX58198MY3D
+prometheus                       | ts=2026-08-02T10:47:29.742Z caller=repair.go:56 level=info component=tsdb msg="Found healthy block" mint=1785045607798 maxt=1785110400000 ulid=01KYGZ3H8CG1CYMJQ83YDGN47X
+prometheus                       | ts=2026-08-02T10:47:29.743Z caller=repair.go:56 level=info component=tsdb msg="Found healthy block" mint=1785110404170 maxt=1785175200000 ulid=01KYJWX78SCPM2HS1G8P0RMPD0
+prometheus                       | ts=2026-08-02T10:47:29.744Z caller=repair.go:56 level=info component=tsdb msg="Found healthy block" mint=1785175204170 maxt=1785240000000 ulid=01KYMTPKRENRMNJYMVH7WV1PT2
+prometheus                       | ts=2026-08-02T10:47:29.745Z caller=repair.go:56 level=info component=tsdb msg="Found healthy block" mint=1785240004174 maxt=1785304800000 ulid=01KYPRG9RR8VXFF2RG2PGZ9YXX
+prometheus                       | ts=2026-08-02T10:47:29.746Z caller=repair.go:56 level=info component=tsdb msg="Found healthy block" mint=1785304804173 maxt=1785369600000 ulid=01KYRP9P8KZNA4PVHR8E9WJAYK
 sibsutis_front                   | /docker-entrypoint.sh: Configuration complete; ready for start up
-sibsutis_front                   | 2026/08/02 10:32:34 [emerg] 1#1: "proxy_pass" cannot have URI part in location given by regular expression, or inside named location, or inside "if" statement, or inside "limit_except" block in /etc/nginx/nginx.conf:82
-sibsutis_front                   | nginx: [emerg] "proxy_pass" cannot have URI part in location given by regular expression, or inside named location, or inside "if" statement, or inside "limit_except" block in /etc/nginx/nginx.conf:82
+sibsutis_front                   | 2026/08/02 10:47:36 [emerg] 1#1: host not found in upstream "grafana" in /etc/nginx/nginx.conf:102
+sibsutis_front                   | nginx: [emerg] host not found in upstream "grafana" in /etc/nginx/nginx.conf:102
+sibsutis_front                   | /docker-entrypoint.sh: /docker-entrypoint.d/ is not empty, will attempt to perform configuration
+sibsutis_front                   | /docker-entrypoint.sh: Looking for shell scripts in /docker-entrypoint.d/
+sibsutis_front                   | /docker-entrypoint.sh: Launching /docker-entrypoint.d/10-listen-on-ipv6-by-default.sh
+sibsutis_front                   | 10-listen-on-ipv6-by-default.sh: info: IPv6 listen already enabled
+sibsutis_front                   | /docker-entrypoint.sh: Sourcing /docker-entrypoint.d/15-local-resolvers.envsh
+sibsutis_front                   | /docker-entrypoint.sh: Launching /docker-entrypoint.d/20-envsubst-on-templates.sh
+sibsutis_front                   | /docker-entrypoint.sh: Launching /docker-entrypoint.d/30-tune-worker-processes.sh
+sibsutis_front                   | /docker-entrypoint.sh: Launching /docker-entrypoint.d/40-envsubst-domain.sh
+sibsutis_front                   | /docker-entrypoint.sh: Configuration complete; ready for start up
+sibsutis_front                   | 2026/08/02 10:47:36 [emerg] 1#1: host not found in upstream "grafana" in /etc/nginx/nginx.conf:102
+sibsutis_front                   | nginx: [emerg] host not found in upstream "grafana" in /etc/nginx/nginx.conf:102
+sibsutis_front                   | /docker-entrypoint.sh: /docker-entrypoint.d/ is not empty, will attempt to perform configuration
+sibsutis_front                   | /docker-entrypoint.sh: Looking for shell scripts in /docker-entrypoint.d/
+sibsutis_front                   | /docker-entrypoint.sh: Launching /docker-entrypoint.d/10-listen-on-ipv6-by-default.sh
+sibsutis_front                   | 10-listen-on-ipv6-by-default.sh: info: IPv6 listen already enabled
+sibsutis_front                   | /docker-entrypoint.sh: Sourcing /docker-entrypoint.d/15-local-resolvers.envsh
+sibsutis_front                   | /docker-entrypoint.sh: Launching /docker-entrypoint.d/20-envsubst-on-templates.sh
+sibsutis_front                   | /docker-entrypoint.sh: Launching /docker-entrypoint.d/30-tune-worker-processes.sh
+sibsutis_front                   | /docker-entrypoint.sh: Launching /docker-entrypoint.d/40-envsubst-domain.sh
+sibsutis_front                   | /docker-entrypoint.sh: Configuration complete; ready for start up
+prometheus                       | ts=2026-08-02T10:47:29.746Z caller=repair.go:56 level=info component=tsdb msg="Found healthy block" mint=1785369604170 maxt=1785434400000 ulid=01KYTM37GBAXEFD7FMDN1VTYV3
+prometheus                       | ts=2026-08-02T10:47:29.747Z caller=repair.go:56 level=info component=tsdb msg="Found healthy block" mint=1785434404170 maxt=1785499200000 ulid=01KYWHWRSAKM2PBXG6PDF3AR07
+prometheus                       | ts=2026-08-02T10:47:29.749Z caller=repair.go:56 level=info component=tsdb msg="Found healthy block" mint=1785499204176 maxt=1785564000000 ulid=01KYYFPERSNJP99T5K2P88J4NY
+prometheus                       | ts=2026-08-02T10:47:29.749Z caller=repair.go:56 level=info component=tsdb msg="Found healthy block" mint=1785628804173 maxt=1785636000000 ulid=01KZ06M8Q2BJ9M8RDH9ZZ34DKV
+prometheus                       | ts=2026-08-02T10:47:29.752Z caller=repair.go:56 level=info component=tsdb msg="Found healthy block" mint=1785636000000 maxt=1785643200000 ulid=01KZ0DFQMEJARKEJYVRZKPGCJZ
+prometheus                       | ts=2026-08-02T10:47:29.754Z caller=repair.go:56 level=info component=tsdb msg="Found healthy block" mint=1785564004170 maxt=1785628800000 ulid=01KZ0DFQQD5RCQ60VD75CKSX3R
+prometheus                       | ts=2026-08-02T10:47:29.754Z caller=repair.go:56 level=info component=tsdb msg="Found healthy block" mint=1785643200524 maxt=1785650400000 ulid=01KZ0MBN94AJWFKXYMC9RKJ776
+prometheus                       | ts=2026-08-02T10:47:29.755Z caller=repair.go:56 level=info component=tsdb msg="Found healthy block" mint=1785650400524 maxt=1785657600000 ulid=01KZ0V7CH5397PC8E6QS6NJ7KP
+prometheus                       | ts=2026-08-02T10:47:29.835Z caller=head.go:610 level=info component=tsdb msg="Replaying on-disk memory mappable chunks if any"
+prometheus                       | ts=2026-08-02T10:47:29.839Z caller=head.go:692 level=info component=tsdb msg="On-disk memory mappable chunks replay completed" duration=4.076182ms
+prometheus                       | ts=2026-08-02T10:47:29.839Z caller=head.go:700 level=info component=tsdb msg="Replaying WAL, this may take a while"
+prometheus                       | ts=2026-08-02T10:47:29.842Z caller=head.go:736 level=info component=tsdb msg="WAL checkpoint loaded"
+prometheus                       | ts=2026-08-02T10:47:29.856Z caller=head.go:771 level=info component=tsdb msg="WAL segment loaded" segment=159 maxSegment=164
+prometheus                       | ts=2026-08-02T10:47:29.873Z caller=head.go:771 level=info component=tsdb msg="WAL segment loaded" segment=160 maxSegment=164
+prometheus                       | ts=2026-08-02T10:47:29.885Z caller=head.go:771 level=info component=tsdb msg="WAL segment loaded" segment=161 maxSegment=164
+prometheus                       | ts=2026-08-02T10:47:29.886Z caller=head.go:771 level=info component=tsdb msg="WAL segment loaded" segment=162 maxSegment=164
+prometheus                       | ts=2026-08-02T10:47:29.888Z caller=head.go:771 level=info component=tsdb msg="WAL segment loaded" segment=163 maxSegment=164
+prometheus                       | ts=2026-08-02T10:47:29.889Z caller=head.go:771 level=info component=tsdb msg="WAL segment loaded" segment=164 maxSegment=164
+prometheus                       | ts=2026-08-02T10:47:29.889Z caller=head.go:808 level=info component=tsdb msg="WAL replay completed" checkpoint_replay_duration=3.196311ms wal_replay_duration=46.586306ms wbl_replay_duration=151ns total_replay_duration=53.916777ms
+prometheus                       | ts=2026-08-02T10:47:29.890Z caller=main.go:1139 level=info fs_type=EXT4_SUPER_MAGIC
+prometheus                       | ts=2026-08-02T10:47:29.890Z caller=main.go:1142 level=info msg="TSDB started"
+prometheus                       | ts=2026-08-02T10:47:29.890Z caller=main.go:1324 level=info msg="Loading configuration file" filename=/etc/prometheus/prometheus.yml
+prometheus                       | ts=2026-08-02T10:47:29.891Z caller=main.go:1361 level=info msg="Completed loading of configuration file" filename=/etc/prometheus/prometheus.yml totalDuration=574.371µs db_storage=1.192µs remote_storage=1.743µs web_handler=671ns query_engine=1.302µs scrape=247.01µs scrape_sd=27.11µs notify=742ns notify_sd=671ns rules=1.052µs tracing=3.647µs
+prometheus                       | ts=2026-08-02T10:47:29.891Z caller=main.go:1103 level=info msg="Server is ready to receive web requests."
+prometheus                       | ts=2026-08-02T10:47:29.891Z caller=manager.go:146 level=info component="rule manager" msg="Starting rule manager..."
+prometheus                       | ts=2026-08-02T10:49:58.360Z caller=main.go:953 level=warn msg="Received SIGTERM, exiting gracefully..."
+prometheus                       | ts=2026-08-02T10:49:58.360Z caller=main.go:977 level=info msg="Stopping scrape discovery manager..."
+prometheus                       | ts=2026-08-02T10:49:58.360Z caller=main.go:991 level=info msg="Stopping notify discovery manager..."
+prometheus                       | ts=2026-08-02T10:49:58.360Z caller=manager.go:160 level=info component="rule manager" msg="Stopping rule manager..."
+sibsutis_front                   | 2026/08/02 10:47:37 [emerg] 1#1: host not found in upstream "grafana" in /etc/nginx/nginx.conf:102
+sibsutis_front                   | nginx: [emerg] host not found in upstream "grafana" in /etc/nginx/nginx.conf:102
+sibsutis_front                   | /docker-entrypoint.sh: /docker-entrypoint.d/ is not empty, will attempt to perform configuration
+sibsutis_front                   | /docker-entrypoint.sh: Looking for shell scripts in /docker-entrypoint.d/
+sibsutis_front                   | /docker-entrypoint.sh: Launching /docker-entrypoint.d/10-listen-on-ipv6-by-default.sh
+sibsutis_front                   | 10-listen-on-ipv6-by-default.sh: info: IPv6 listen already enabled
+sibsutis_front                   | /docker-entrypoint.sh: Sourcing /docker-entrypoint.d/15-local-resolvers.envsh
+sibsutis_front                   | /docker-entrypoint.sh: Launching /docker-entrypoint.d/20-envsubst-on-templates.sh
+sibsutis_front                   | /docker-entrypoint.sh: Launching /docker-entrypoint.d/30-tune-worker-processes.sh
+sibsutis_front                   | /docker-entrypoint.sh: Launching /docker-entrypoint.d/40-envsubst-domain.sh
+sibsutis_front                   | /docker-entrypoint.sh: Configuration complete; ready for start up
+sibsutis_front                   | 2026/08/02 10:47:38 [emerg] 1#1: host not found in upstream "grafana" in /etc/nginx/nginx.conf:102
+sibsutis_front                   | nginx: [emerg] host not found in upstream "grafana" in /etc/nginx/nginx.conf:102
+sibsutis_front                   | /docker-entrypoint.sh: /docker-entrypoint.d/ is not empty, will attempt to perform configuration
+sibsutis_front                   | /docker-entrypoint.sh: Looking for shell scripts in /docker-entrypoint.d/
+sibsutis_front                   | /docker-entrypoint.sh: Launching /docker-entrypoint.d/10-listen-on-ipv6-by-default.sh
+sibsutis_front                   | 10-listen-on-ipv6-by-default.sh: info: IPv6 listen already enabled
+sibsutis_front                   | /docker-entrypoint.sh: Sourcing /docker-entrypoint.d/15-local-resolvers.envsh
+sibsutis_front                   | /docker-entrypoint.sh: Launching /docker-entrypoint.d/20-envsubst-on-templates.sh
+sibsutis_front                   | /docker-entrypoint.sh: Launching /docker-entrypoint.d/30-tune-worker-processes.sh
+sibsutis_front                   | /docker-entrypoint.sh: Launching /docker-entrypoint.d/40-envsubst-domain.sh
+sibsutis_front                   | /docker-entrypoint.sh: Configuration complete; ready for start up
+sibsutis_front                   | 2026/08/02 10:47:39 [emerg] 1#1: host not found in upstream "grafana" in /etc/nginx/nginx.conf:102
+sibsutis_front                   | nginx: [emerg] host not found in upstream "grafana" in /etc/nginx/nginx.conf:102
+sibsutis_front                   | /docker-entrypoint.sh: /docker-entrypoint.d/ is not empty, will attempt to perform configuration
+sibsutis_front                   | /docker-entrypoint.sh: Looking for shell scripts in /docker-entrypoint.d/
+sibsutis_front                   | /docker-entrypoint.sh: Launching /docker-entrypoint.d/10-listen-on-ipv6-by-default.sh
+sibsutis_front                   | 10-listen-on-ipv6-by-default.sh: info: IPv6 listen already enabled
+sibsutis_front                   | /docker-entrypoint.sh: Sourcing /docker-entrypoint.d/15-local-resolvers.envsh
+sibsutis_front                   | /docker-entrypoint.sh: Launching /docker-entrypoint.d/20-envsubst-on-templates.sh
+sibsutis_front                   | /docker-entrypoint.sh: Launching /docker-entrypoint.d/30-tune-worker-processes.sh
+sibsutis_front                   | /docker-entrypoint.sh: Launching /docker-entrypoint.d/40-envsubst-domain.sh
+sibsutis_front                   | /docker-entrypoint.sh: Configuration complete; ready for start up
+sibsutis_front                   | 2026/08/02 10:47:41 [emerg] 1#1: host not found in upstream "grafana" in /etc/nginx/nginx.conf:102
+sibsutis_front                   | nginx: [emerg] host not found in upstream "grafana" in /etc/nginx/nginx.conf:102
+sibsutis_front                   | /docker-entrypoint.sh: /docker-entrypoint.d/ is not empty, will attempt to perform configuration
+sibsutis_front                   | /docker-entrypoint.sh: Looking for shell scripts in /docker-entrypoint.d/
+sibsutis_front                   | /docker-entrypoint.sh: Launching /docker-entrypoint.d/10-listen-on-ipv6-by-default.sh
+sibsutis_front                   | 10-listen-on-ipv6-by-default.sh: info: IPv6 listen already enabled
+sibsutis_front                   | /docker-entrypoint.sh: Sourcing /docker-entrypoint.d/15-local-resolvers.envsh
+sibsutis_front                   | /docker-entrypoint.sh: Launching /docker-entrypoint.d/20-envsubst-on-templates.sh
+sibsutis_front                   | /docker-entrypoint.sh: Launching /docker-entrypoint.d/30-tune-worker-processes.sh
+sibsutis_front                   | /docker-entrypoint.sh: Launching /docker-entrypoint.d/40-envsubst-domain.sh
+sibsutis_front                   | /docker-entrypoint.sh: Configuration complete; ready for start up
+sibsutis_front                   | 192.168.15.1 - - [02/Aug/2026:10:48:46 +0000] "GET / HTTP/1.1" 200 622 "-" "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:153.0) Gecko/20100101 Firefox/153.0"
+sibsutis_front                   | 192.168.15.1 - - [02/Aug/2026:10:48:46 +0000] "GET /static/js/main.18595947.js HTTP/1.1" 200 360171 "https://lms.signal.qlabs.pro:9001/" "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:153.0) Gecko/20100101 Firefox/153.0"
+sibsutis_front                   | 192.168.15.1 - - [02/Aug/2026:10:48:47 +0000] "GET /static/css/main.570d2ef8.css HTTP/1.1" 200 104524 "https://lms.signal.qlabs.pro:9001/" "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:153.0) Gecko/20100101 Firefox/153.0"
+sibsutis_front                   | 192.168.15.1 - - [02/Aug/2026:10:48:48 +0000] "GET /profile HTTP/1.1" 200 334 "https://lms.signal.qlabs.pro:9001/" "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:153.0) Gecko/20100101 Firefox/153.0"
+sibsutis_front                   | 192.168.15.1 - - [02/Aug/2026:10:48:48 +0000] "GET /uploads/avatars/2a7f4abc603247cb90660c84fcdf0d0c.webp HTTP/1.1" 304 0 "https://lms.signal.qlabs.pro:9001/" "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:153.0) Gecko/20100101 Firefox/153.0"
+sibsutis_front                   | 192.168.15.1 - - [02/Aug/2026:10:49:18 +0000] "POST /api/user/upload-avatar HTTP/1.1" 200 89 "https://lms.signal.qlabs.pro:9001/" "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:153.0) Gecko/20100101 Firefox/153.0"
+sibsutis_front                   | 192.168.15.1 - - [02/Aug/2026:10:49:18 +0000] "GET /api/user/avatar/1?v=e949e98f HTTP/1.1" 200 788325 "https://lms.signal.qlabs.pro:9001/" "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:153.0) Gecko/20100101 Firefox/153.0"
+sibsutis_front                   | 192.168.15.1 - - [02/Aug/2026:10:49:21 +0000] "GET / HTTP/1.1" 200 622 "-" "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:153.0) Gecko/20100101 Firefox/153.0"
+sibsutis_front                   | 192.168.15.1 - - [02/Aug/2026:10:49:21 +0000] "GET /profile HTTP/1.1" 200 277 "https://lms.signal.qlabs.pro:9001/" "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:153.0) Gecko/20100101 Firefox/153.0"
+sibsutis_front                   | 192.168.15.1 - - [02/Aug/2026:10:49:54 +0000] "GET / HTTP/1.1" 200 622 "-" "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:153.0) Gecko/20100101 Firefox/153.0"
+sibsutis_front                   | 192.168.15.1 - - [02/Aug/2026:10:49:55 +0000] "GET /profile HTTP/1.1" 200 277 "https://lms.signal.qlabs.pro:9001/" "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:153.0) Gecko/20100101 Firefox/153.0"
+prometheus                       | ts=2026-08-02T10:49:58.360Z caller=manager.go:170 level=info component="rule manager" msg="Rule manager stopped"
+prometheus                       | ts=2026-08-02T10:49:58.360Z caller=main.go:1028 level=info msg="Stopping scrape manager..."
+prometheus                       | ts=2026-08-02T10:49:58.360Z caller=main.go:973 level=info msg="Scrape discovery manager stopped"
+prometheus                       | ts=2026-08-02T10:49:58.360Z caller=main.go:987 level=info msg="Notify discovery manager stopped"
+prometheus                       | ts=2026-08-02T10:49:58.366Z caller=main.go:1020 level=info msg="Scrape manager stopped"
+prometheus                       | ts=2026-08-02T10:49:58.369Z caller=notifier.go:604 level=info component=notifier msg="Stopping notification manager..."
+prometheus                       | ts=2026-08-02T10:49:58.370Z caller=main.go:1250 level=info msg="Notifier manager stopped"
+prometheus                       | ts=2026-08-02T10:49:58.370Z caller=main.go:1262 level=info msg="See you next time!"

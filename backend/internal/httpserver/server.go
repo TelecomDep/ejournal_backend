@@ -88,6 +88,16 @@ func (s *Server) Start() {
 	fiberApp.Post("/api/admin/notifications", s.adminNotificationsCreateHandler)
 	fiberApp.Patch("/api/admin/notifications/:notification_id", s.adminNotificationsUpdateHandler)
 	fiberApp.Delete("/api/admin/notifications/:notification_id", s.adminNotificationsDeleteHandler)
+	fiberApp.Get("/api/admin/stats", s.adminSystemStatsHandler)
+	fiberApp.Get("/api/admin/org-structure", s.adminOrgStructureHandler)
+	fiberApp.Get("/api/admin/roles", s.adminRolesListHandler)
+	fiberApp.Patch("/api/admin/roles/:role", s.adminRoleUpdateHandler)
+	fiberApp.Get("/api/admin/antifraud/logs", s.adminAntifraudLogsHandler)
+	fiberApp.Get("/api/admin/antifraud/top-cheaters", s.adminAntifraudTopCheatersHandler)
+	fiberApp.Get("/api/admin/services", s.adminServicesListHandler)
+	fiberApp.Get("/api/admin/audit-logs", s.adminAuditLogsHandler)
+	fiberApp.Get("/api/admin/system/maintenance", s.adminSystemMaintenanceGetHandler)
+	fiberApp.Post("/api/admin/system/maintenance", s.adminSystemMaintenanceSetHandler)
 
 	fiberApp.Post("/api/teacher/attendance-link", s.teacherAttendanceLinkHandler)
 	fiberApp.Post("/api/teacher/attendance/session", s.teacherAttendanceLinkHandler)
@@ -108,6 +118,9 @@ func (s *Server) Start() {
 	fiberApp.Get("/api/staff/reports/performance.pdf", s.staffPerformanceReportPDFHandler)
 	fiberApp.Get("/api/user/avatar/:user_id", s.getUserAvatarHandler)
 	fiberApp.Post("/api/user/upload-avatar", s.uploadAvatarHandler)
+	fiberApp.Post("/api/user/device-token", s.registerDeviceTokenHandler)
+	fiberApp.Get("/api/user/device-tokens", s.listDeviceTokensHandler)
+	fiberApp.Delete("/api/user/device-token", s.deleteDeviceTokenHandler)
 	fiberApp.Post("/api/attachments/upload", s.uploadAttachmentHandler)
 	fiberApp.Get("/api/attachments/:id", s.getAttachmentHandler)
 	fiberApp.Post("/api/teacher/grades/items", s.teacherCreateGradeItemHandler)
@@ -1921,4 +1934,91 @@ func (s *Server) healthzHandler(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusOK).JSON(app.Response{
 		OK: true,
 	})
+}
+
+func (s *Server) adminSystemStatsHandler(c *fiber.Ctx) error {
+	return s.androidJSONActionHandler(c, "http-admin-system-stats", "admin_system_stats", nil)
+}
+
+func (s *Server) adminOrgStructureHandler(c *fiber.Ctx) error {
+	return s.androidJSONActionHandler(c, "http-admin-org-structure", "admin_org_structure", nil)
+}
+
+func (s *Server) adminRolesListHandler(c *fiber.Ctx) error {
+	return s.androidJSONActionHandler(c, "http-admin-roles-list", "admin_roles_list", nil)
+}
+
+func (s *Server) adminRoleUpdateHandler(c *fiber.Ctx) error {
+	role := c.Params("role")
+	var body app.RolePermissions
+	if err := c.BodyParser(&body); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(app.Response{OK: false, Error: "Error parsing body"})
+	}
+	body.Role = role
+	return s.androidJSONActionHandler(c, "http-admin-role-update-"+role, "admin_role_update", &body)
+}
+
+func (s *Server) adminAntifraudLogsHandler(c *fiber.Ctx) error {
+	page, _ := strconv.Atoi(c.Query("page", "1"))
+	pageSize, _ := strconv.Atoi(c.Query("page_size", "20"))
+	query := app.FraudLogsQuery{
+		Page:     int32(page),
+		PageSize: int32(pageSize),
+	}
+	return s.androidJSONActionHandler(c, "http-admin-antifraud-logs", "admin_antifraud_logs", &query)
+}
+
+func (s *Server) adminAntifraudTopCheatersHandler(c *fiber.Ctx) error {
+	return s.androidJSONActionHandler(c, "http-admin-antifraud-top-cheaters", "admin_antifraud_top_cheaters", nil)
+}
+
+func (s *Server) adminServicesListHandler(c *fiber.Ctx) error {
+	return s.androidJSONActionHandler(c, "http-admin-services-list", "admin_services_list", nil)
+}
+
+func (s *Server) adminAuditLogsHandler(c *fiber.Ctx) error {
+	page, _ := strconv.Atoi(c.Query("page", "1"))
+	pageSize, _ := strconv.Atoi(c.Query("page_size", "20"))
+	action := c.Query("action", "")
+	query := app.AuditLogsQuery{
+		Page:     int32(page),
+		PageSize: int32(pageSize),
+		Action:   action,
+	}
+	return s.androidJSONActionHandler(c, "http-admin-audit-logs", "admin_audit_logs", &query)
+}
+
+func (s *Server) adminSystemMaintenanceGetHandler(c *fiber.Ctx) error {
+	return s.androidJSONActionHandler(c, "http-admin-system-maintenance-get", "admin_system_maintenance_get", nil)
+}
+
+func (s *Server) adminSystemMaintenanceSetHandler(c *fiber.Ctx) error {
+	var body app.MaintenanceStatus
+	if err := c.BodyParser(&body); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(app.Response{OK: false, Error: "Error parsing body"})
+	}
+	return s.androidJSONActionHandler(c, "http-admin-system-maintenance-set", "admin_system_maintenance_set", &body)
+}
+
+func (s *Server) registerDeviceTokenHandler(c *fiber.Ctx) error {
+	var body app.DeviceTokenRegistration
+	if err := c.BodyParser(&body); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(app.Response{OK: false, Error: "Error parsing body"})
+	}
+	return s.androidJSONActionHandler(c, "http-register-device-token", "register_device_token", &body)
+}
+
+func (s *Server) listDeviceTokensHandler(c *fiber.Ctx) error {
+	return s.androidJSONActionHandler(c, "http-list-device-tokens", "list_device_tokens", nil)
+}
+
+func (s *Server) deleteDeviceTokenHandler(c *fiber.Ctx) error {
+	deviceToken := c.Query("device_token", "")
+	if deviceToken == "" {
+		var body map[string]string
+		_ = c.BodyParser(&body)
+		deviceToken = body["device_token"]
+	}
+	payload := map[string]string{"device_token": deviceToken}
+	return s.androidJSONActionHandler(c, "http-delete-device-token", "delete_device_token", &payload)
 }

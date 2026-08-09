@@ -29,6 +29,18 @@ var (
 		Name: "pg_stat_database_xact_rollback",
 		Help: "Number of rollbacks in the database",
 	})
+	pgBlksHit = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "pg_stat_database_blks_hit",
+		Help: "Number of disk blocks found in buffer cache",
+	})
+	pgBlksRead = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "pg_stat_database_blks_read",
+		Help: "Number of disk blocks read",
+	})
+	pgCacheHitRatio = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "pg_stat_database_cache_hit_ratio",
+		Help: "Postgres buffer cache hit ratio in percent (0-100)",
+	})
 )
 
 func init() {
@@ -36,6 +48,9 @@ func init() {
 	prometheus.MustRegister(pgNumBackends)
 	prometheus.MustRegister(pgXactCommit)
 	prometheus.MustRegister(pgXactRollback)
+	prometheus.MustRegister(pgBlksHit)
+	prometheus.MustRegister(pgBlksRead)
+	prometheus.MustRegister(pgCacheHitRatio)
 }
 
 func main() {
@@ -66,14 +81,22 @@ func main() {
 			pgUp.Set(1)
 
 			var numBackends int
-			var commits, rollbacks float64
-			err = db.QueryRow("SELECT COALESCE(sum(numbackends), 0), COALESCE(sum(xact_commit), 0), COALESCE(sum(xact_rollback), 0) FROM pg_stat_database").Scan(&numBackends, &commits, &rollbacks)
+			var commits, rollbacks, blksHit, blksRead float64
+			err = db.QueryRow("SELECT COALESCE(sum(numbackends), 0), COALESCE(sum(xact_commit), 0), COALESCE(sum(xact_rollback), 0), COALESCE(sum(blks_hit), 0), COALESCE(sum(blks_read), 0) FROM pg_stat_database").Scan(&numBackends, &commits, &rollbacks, &blksHit, &blksRead)
 			if err != nil {
 				log.Printf("Query pg_stat_database failed: %v", err)
 			} else {
 				pgNumBackends.Set(float64(numBackends))
 				pgXactCommit.Set(commits)
 				pgXactRollback.Set(rollbacks)
+				pgBlksHit.Set(blksHit)
+				pgBlksRead.Set(blksRead)
+
+				ratio := 100.0
+				if blksHit+blksRead > 0 {
+					ratio = (blksHit / (blksHit + blksRead)) * 100.0
+				}
+				pgCacheHitRatio.Set(ratio)
 			}
 			time.Sleep(5 * time.Second)
 		}
