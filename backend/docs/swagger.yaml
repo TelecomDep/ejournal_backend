@@ -142,6 +142,153 @@ definitions:
       identity:
         type: string
     type: object
+  app.GeneralRatingAccessControl:
+    properties:
+      allowed:
+        type: boolean
+      role:
+        type: string
+      user_id:
+        type: integer
+    type: object
+  app.GeneralRatingActivities:
+    properties:
+      laboratory_works:
+        items:
+          $ref: '#/definitions/app.GeneralRatingGradedActivity'
+        type: array
+      lectures:
+        items:
+          $ref: '#/definitions/app.GeneralRatingAttendanceActivity'
+        type: array
+      practices:
+        items:
+          $ref: '#/definitions/app.GeneralRatingGradedActivity'
+        type: array
+    type: object
+  app.GeneralRatingAssessmentSummary:
+    properties:
+      performance_percent:
+        type: number
+    type: object
+  app.GeneralRatingAttendanceActivity:
+    properties:
+      attendance_code:
+        type: string
+      attendance_status:
+        type: string
+      date:
+        type: string
+    type: object
+  app.GeneralRatingAttendanceSummary:
+    properties:
+      attendance_percent:
+        type: number
+    type: object
+  app.GeneralRatingConsent:
+    properties:
+      accepted:
+        type: boolean
+    type: object
+  app.GeneralRatingDepartment:
+    properties:
+      department_id:
+        type: integer
+      department_name:
+        type: string
+    type: object
+  app.GeneralRatingGradedActivity:
+    properties:
+      date:
+        type: string
+      max_score:
+        type: integer
+      score:
+        type: integer
+        x-nullable: true
+      title:
+        type: string
+    type: object
+  app.GeneralRatingGroup:
+    properties:
+      group_id:
+        type: integer
+      group_name:
+        type: string
+      students:
+        items:
+          $ref: '#/definitions/app.GeneralRatingStudent'
+        type: array
+    type: object
+  app.GeneralRatingPayload:
+    properties:
+      access_control:
+        $ref: '#/definitions/app.GeneralRatingAccessControl'
+      departments:
+        items:
+          $ref: '#/definitions/app.GeneralRatingDepartment'
+        type: array
+      groups:
+        items:
+          $ref: '#/definitions/app.GeneralRatingGroup'
+        type: array
+      schema_version:
+        type: string
+      semester:
+        $ref: '#/definitions/app.GeneralRatingSemester'
+      subjects:
+        items:
+          $ref: '#/definitions/app.GeneralRatingSubject'
+        type: array
+    type: object
+  app.GeneralRatingSemester:
+    properties:
+      semester_id:
+        type: integer
+      title:
+        type: string
+    type: object
+  app.GeneralRatingStudent:
+    properties:
+      personal_data_consent:
+        $ref: '#/definitions/app.GeneralRatingConsent'
+      student_label:
+        type: string
+      student_ref:
+        type: string
+      subjects:
+        items:
+          $ref: '#/definitions/app.GeneralRatingStudentSubject'
+        type: array
+    type: object
+  app.GeneralRatingStudentSubject:
+    properties:
+      activities:
+        $ref: '#/definitions/app.GeneralRatingActivities'
+      assessment_summary:
+        $ref: '#/definitions/app.GeneralRatingAssessmentSummary'
+      attendance_summary:
+        $ref: '#/definitions/app.GeneralRatingAttendanceSummary'
+      subject_id:
+        type: integer
+    type: object
+  app.GeneralRatingSubject:
+    properties:
+      department_id:
+        type: integer
+      department_name:
+        type: string
+      name:
+        type: string
+      short_name:
+        type: string
+      subject_id:
+        type: integer
+      teacher:
+        type: string
+      teacher_id:
+        type: integer
+    type: object
   app.GradeDeleteData:
     properties:
       grade_id:
@@ -326,6 +473,27 @@ definitions:
     properties:
       email:
         type: string
+    type: object
+  app.UserAgreementDecisionData:
+    properties:
+      decision:
+        type: string
+      version:
+        type: string
+    type: object
+  httpserver.generalRatingResponse:
+    properties:
+      error:
+        example: ""
+        type: string
+      id:
+        example: http-general-rating
+        type: string
+      ok:
+        example: true
+        type: boolean
+      result:
+        $ref: '#/definitions/app.GeneralRatingPayload'
     type: object
   httpserver.loginResponse:
     properties:
@@ -1658,6 +1826,48 @@ paths:
       summary: List students with pagination
       tags:
       - staff
+  /api/staff/ratings/general:
+    get:
+      description: Returns semester metadata, role-scoped departments, subjects, groups,
+        student consent status, attendance, laboratory/practice grades, and per-subject
+        summaries in the standard response envelope.
+      parameters:
+      - description: Semester ID; defaults to the open semester
+        in: query
+        name: semester_id
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httpserver.generalRatingResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/app.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/app.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/app.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/app.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/app.Response'
+      security:
+      - BearerAuth: []
+      summary: Get source data for the common student rating
+      tags:
+      - staff
   /api/staff/reports/performance.pdf:
     get:
       description: 'Head, dean, or admin downloads a PDF performance rating report:
@@ -2837,6 +3047,58 @@ paths:
       security:
       - BearerAuth: []
       summary: Verify and enable 2FA
+      tags:
+      - profile
+  /api/user/agreements/current:
+    get:
+      description: Returns the current agreement version and the latest user decision.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/app.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/app.Response'
+      security:
+      - BearerAuth: []
+      summary: Get current user agreement status
+      tags:
+      - profile
+  /api/user/agreements/decision:
+    post:
+      consumes:
+      - application/json
+      description: Stores either acceptance or rejection of the current user agreement
+        version.
+      parameters:
+      - description: Agreement decision
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/app.UserAgreementDecisionData'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/app.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/app.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/app.Response'
+      security:
+      - BearerAuth: []
+      summary: Record user agreement decision
       tags:
       - profile
   /api/user/avatar/{user_id}:

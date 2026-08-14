@@ -5,6 +5,46 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
+// userAgreementDecisionHandler godoc
+// @Summary Record user agreement decision
+// @Description Stores either acceptance or rejection of the current user agreement version.
+// @Tags profile
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body app.UserAgreementDecisionData true "Agreement decision"
+// @Success 200 {object} app.Response
+// @Failure 400 {object} app.Response
+// @Failure 401 {object} app.Response
+// @Router /api/user/agreements/decision [post]
+func (s *Server) userAgreementDecisionHandler(c *fiber.Ctx) error {
+	var body app.UserAgreementDecisionData
+	return s.androidJSONActionHandler(
+		c,
+		"http-user-agreement-decision",
+		"user_agreement_decision",
+		&body,
+	)
+}
+
+// currentUserAgreementHandler godoc
+// @Summary Get current user agreement status
+// @Description Returns the current agreement version and the latest user decision.
+// @Tags profile
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} app.Response
+// @Failure 401 {object} app.Response
+// @Router /api/user/agreements/current [get]
+func (s *Server) currentUserAgreementHandler(c *fiber.Ctx) error {
+	return s.androidJSONActionHandler(
+		c,
+		"http-current-user-agreement",
+		"user_agreement_current",
+		nil,
+	)
+}
+
 // request2FAEnableHandler godoc
 // @Summary Request 2FA enablement code
 // @Description Sends a confirmation code to user's bound email before allowing 2FA QR code generation.

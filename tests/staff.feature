@@ -35,6 +35,27 @@ Scenario: Staff can search paginated students list
   And match response.result.students == '#array'
   And match response.result.total == '#number'
 
+Scenario: Teacher can get source data for the common rating
+  Given path 'login'
+  And request { login: 'teacher_test', password: '123456' }
+  When method post
+  Then status 200
+  * def teacherToken = response.result.token
+
+  Given path 'api/staff/ratings/general'
+  And header Authorization = 'Bearer ' + teacherToken
+  When method get
+  Then status 200
+  And match response.id == 'http-general-rating'
+  And match response.ok == true
+  And match response.error == ''
+  And match response.result.schema_version == '1.0'
+  And match response.result.semester.semester_id == '#number'
+  And match response.result.access_control == { role: 'teacher', user_id: '#number', allowed: true }
+  And match response.result.departments == '#array'
+  And match response.result.subjects == '#array'
+  And match response.result.groups == '#array'
+
 Scenario: Admin can view complete organizational structure
   Given path 'login'
   And request { login: 'admin_test', password: '123456' }

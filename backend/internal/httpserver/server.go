@@ -114,6 +114,7 @@ func (s *Server) Start() {
 	fiberApp.Get("/api/student/attendance/history", s.studentAttendanceHistoryHandler)
 	fiberApp.Get("/api/staff/overview", s.staffOverviewHandler)
 	fiberApp.Get("/api/staff/overview/students", s.staffStudentsPageHandler)
+	fiberApp.Get("/api/staff/ratings/general", s.generalRatingHandler)
 	fiberApp.Get("/api/staff/reports/performance.xlsx", s.staffPerformanceReportHandler)
 	fiberApp.Get("/api/staff/reports/performance.pdf", s.staffPerformanceReportPDFHandler)
 	fiberApp.Get("/api/user/avatar/:user_id", s.getUserAvatarHandler)
@@ -135,6 +136,8 @@ func (s *Server) Start() {
 	fiberApp.Get("/api/student/performance/radar", s.studentPerformanceRadarHandler)
 	fiberApp.Get("/api/student/grades/all", s.studentAllGradesHandler)
 	fiberApp.Post("/api/teacher/student/performance/radar", s.teacherStudentPerformanceRadarHandler)
+	fiberApp.Post("/api/user/agreements/decision", s.userAgreementDecisionHandler)
+	fiberApp.Get("/api/user/agreements/current", s.currentUserAgreementHandler)
 	fiberApp.Static("/uploads", s.cfg.UploadDir)
 	fiberApp.Get("/swagger/*", swagger.HandlerDefault)
 	fiberApp.Get("/healthz", s.healthzHandler)
@@ -203,7 +206,16 @@ func (s *Server) androidJSONActionHandler(c *fiber.Ctx, requestID, action string
 	} else {
 		data = []byte("{}")
 	}
-	raw, err := json.Marshal(app.Request{ID: requestID, Action: action, Token: token, Data: data})
+	raw, err := json.Marshal(app.Request{
+		ID:     requestID,
+		Action: action,
+		Token:  token,
+		Data:   data,
+		Meta: &app.RequestMeta{
+			IP:        c.IP(),
+			UserAgent: c.Get("User-Agent"),
+		},
+	})
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(app.Response{OK: false, Error: "Error marshalling envelope"})
 	}

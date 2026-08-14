@@ -1055,6 +1055,69 @@
                 }
             }
         },
+        "/api/staff/ratings/general": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns semester metadata, role-scoped departments, subjects, groups, student consent status, attendance, laboratory/practice grades, and per-subject summaries in the standard response envelope.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "staff"
+                ],
+                "summary": "Get source data for the common student rating",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Semester ID; defaults to the open semester",
+                        "name": "semester_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/httpserver.generalRatingResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/api/staff/reports/performance.pdf": {
             "get": {
                 "security": [
@@ -2880,6 +2943,88 @@
                 }
             }
         },
+        "/api/user/agreements/current": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns the current agreement version and the latest user decision.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "profile"
+                ],
+                "summary": "Get current user agreement status",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/user/agreements/decision": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Stores either acceptance or rejection of the current user agreement version.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "profile"
+                ],
+                "summary": "Record user agreement decision",
+                "parameters": [
+                    {
+                        "description": "Agreement decision",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/app.UserAgreementDecisionData"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/api/user/avatar/{user_id}": {
             "get": {
                 "description": "Returns the avatar image for the selected user.",
@@ -3784,6 +3929,233 @@
                 }
             }
         },
+        "app.GeneralRatingAccessControl": {
+            "type": "object",
+            "properties": {
+                "allowed": {
+                    "type": "boolean"
+                },
+                "role": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "app.GeneralRatingActivities": {
+            "type": "object",
+            "properties": {
+                "laboratory_works": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/app.GeneralRatingGradedActivity"
+                    }
+                },
+                "lectures": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/app.GeneralRatingAttendanceActivity"
+                    }
+                },
+                "practices": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/app.GeneralRatingGradedActivity"
+                    }
+                }
+            }
+        },
+        "app.GeneralRatingAssessmentSummary": {
+            "type": "object",
+            "properties": {
+                "performance_percent": {
+                    "type": "number"
+                }
+            }
+        },
+        "app.GeneralRatingAttendanceActivity": {
+            "type": "object",
+            "properties": {
+                "attendance_code": {
+                    "type": "string"
+                },
+                "attendance_status": {
+                    "type": "string"
+                },
+                "date": {
+                    "type": "string"
+                }
+            }
+        },
+        "app.GeneralRatingAttendanceSummary": {
+            "type": "object",
+            "properties": {
+                "attendance_percent": {
+                    "type": "number"
+                }
+            }
+        },
+        "app.GeneralRatingConsent": {
+            "type": "object",
+            "properties": {
+                "accepted": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "app.GeneralRatingDepartment": {
+            "type": "object",
+            "properties": {
+                "department_id": {
+                    "type": "integer"
+                },
+                "department_name": {
+                    "type": "string"
+                }
+            }
+        },
+        "app.GeneralRatingGradedActivity": {
+            "type": "object",
+            "properties": {
+                "date": {
+                    "type": "string"
+                },
+                "max_score": {
+                    "type": "integer"
+                },
+                "score": {
+                    "type": "integer",
+                    "x-nullable": true
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
+        "app.GeneralRatingGroup": {
+            "type": "object",
+            "properties": {
+                "group_id": {
+                    "type": "integer"
+                },
+                "group_name": {
+                    "type": "string"
+                },
+                "students": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/app.GeneralRatingStudent"
+                    }
+                }
+            }
+        },
+        "app.GeneralRatingPayload": {
+            "type": "object",
+            "properties": {
+                "access_control": {
+                    "$ref": "#/definitions/app.GeneralRatingAccessControl"
+                },
+                "departments": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/app.GeneralRatingDepartment"
+                    }
+                },
+                "groups": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/app.GeneralRatingGroup"
+                    }
+                },
+                "schema_version": {
+                    "type": "string"
+                },
+                "semester": {
+                    "$ref": "#/definitions/app.GeneralRatingSemester"
+                },
+                "subjects": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/app.GeneralRatingSubject"
+                    }
+                }
+            }
+        },
+        "app.GeneralRatingSemester": {
+            "type": "object",
+            "properties": {
+                "semester_id": {
+                    "type": "integer"
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
+        "app.GeneralRatingStudent": {
+            "type": "object",
+            "properties": {
+                "personal_data_consent": {
+                    "$ref": "#/definitions/app.GeneralRatingConsent"
+                },
+                "student_label": {
+                    "type": "string"
+                },
+                "student_ref": {
+                    "type": "string"
+                },
+                "subjects": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/app.GeneralRatingStudentSubject"
+                    }
+                }
+            }
+        },
+        "app.GeneralRatingStudentSubject": {
+            "type": "object",
+            "properties": {
+                "activities": {
+                    "$ref": "#/definitions/app.GeneralRatingActivities"
+                },
+                "assessment_summary": {
+                    "$ref": "#/definitions/app.GeneralRatingAssessmentSummary"
+                },
+                "attendance_summary": {
+                    "$ref": "#/definitions/app.GeneralRatingAttendanceSummary"
+                },
+                "subject_id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "app.GeneralRatingSubject": {
+            "type": "object",
+            "properties": {
+                "department_id": {
+                    "type": "integer"
+                },
+                "department_name": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "short_name": {
+                    "type": "string"
+                },
+                "subject_id": {
+                    "type": "integer"
+                },
+                "teacher": {
+                    "type": "string"
+                },
+                "teacher_id": {
+                    "type": "integer"
+                }
+            }
+        },
         "app.GradeDeleteData": {
             "type": "object",
             "properties": {
@@ -4068,6 +4440,37 @@
             "properties": {
                 "email": {
                     "type": "string"
+                }
+            }
+        },
+        "app.UserAgreementDecisionData": {
+            "type": "object",
+            "properties": {
+                "decision": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "string"
+                }
+            }
+        },
+        "httpserver.generalRatingResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string",
+                    "example": ""
+                },
+                "id": {
+                    "type": "string",
+                    "example": "http-general-rating"
+                },
+                "ok": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "result": {
+                    "$ref": "#/definitions/app.GeneralRatingPayload"
                 }
             }
         },

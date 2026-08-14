@@ -4,6 +4,64 @@
  */
 
 export interface paths {
+  "/api/admin/notifications": {
+    get: {
+      responses: {
+        /** OK */
+        200: {
+          schema: definitions["app.Response"];
+        };
+      };
+    };
+    post: {
+      parameters: {
+        body: {
+          /** Notification payload */
+          request: definitions["app.AdminNotificationCreateData"];
+        };
+      };
+      responses: {
+        /** Created */
+        201: {
+          schema: definitions["app.Response"];
+        };
+      };
+    };
+  };
+  "/api/admin/notifications/{notification_id}": {
+    delete: {
+      parameters: {
+        path: {
+          /** Notification ID */
+          notification_id: number;
+        };
+      };
+      responses: {
+        /** OK */
+        200: {
+          schema: definitions["app.Response"];
+        };
+      };
+    };
+    patch: {
+      parameters: {
+        path: {
+          /** Notification ID */
+          notification_id: number;
+        };
+        body: {
+          /** Notification payload */
+          request: definitions["app.AdminNotificationUpdateData"];
+        };
+      };
+      responses: {
+        /** OK */
+        200: {
+          schema: definitions["app.Response"];
+        };
+      };
+    };
+  };
   "/api/admin/semesters": {
     /** Admin creates a planned semester or opens it immediately with status=open. */
     post: {
@@ -32,6 +90,39 @@ export interface paths {
         };
         /** Conflict */
         409: {
+          schema: definitions["app.Response"];
+        };
+      };
+    };
+  };
+  "/api/admin/semesters/{semester_id}": {
+    /** Admin deletes a non-open semester. */
+    delete: {
+      parameters: {
+        path: {
+          /** Semester ID */
+          semester_id: number;
+        };
+      };
+      responses: {
+        /** OK */
+        200: {
+          schema: definitions["app.Response"];
+        };
+        /** Bad Request */
+        400: {
+          schema: definitions["app.Response"];
+        };
+        /** Unauthorized */
+        401: {
+          schema: definitions["app.Response"];
+        };
+        /** Forbidden */
+        403: {
+          schema: definitions["app.Response"];
+        };
+        /** Not Found */
+        404: {
           schema: definitions["app.Response"];
         };
       };
@@ -456,6 +547,43 @@ export interface paths {
         };
         /** Forbidden */
         403: {
+          schema: definitions["app.Response"];
+        };
+      };
+    };
+  };
+  "/api/staff/ratings/general": {
+    /** Returns semester metadata, role-scoped departments, subjects, groups, student consent status, attendance, laboratory/practice grades, and per-subject summaries in the standard response envelope. */
+    get: {
+      parameters: {
+        query: {
+          /** Semester ID; defaults to the open semester */
+          semester_id?: number;
+        };
+      };
+      responses: {
+        /** OK */
+        200: {
+          schema: definitions["httpserver.generalRatingResponse"];
+        };
+        /** Bad Request */
+        400: {
+          schema: definitions["app.Response"];
+        };
+        /** Unauthorized */
+        401: {
+          schema: definitions["app.Response"];
+        };
+        /** Forbidden */
+        403: {
+          schema: definitions["app.Response"];
+        };
+        /** Not Found */
+        404: {
+          schema: definitions["app.Response"];
+        };
+        /** Internal Server Error */
+        500: {
           schema: definitions["app.Response"];
         };
       };
@@ -1381,8 +1509,27 @@ export interface paths {
     };
   };
   "/api/user/2fa/generate": {
-    /** Generates a TOTP secret and QR code for the current user. */
-    get: {
+    /** Generates a TOTP secret and QR code for the current user after validating email confirmation code. */
+    post: {
+      responses: {
+        /** OK */
+        200: {
+          schema: definitions["app.Response"];
+        };
+        /** Bad Request */
+        400: {
+          schema: definitions["app.Response"];
+        };
+        /** Unauthorized */
+        401: {
+          schema: definitions["app.Response"];
+        };
+      };
+    };
+  };
+  "/api/user/2fa/request-enable": {
+    /** Sends a confirmation code to user's bound email before allowing 2FA QR code generation. */
+    post: {
       responses: {
         /** OK */
         200: {
@@ -1419,6 +1566,75 @@ export interface paths {
         };
         /** Unauthorized */
         401: {
+          schema: definitions["app.Response"];
+        };
+      };
+    };
+  };
+  "/api/user/agreements/current": {
+    /** Returns the current agreement version and the latest user decision. */
+    get: {
+      responses: {
+        /** OK */
+        200: {
+          schema: definitions["app.Response"];
+        };
+        /** Unauthorized */
+        401: {
+          schema: definitions["app.Response"];
+        };
+      };
+    };
+  };
+  "/api/user/agreements/decision": {
+    /** Stores either acceptance or rejection of the current user agreement version. */
+    post: {
+      parameters: {
+        body: {
+          /** Agreement decision */
+          request: definitions["app.UserAgreementDecisionData"];
+        };
+      };
+      responses: {
+        /** OK */
+        200: {
+          schema: definitions["app.Response"];
+        };
+        /** Bad Request */
+        400: {
+          schema: definitions["app.Response"];
+        };
+        /** Unauthorized */
+        401: {
+          schema: definitions["app.Response"];
+        };
+      };
+    };
+  };
+  "/api/user/avatar/{user_id}": {
+    /** Returns the avatar image for the selected user. */
+    get: {
+      parameters: {
+        path: {
+          /** User ID */
+          user_id: number;
+        };
+      };
+      responses: {
+        /** OK */
+        200: {
+          schema: unknown;
+        };
+        /** Bad Request */
+        400: {
+          schema: definitions["app.Response"];
+        };
+        /** Not Found */
+        404: {
+          schema: definitions["app.Response"];
+        };
+        /** Internal Server Error */
+        500: {
           schema: definitions["app.Response"];
         };
       };
@@ -1503,8 +1719,90 @@ export interface paths {
       };
     };
   };
+  "/api/user/notification-settings": {
+    get: {
+      responses: {
+        /** OK */
+        200: {
+          schema: definitions["app.Response"];
+        };
+      };
+    };
+    put: {
+      parameters: {
+        body: {
+          /** Notification settings */
+          request: definitions["app.NotificationSettingsData"];
+        };
+      };
+      responses: {
+        /** OK */
+        200: {
+          schema: definitions["app.Response"];
+        };
+      };
+    };
+  };
+  "/api/user/notifications": {
+    get: {
+      parameters: {
+        query: {
+          /** Page */
+          page?: number;
+          /** Page size */
+          page_size?: number;
+          /** grades, schedule, attendance or system */
+          category?: string;
+          /** Only unread notifications */
+          unread_only?: boolean;
+        };
+      };
+      responses: {
+        /** OK */
+        200: {
+          schema: definitions["app.Response"];
+        };
+      };
+    };
+  };
+  "/api/user/notifications/read-all": {
+    patch: {
+      responses: {
+        /** OK */
+        200: {
+          schema: definitions["app.Response"];
+        };
+      };
+    };
+  };
+  "/api/user/notifications/unread-count": {
+    get: {
+      responses: {
+        /** OK */
+        200: {
+          schema: definitions["app.Response"];
+        };
+      };
+    };
+  };
+  "/api/user/notifications/{notification_id}/read": {
+    patch: {
+      parameters: {
+        path: {
+          /** Notification ID */
+          notification_id: number;
+        };
+      };
+      responses: {
+        /** OK */
+        200: {
+          schema: definitions["app.Response"];
+        };
+      };
+    };
+  };
   "/api/user/upload-avatar": {
-    /** Saves a JPEG, PNG, or WebP profile picture up to 5 MiB and returns its public URL. */
+    /** Resizes avatar image to 256x256, stores in PostgreSQL BYTEA, and returns avatar URL. */
     post: {
       parameters: {
         formData: {
@@ -1658,6 +1956,23 @@ export interface paths {
 }
 
 export interface definitions {
+  "app.AdminNotificationCreateData": {
+    audience?: string;
+    category?: string;
+    event_type?: string;
+    expires_at?: string;
+    group_ids?: number[];
+    message?: string;
+    role?: string;
+    title?: string;
+    user_ids?: number[];
+  };
+  "app.AdminNotificationUpdateData": {
+    expires_at?: string;
+    message?: string;
+    notification_id?: number;
+    title?: string;
+  };
   "app.AdminUserCreateData": {
     email?: string;
     faculty_id?: number;
@@ -1713,6 +2028,78 @@ export interface definitions {
   "app.ForgotPasswordData": {
     identity?: string;
   };
+  "app.GeneralRatingAccessControl": {
+    allowed?: boolean;
+    role?: string;
+    user_id?: number;
+  };
+  "app.GeneralRatingActivities": {
+    laboratory_works?: definitions["app.GeneralRatingGradedActivity"][];
+    lectures?: definitions["app.GeneralRatingAttendanceActivity"][];
+    practices?: definitions["app.GeneralRatingGradedActivity"][];
+  };
+  "app.GeneralRatingAssessmentSummary": {
+    performance_percent?: number;
+  };
+  "app.GeneralRatingAttendanceActivity": {
+    attendance_code?: string;
+    attendance_status?: string;
+    date?: string;
+  };
+  "app.GeneralRatingAttendanceSummary": {
+    attendance_percent?: number;
+  };
+  "app.GeneralRatingConsent": {
+    accepted?: boolean;
+  };
+  "app.GeneralRatingDepartment": {
+    department_id?: number;
+    department_name?: string;
+  };
+  "app.GeneralRatingGradedActivity": {
+    date?: string;
+    max_score?: number;
+    score?: number;
+    title?: string;
+  };
+  "app.GeneralRatingGroup": {
+    group_id?: number;
+    group_name?: string;
+    students?: definitions["app.GeneralRatingStudent"][];
+  };
+  "app.GeneralRatingPayload": {
+    access_control?: definitions["app.GeneralRatingAccessControl"];
+    departments?: definitions["app.GeneralRatingDepartment"][];
+    groups?: definitions["app.GeneralRatingGroup"][];
+    schema_version?: string;
+    semester?: definitions["app.GeneralRatingSemester"];
+    subjects?: definitions["app.GeneralRatingSubject"][];
+  };
+  "app.GeneralRatingSemester": {
+    semester_id?: number;
+    title?: string;
+  };
+  "app.GeneralRatingStudent": {
+    personal_data_consent?: definitions["app.GeneralRatingConsent"];
+    student_label?: string;
+    student_ref?: string;
+    subjects?: definitions["app.GeneralRatingStudentSubject"][];
+  };
+  "app.GeneralRatingStudentSubject": {
+    activities?: definitions["app.GeneralRatingActivities"];
+    assessment_summary?: definitions["app.GeneralRatingAssessmentSummary"];
+    attendance_summary?: definitions["app.GeneralRatingAttendanceSummary"];
+    subject_id?: number;
+  };
+  "app.GeneralRatingSubject": {
+    department_id?: number;
+    department_name?: string;
+    name?: string;
+    short_name?: string;
+    subject_id?: number;
+    teacher?: string;
+    teacher_id?: number;
+  };
   "app.GradeDeleteData": {
     grade_id?: number;
     reason?: string;
@@ -1750,6 +2137,12 @@ export interface definitions {
     login?: string;
     password?: string;
     two_fa_code?: string;
+  };
+  "app.NotificationSettingsData": {
+    attendance?: boolean;
+    grades?: boolean;
+    schedule?: boolean;
+    system?: boolean;
   };
   "app.RegisterByInviteData": {
     invite_code?: string;
@@ -1809,6 +2202,19 @@ export interface definitions {
   };
   "app.UpdateEmailData": {
     email?: string;
+  };
+  "app.UserAgreementDecisionData": {
+    decision?: string;
+    version?: string;
+  };
+  "httpserver.generalRatingResponse": {
+    /** @example */
+    error?: string;
+    /** @example http-general-rating */
+    id?: string;
+    /** @example true */
+    ok?: boolean;
+    result?: definitions["app.GeneralRatingPayload"];
   };
   "httpserver.loginResponse": {
     /** @example */

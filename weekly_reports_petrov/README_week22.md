@@ -38,12 +38,12 @@ func (r *UserRepository) DeleteEmail(ctx context.Context, userID int32) error {
 
 Для раздела уведомлений на frontend была добавлена отдельная backend-модель. Уведомления разделены на четыре категории:
 
-- `grades` — новые и изменённые оценки;
-- `schedule` — создание, перенос и отмена занятий;
-- `attendance` — открытие отметки и результат проверки посещаемости;
-- `system` — системные предупреждения и сообщения администратора.
+- `grades` - новые и изменённые оценки;
+- `schedule` - создание, перенос и отмена занятий;
+- `attendance` - открытие отметки и результат проверки посещаемости;
+- `system` - системные предупреждения и сообщения администратора.
 
-Конкретное событие хранится отдельно в поле `event_type`. Например, для категории `grades` используются события `grade_created` и `grade_updated`, а для категории `system` — `fraud` и `admin_update`.
+Конкретное событие хранится отдельно в поле `event_type`. Например, для категории `grades` используются события `grade_created` и `grade_updated`, а для категории `system` - `fraud` и `admin_update`.
 
 Добавлены три таблицы:
 
@@ -85,9 +85,9 @@ CREATE TABLE notification_settings (
 
 Для frontend добавлены маршруты получения уведомлений и управления их состоянием:
 
-- `GET /api/user/notifications` — список уведомлений текущего пользователя;
-- `GET /api/user/notifications/unread-count` — количество непрочитанных уведомлений;
-- `PATCH /api/user/notifications/:notification_id/read` — отметить одно уведомление прочитанным;
+- `GET /api/user/notifications` - список уведомлений текущего пользователя;
+- `GET /api/user/notifications/unread-count` - количество непрочитанных уведомлений;
+- `PATCH /api/user/notifications/:notification_id/read` - отметить одно уведомление прочитанным;
 - `PATCH /api/user/notifications/read-all` — отметить прочитанными все уведомления;
 - `GET /api/user/notification-settings` — получить настройки категорий;
 - `PUT /api/user/notification-settings` — сохранить настройки категорий.

@@ -275,6 +275,7 @@ Lifecycle семестра: `planned → open → closed → archived`. Одно
 |---|---|
 | `GET /api/staff/overview` | обзор оргструктуры, объём зависит от роли (teacher/head/dean/admin) |
 | `GET /api/staff/overview/students` | постраничный список студентов в зоне видимости: `page`, `page_size`, `group_id`, `search`, `sort`, `order` |
+| `GET /api/staff/ratings/general?semester_id=` | JSON-выгрузка для общего рейтинга: кафедры, предметы, группы, студенты, согласия, посещаемость и оценки; без `semester_id` используется открытый семестр |
 | `GET /api/staff/reports/performance.xlsx?semester_id=` | скачать Excel-отчёт успеваемости (только head/dean/admin): лист «Поток» по всему охвату + лист на каждую группу, студенты отсортированы по итоговому рейтингу, колонки — % по предметам, рейтинг, посещаемость, внизу средние значения |
 | `GET /api/staff/reports/performance.pdf?semester_id=` | скачать тот же отчёт в PDF; без `semester_id` используется открытый семестр |
 
@@ -486,4 +487,3 @@ python3 scripts/manage_azimutt_users.py list
 python3 scripts/manage_azimutt_users.py elevate user@example.com
 ```
 Скрипт автоматически обновляет статус подписки в PostgreSQL Azimutt через внутренние триггеры.
-

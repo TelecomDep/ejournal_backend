@@ -27,6 +27,12 @@ type Request struct {
 	Action string          `json:"action"`
 	Token  string          `json:"token,omitempty"`
 	Data   json.RawMessage `json:"data"`
+	Meta   *RequestMeta    `json:"meta,omitempty"`
+}
+
+type RequestMeta struct {
+	IP        string `json:"ip,omitempty"`
+	UserAgent string `json:"user_agent,omitempty"`
 }
 
 type Response struct {
@@ -1960,6 +1966,24 @@ func (s *Service) handleRequest(raw string) Response {
 		return resp
 	case "profile":
 		resp := s.profileByToken(req.Token)
+		resp.ID = req.ID
+		return resp
+	case "user_agreement_decision":
+		var data UserAgreementDecisionData
+		if err := json.Unmarshal(req.Data, &data); err != nil {
+			return Response{ID: req.ID, OK: false, Error: "invalid user agreement decision payload"}
+		}
+
+		var meta RequestMeta
+		if req.Meta != nil {
+			meta = *req.Meta
+		}
+
+		resp := s.recordUserAgreementDecision(req.Token, data, meta)
+		resp.ID = req.ID
+		return resp
+	case "user_agreement_current":
+		resp := s.currentUserAgreement(req.Token)
 		resp.ID = req.ID
 		return resp
 	case "admin_users_list":
