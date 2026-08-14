@@ -9,6 +9,7 @@ import AnalyticsPage from './pages/AnalyticsPage';
 import DashboardPage from './pages/DashboardPage';
 import StaffOverviewPage from './pages/StaffOverviewPage';
 import TeacherPage from './pages/TeacherPage';
+import AdminUsersPage from './pages/AdminUsersPage';
 import './ui.css';
 
 const getDisplayName = (user) => (
@@ -76,6 +77,14 @@ const iconPaths = {
       <path d="M15.8 19v-7h3.2v7h-3.2Z" />
     </>
   ),
+  users: (
+    <>
+      <circle cx="9" cy="8" r="3" />
+      <path d="M3.5 19c.6-3.4 2.4-5.2 5.5-5.2s4.9 1.8 5.5 5.2" />
+      <path d="M15.5 5.8a3 3 0 0 1 0 5.8" />
+      <path d="M16 14c2.6.4 4 2.1 4.5 5" />
+    </>
+  ),
   profile: (
     <>
       <circle cx="12" cy="8" r="3.4" />
@@ -103,6 +112,9 @@ const renderPage = (activeItem, user, token, navigate, onUserUpdate) => {
   }
   if (activeItem.key === 'overview' && ['admin', 'head', 'dean'].includes(user?.role)) {
     return <StaffOverviewPage token={token} />;
+  }
+  if (activeItem.key === 'users' && user?.role === 'admin') {
+    return <AdminUsersPage token={token} currentUser={user} />;
   }
   if (activeItem.key === 'profile') {
     return <ProfilePage user={user} token={token} onUserUpdate={onUserUpdate} />;

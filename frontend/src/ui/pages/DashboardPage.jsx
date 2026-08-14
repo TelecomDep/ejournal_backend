@@ -162,6 +162,15 @@ const getQuickCards = (role) => {
     ];
   }
 
+  if (role === 'admin') {
+    return [
+      { icon: 'staff', title: 'Пользователи', text: 'Учетные записи и доступ', to: '/admin/users' },
+      { icon: 'analytics', title: 'Сводка', text: 'Группы и показатели', to: '/staff/overview' },
+      { icon: 'analytics', title: 'Аналитика', text: 'Расширенная статистика', to: '/staff/analytics' },
+      { icon: 'profile', title: 'Профиль', text: 'Данные аккаунта', to: '/profile' }
+    ];
+  }
+
   if (STAFF_ROLES.includes(role)) {
     return [
       { icon: 'staff', title: 'Сводка', text: 'Группы, студенты и преподаватели', to: '/staff/overview' },

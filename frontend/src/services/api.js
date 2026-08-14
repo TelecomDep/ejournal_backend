@@ -494,6 +494,70 @@ const api = {
     }
   },
 
+  async getAdminUsers(token, filters = {}) {
+    try {
+      const params = Object.fromEntries(
+        Object.entries(filters).filter(([, value]) => value !== '' && value !== undefined && value !== null)
+      );
+      const response = await axios.get(`${BACKEND_URL}/api/admin/users`, {
+        headers: authHeaders(token),
+        params
+      });
+      return unwrapApiResponse(response.data);
+    } catch (error) {
+      console.error('Ошибка загрузки пользователей:', error);
+      throw error;
+    }
+  },
+
+  async getAdminUser(token, userId) {
+    try {
+      const response = await axios.get(`${BACKEND_URL}/api/admin/users/${userId}`, {
+        headers: authHeaders(token)
+      });
+      return unwrapApiResponse(response.data);
+    } catch (error) {
+      console.error('Ошибка загрузки пользователя:', error);
+      throw error;
+    }
+  },
+
+  async createAdminUser(token, payload) {
+    try {
+      const response = await axios.post(`${BACKEND_URL}/api/admin/users`, payload, {
+        headers: authHeaders(token)
+      });
+      return unwrapApiResponse(response.data);
+    } catch (error) {
+      console.error('Ошибка создания пользователя:', error);
+      throw error;
+    }
+  },
+
+  async updateAdminUser(token, userId, payload) {
+    try {
+      const response = await axios.patch(`${BACKEND_URL}/api/admin/users/${userId}`, payload, {
+        headers: authHeaders(token)
+      });
+      return unwrapApiResponse(response.data);
+    } catch (error) {
+      console.error('Ошибка обновления пользователя:', error);
+      throw error;
+    }
+  },
+
+  async archiveAdminUser(token, userId) {
+    try {
+      const response = await axios.delete(`${BACKEND_URL}/api/admin/users/${userId}`, {
+        headers: authHeaders(token)
+      });
+      return unwrapApiResponse(response.data);
+    } catch (error) {
+      console.error('Ошибка архивирования пользователя:', error);
+      throw error;
+    }
+  },
+
   // Supervisory overview (teacher/head/dean/admin), scoped by role on the backend
   async getStaffOverview(token) {
     try {
