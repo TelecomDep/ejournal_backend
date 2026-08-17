@@ -238,6 +238,40 @@ func (s *Service) notifications_mark_all_read(session_token string) Response {
 	}
 }
 
+func (s *Service) notification_delete(
+	session_token string,
+	notification_id int64,
+) Response {
+	user, err := s.userBySessionToken(session_token)
+	if err != nil {
+		return Response{OK: false, Error: err.Error()}
+	}
+
+	if notification_id <= 0 {
+		return Response{OK: false, Error: "notification_id is required"}
+	}
+
+	ctx, cancel := s.dbContext()
+	defer cancel()
+
+	deleted, err := s.store.Notifications.DeleteForUser(ctx, user.ID, notification_id)
+	if err != nil {
+		return Response{OK: false, Error: "failed to delete notification"}
+	}
+
+	if !deleted {
+		return Response{OK: false, Error: "notification not found"}
+	}
+
+	return Response{
+		OK: true,
+		Result: map[string]any{
+			"notification_id": notification_id,
+			"deleted":         true,
+		},
+	}
+}
+
 func (s *Service) notification_settings_get(session_token string) Response {
 	user, err := s.userBySessionToken(session_token)
 	if err != nil {

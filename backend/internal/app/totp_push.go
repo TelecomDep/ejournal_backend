@@ -173,13 +173,25 @@ func (s *Service) DispatchTOTPPushNotification(ctx context.Context, userID int32
 		"tokens":    tokens,
 	})
 
-	_, _ = s.store.Pool().Exec(
+	var notifID int64
+	err = s.store.Pool().QueryRow(
 		ctx,
 		`INSERT INTO notifications (category, event_type, title, message, metadata, expires_at)
-		 VALUES ('system', 'totp_push', '2FA Verification Code', $1, $2, NOW() + INTERVAL '2 minutes')`,
+		 VALUES ('system', 'totp_push', '2FA Verification Code', $1, $2, NOW() + INTERVAL '10 minutes')
+		 RETURNING notification_id`,
 		fmt.Sprintf("Your 2FA verification code is: %s", code),
 		meta,
-	)
+	).Scan(&notifID)
+
+	if err == nil && notifID > 0 {
+		_, _ = s.store.Pool().Exec(
+			ctx,
+			`INSERT INTO notification_recipients (notification_id, user_id)
+			 VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+			notifID,
+			userID,
+		)
+	}
 
 	return true, code
 }

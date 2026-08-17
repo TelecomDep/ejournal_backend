@@ -717,3 +717,24 @@ func (r *NotificationRepository) AdminDelete(
 
 	return tag.RowsAffected() > 0, nil
 }
+
+func (r *NotificationRepository) DeleteForUser(
+	ctx context.Context,
+	user_id int32,
+	notification_id int64,
+) (bool, error) {
+	tag, err := r.pool.Exec(
+		ctx,
+		`DELETE FROM notification_recipients
+		 WHERE notification_id = $1
+		   AND user_id = $2`,
+		notification_id,
+		user_id,
+	)
+	if err != nil {
+		return false, fmt.Errorf("delete user notification: %w", err)
+	}
+
+	return tag.RowsAffected() > 0, nil
+}
+

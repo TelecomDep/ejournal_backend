@@ -65,6 +65,7 @@ func (s *Server) Start() {
 	fiberApp.Get("/api/user/notifications/unread-count", s.notificationsUnreadCountHandler)
 	fiberApp.Patch("/api/user/notifications/read-all", s.notificationsMarkAllReadHandler)
 	fiberApp.Patch("/api/user/notifications/:notification_id/read", s.notificationMarkReadHandler)
+	fiberApp.Delete("/api/user/notifications/:notification_id", s.notificationDeleteHandler)
 	fiberApp.Get("/api/user/notification-settings", s.notificationSettingsGetHandler)
 	fiberApp.Put("/api/user/notification-settings", s.notificationSettingsUpdateHandler)
 	fiberApp.Post("/api/user/2fa/request-enable", s.request2FAEnableHandler)
@@ -193,9 +194,9 @@ func (s *Server) androidJSONActionHandler(c *fiber.Ctx, requestID, action string
 		return c.Status(fiber.StatusUnauthorized).JSON(app.Response{OK: false, Error: "missing Authorization header"})
 	}
 
-	var data []byte
+	var data []byte = []byte("{}")
 	var err error
-	if len(c.Body()) > 0 {
+	if body != nil && len(c.Body()) > 0 {
 		if err := c.BodyParser(body); err != nil {
 			return c.Status(fiber.StatusBadRequest).JSON(app.Response{OK: false, Error: "Error parsing body"})
 		}
@@ -203,8 +204,6 @@ func (s *Server) androidJSONActionHandler(c *fiber.Ctx, requestID, action string
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(app.Response{OK: false, Error: "Error marshalling request"})
 		}
-	} else {
-		data = []byte("{}")
 	}
 	raw, err := json.Marshal(app.Request{
 		ID:     requestID,

@@ -2173,6 +2173,14 @@ func (s *Service) handleRequest(raw string) Response {
 		resp := s.notification_mark_read(req.Token, data.NotificationID)
 		resp.ID = req.ID
 		return resp
+	case "notification_delete":
+		var data NotificationIDData
+		if err := json.Unmarshal(req.Data, &data); err != nil {
+			return Response{ID: req.ID, OK: false, Error: "invalid notification_delete payload"}
+		}
+		resp := s.notification_delete(req.Token, data.NotificationID)
+		resp.ID = req.ID
+		return resp
 	case "notifications_mark_all_read":
 		resp := s.notifications_mark_all_read(req.Token)
 		resp.ID = req.ID

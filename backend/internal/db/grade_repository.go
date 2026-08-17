@@ -550,7 +550,7 @@ func (r *GradeRepository) GetStudentGradesBySubject(ctx context.Context, student
 	}
 	rows, err := r.pool.Query(
 		ctx,
-		`SELECT gi.item_id, gi.title, gi.max_score, gi.item_type, gi.deadline,
+		`SELECT g.grade_id, gi.item_id, gi.title, gi.max_score, gi.item_type, gi.deadline,
 		        COALESCE(g.score, 0) AS score, g.updated_at AS graded_at
 		 FROM grade_items gi
 		 LEFT JOIN grades g ON g.item_id = gi.item_id AND g.student_id = $1 AND g.deleted_at IS NULL
@@ -581,10 +581,14 @@ func (r *GradeRepository) GetStudentGradesBySubject(ctx context.Context, student
 
 func scanStudentGradePoint(row pgx.Row) (StudentGradePoint, error) {
 	var point StudentGradePoint
+	var gradeID sql.NullInt32
 	var deadline, gradedAt sql.NullTime
-	err := row.Scan(&point.ItemID, &point.Title, &point.MaxScore, &point.ItemType, &deadline, &point.Score, &gradedAt)
+	err := row.Scan(&gradeID, &point.ItemID, &point.Title, &point.MaxScore, &point.ItemType, &deadline, &point.Score, &gradedAt)
 	if err != nil {
 		return StudentGradePoint{}, fmt.Errorf("scan student grade point: %w", err)
+	}
+	if gradeID.Valid {
+		point.GradeID = &gradeID.Int32
 	}
 	if deadline.Valid {
 		point.Deadline = &deadline.Time
@@ -693,6 +697,7 @@ func (r *GradeRepository) GetStudentAllSubjectGrades(ctx context.Context, studen
 		        COALESCE(SUM(gi.max_score) FILTER (WHERE gi.deadline < now()) OVER (PARTITION BY sub.subject_id), 0)::INTEGER,
 		        COALESCE(SUM(g.score) OVER (PARTITION BY sub.subject_id), 0)::INTEGER,
 		        COALESCE(SUM(gi.max_score) OVER (PARTITION BY sub.subject_id), 0)::INTEGER,
+		        g.grade_id,
 		        gi.item_id,
 		        gi.title,
 		        gi.max_score,
@@ -718,13 +723,13 @@ func (r *GradeRepository) GetStudentAllSubjectGrades(ctx context.Context, studen
 	for rows.Next() {
 		var subjectID, passedScore, passedMax, currentScore, totalMax int32
 		var subjectName string
-		var itemID sql.NullInt32
+		var gradeID, itemID sql.NullInt32
 		var title, itemType sql.NullString
 		var maxScore sql.NullInt32
 		var deadline, gradedAt sql.NullTime
 		var score int32
 		if err := rows.Scan(&subjectID, &subjectName, &passedScore, &passedMax, &currentScore, &totalMax,
-			&itemID, &title, &maxScore, &itemType, &deadline, &score, &gradedAt); err != nil {
+			&gradeID, &itemID, &title, &maxScore, &itemType, &deadline, &score, &gradedAt); err != nil {
 			return nil, fmt.Errorf("scan all student subject grades: %w", err)
 		}
 		subject := bySubject[subjectID]
@@ -737,6 +742,9 @@ func (r *GradeRepository) GetStudentAllSubjectGrades(ctx context.Context, studen
 			continue
 		}
 		point := StudentGradePoint{ItemID: itemID.Int32, Title: title.String, MaxScore: maxScore.Int32, ItemType: itemType.String, Score: score}
+		if gradeID.Valid {
+			point.GradeID = &gradeID.Int32
+		}
 		if deadline.Valid {
 			point.Deadline = &deadline.Time
 		}

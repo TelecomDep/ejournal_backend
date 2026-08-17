@@ -96,6 +96,32 @@ func (s *Server) notificationMarkReadHandler(c *fiber.Ctx) error {
 	)
 }
 
+func (s *Server) notificationDeleteHandler(c *fiber.Ctx) error {
+	notification_id, err := strconv.ParseInt(
+		c.Params("notification_id"),
+		10,
+		64,
+	)
+
+	if err != nil || notification_id <= 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(
+			app.Response{OK: false, Error: "invalid notification_id"},
+		)
+	}
+
+	data := app.NotificationIDData{
+		NotificationID: notification_id,
+	}
+
+	return s.notificationActionHandler(
+		c,
+		"http-notification-delete",
+		"notification_delete",
+		data,
+		fiber.StatusOK,
+	)
+}
+
 // notificationsMarkAllReadHandler godoc
 // @Summary Mark all notifications as read
 // @Tags notifications

@@ -203,6 +203,7 @@ type Grade struct {
 }
 
 type StudentGradePoint struct {
+	GradeID  *int32     `json:"grade_id,omitempty"`
 	ItemID   int32      `json:"item_id"`
 	Title    string     `json:"title"`
 	MaxScore int32      `json:"max_score"`

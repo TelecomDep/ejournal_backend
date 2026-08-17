@@ -43,7 +43,7 @@ func (s *Service) StaffPerformanceReport(sessionToken string, semesterID *int32)
 	if err != nil {
 		return nil, Response{OK: false, Error: err.Error()}
 	}
-	if user.Role != RoleHead && user.Role != RoleDean && user.Role != RoleAdmin {
+	if user.Role != RoleHead && user.Role != RoleDean && user.Role != RoleAdmin && user.Role != RoleTeacher {
 		return nil, Response{OK: false, Error: "forbidden: head role or higher required"}
 	}
 
