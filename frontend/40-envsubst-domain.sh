@@ -1,6 +1,8 @@
 #!/bin/sh
 set -e
 
+rm -f /etc/nginx/conf.d/default.conf
+
 export DOMAIN="${DOMAIN:-lms.signal.qlabs.pro}"
 
 # 1. Ensure SSL certificates directory and self-signed certificate if Let's Encrypt cert is not present

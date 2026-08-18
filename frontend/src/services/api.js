@@ -572,6 +572,47 @@ const api = {
     }
   },
 
+  async getAdminInvites(token, filters = {}) {
+    try {
+      const params = new URLSearchParams();
+      if (filters.role) params.append('role', filters.role);
+      if (filters.status) params.append('status', filters.status);
+      const query = params.toString() ? `?${params.toString()}` : '';
+
+      const response = await axios.get(`${BACKEND_URL}/api/admin/invites${query}`, {
+        headers: authHeaders(token)
+      });
+      return unwrapApiResponse(response.data);
+    } catch (error) {
+      console.error('Ошибка загрузки списка инвайтов:', error);
+      throw error;
+    }
+  },
+
+  async createTeacherInvite(token, payload) {
+    try {
+      const response = await axios.post(`${BACKEND_URL}/api/admin/invites/teacher`, payload, {
+        headers: authHeaders(token)
+      });
+      return unwrapApiResponse(response.data);
+    } catch (error) {
+      console.error('Ошибка генерации инвайта преподавателя:', error);
+      throw error;
+    }
+  },
+
+  async revokeAdminInvite(token, inviteId) {
+    try {
+      const response = await axios.delete(`${BACKEND_URL}/api/admin/invites/${inviteId}`, {
+        headers: authHeaders(token)
+      });
+      return unwrapApiResponse(response.data);
+    } catch (error) {
+      console.error('Ошибка отзыва инвайта:', error);
+      throw error;
+    }
+  },
+
   // Supervisory overview (teacher/head/dean/admin), scoped by role on the backend
   async getStaffOverview(token) {
     try {

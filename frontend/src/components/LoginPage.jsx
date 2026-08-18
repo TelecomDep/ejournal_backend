@@ -25,11 +25,23 @@ const LoginPage = ({ onLogin, onRegister, loading, error }) => {
   useEffect(() => {
     const checkHashRoute = () => {
       const hash = window.location.hash;
+      const search = window.location.search;
+
       if (hash.startsWith('#/reset-password')) {
         const match = hash.match(/token=([^&]+)/);
         if (match) {
           setResetToken(match[1]);
           setView('reset');
+          setLocalError('');
+          setLocalMessage('');
+        }
+      } else {
+        const fullUrl = hash + search;
+        const codeMatch = fullUrl.match(/(?:code|invite)=([^&]+)/i);
+        if (codeMatch && codeMatch[1]) {
+          const inviteCode = decodeURIComponent(codeMatch[1]);
+          setRegistrationCode(inviteCode);
+          setView('register');
           setLocalError('');
           setLocalMessage('');
         }

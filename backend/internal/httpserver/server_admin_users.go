@@ -185,3 +185,29 @@ func adminUserHTTPStatus(resp app.Response) int {
 		return fiber.StatusBadRequest
 	}
 }
+
+func (s *Server) adminGenerateTeacherInviteHandler(c *fiber.Ctx) error {
+	var data app.AdminGenerateTeacherInviteData
+	if err := c.BodyParser(&data); err != nil && len(c.Body()) > 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(app.Response{OK: false, Error: "invalid request body"})
+	}
+	return s.adminUserActionHandler(c, "http-admin-generate-teacher-invite", "admin_generate_teacher_invite", data, fiber.StatusCreated)
+}
+
+func (s *Server) adminInvitesListHandler(c *fiber.Ctx) error {
+	data := app.AdminInvitesListData{
+		Role:   strings.TrimSpace(c.Query("role")),
+		Status: strings.TrimSpace(c.Query("status")),
+	}
+	return s.adminUserActionHandler(c, "http-admin-invites-list", "admin_list_invites", data, fiber.StatusOK)
+}
+
+func (s *Server) adminRevokeInviteHandler(c *fiber.Ctx) error {
+	invite_id, err := c.ParamsInt("invite_id")
+	if err != nil || invite_id <= 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(app.Response{OK: false, Error: "invalid invite_id"})
+	}
+	data := app.AdminRevokeInviteData{InviteID: int32(invite_id)}
+	return s.adminUserActionHandler(c, "http-admin-revoke-invite", "admin_revoke_invite", data, fiber.StatusOK)
+}
+

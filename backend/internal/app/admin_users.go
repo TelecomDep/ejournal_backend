@@ -2,11 +2,14 @@ package app
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
+	"fmt"
 	"log"
 	"net/mail"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/TelecomDep/ejournal_backend/internal/db"
 	"github.com/jackc/pgx/v5"
@@ -838,3 +841,262 @@ func (s *Service) admin_role_update(token string, role string, payload RolePermi
 
 	return Response{OK: false, Error: "role permissions are code-defined and cannot be changed at runtime"}
 }
+
+type AdminGenerateTeacherInviteData struct {
+	TeacherID  int32  `json:"teacher_id"`
+	FullName   string `json:"full_name"`
+	LecternID  int32  `json:"lectern_id"`
+	JobTitle   string `json:"job_title"`
+	CustomCode string `json:"custom_code"`
+}
+
+type AdminInvitesListData struct {
+	Role   string `json:"role"`
+	Status string `json:"status"` // "pending", "used", ""
+}
+
+type AdminRevokeInviteData struct {
+	InviteID int32 `json:"invite_id"`
+}
+
+type AdminInviteItem struct {
+	InviteID     int32      `json:"invite_id"`
+	InviteCode   string     `json:"invite_code"`
+	Role         string     `json:"role"`
+	TeacherID    *int32     `json:"teacher_id,omitempty"`
+	TeacherName  string     `json:"teacher_name,omitempty"`
+	LecternID    *int32     `json:"lectern_id,omitempty"`
+	LecternName  string     `json:"lectern_name,omitempty"`
+	StudentID    *int32     `json:"student_id,omitempty"`
+	StudentName  string     `json:"student_name,omitempty"`
+	UsedAt       *time.Time `json:"used_at"`
+	CreatedAt    time.Time  `json:"created_at"`
+	RegisteredAs string     `json:"registered_as,omitempty"`
+}
+
+func generate_invite_code(prefix string) string {
+	b := make([]byte, 4)
+	if _, err := rand.Read(b); err != nil {
+		return fmt.Sprintf("%s-%d", prefix, time.Now().UnixNano()%1000000)
+	}
+	return fmt.Sprintf("%s-%X", prefix, b)
+}
+
+func (s *Service) admin_generate_teacher_invite(token string, data AdminGenerateTeacherInviteData) Response {
+	if _, auth := s.require_admin(token); !auth.OK {
+		return auth
+	}
+
+	ctx, cancel := s.dbContext()
+	defer cancel()
+
+	var teacherID int32
+	var teacherName string
+
+	if data.TeacherID > 0 {
+		var existingUserID *int32
+		err := s.store.Pool().QueryRow(
+			ctx,
+			`SELECT teacher_id, name, user_id FROM teachers WHERE teacher_id = $1`,
+			data.TeacherID,
+		).Scan(&teacherID, &teacherName, &existingUserID)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return Response{OK: false, Error: "teacher not found"}
+		}
+		if err != nil {
+			return Response{OK: false, Error: "failed to check teacher"}
+		}
+		if existingUserID != nil {
+			return Response{OK: false, Error: "teacher already has an active user account"}
+		}
+
+		var existingInviteCode string
+		err = s.store.Pool().QueryRow(
+			ctx,
+			`SELECT invite_code FROM registration_invites WHERE teacher_id = $1 AND used_at IS NULL LIMIT 1`,
+			teacherID,
+		).Scan(&existingInviteCode)
+		if err == nil && existingInviteCode != "" {
+			return Response{
+				OK: true,
+				Result: map[string]any{
+					"invite_code":  existingInviteCode,
+					"teacher_id":   teacherID,
+					"teacher_name": teacherName,
+					"is_existing":  true,
+				},
+			}
+		}
+	} else {
+		fullName := strings.TrimSpace(data.FullName)
+		if fullName == "" {
+			return Response{OK: false, Error: "full_name is required when creating a new teacher invite"}
+		}
+
+		err := s.store.Pool().QueryRow(
+			ctx,
+			`INSERT INTO teachers (role, name, lectern_id, job_title)
+			 VALUES ('teacher', $1, $2, NULLIF($3, ''))
+			 RETURNING teacher_id, name`,
+			fullName,
+			nullable_id(data.LecternID),
+			strings.TrimSpace(data.JobTitle),
+		).Scan(&teacherID, &teacherName)
+		if err != nil {
+			return Response{OK: false, Error: admin_user_db_error(err)}
+		}
+	}
+
+	inviteCode := strings.TrimSpace(strings.ToUpper(data.CustomCode))
+	if inviteCode == "" {
+		inviteCode = generate_invite_code("TCHR")
+	}
+
+	var inviteID int32
+	var createdAt time.Time
+	if err := s.store.Pool().QueryRow(
+		ctx,
+		`INSERT INTO registration_invites (invite_code, role, teacher_id)
+		 VALUES ($1, 'teacher', $2)
+		 RETURNING invite_id, created_at`,
+		inviteCode,
+		teacherID,
+	).Scan(&inviteID, &createdAt); err != nil {
+		return Response{OK: false, Error: "failed to generate invite code (code may already exist)"}
+	}
+
+	return Response{
+		OK: true,
+		Result: map[string]any{
+			"invite_id":    inviteID,
+			"invite_code":  inviteCode,
+			"teacher_id":   teacherID,
+			"teacher_name": teacherName,
+			"created_at":   createdAt,
+		},
+	}
+}
+
+func (s *Service) admin_list_invites(token string, data AdminInvitesListData) Response {
+	if _, auth := s.require_admin(token); !auth.OK {
+		return auth
+	}
+
+	ctx, cancel := s.dbContext()
+	defer cancel()
+
+	query := `
+		SELECT 
+			ri.invite_id,
+			ri.invite_code,
+			ri.role::text,
+			ri.teacher_id,
+			COALESCE(t.name, ''),
+			t.lectern_id,
+			COALESCE(l.name, ''),
+			ri.student_id,
+			COALESCE(st.student_name, ''),
+			ri.used_at,
+			ri.created_at,
+			COALESCE(u.login, '')
+		FROM registration_invites ri
+		LEFT JOIN teachers t ON ri.teacher_id = t.teacher_id
+		LEFT JOIN lecterns l ON t.lectern_id = l.lectern_id
+		LEFT JOIN students st ON ri.student_id = st.student_id
+		LEFT JOIN users u ON u.id = COALESCE(t.user_id, st.user_id)
+		WHERE 1=1
+	`
+	args := []any{}
+	argID := 1
+
+	role := strings.ToLower(strings.TrimSpace(data.Role))
+	if role != "" {
+		query += fmt.Sprintf(" AND ri.role = $%d::user_role", argID)
+		args = append(args, role)
+		argID++
+	}
+
+	status := strings.ToLower(strings.TrimSpace(data.Status))
+	if status == "pending" {
+		query += " AND ri.used_at IS NULL"
+	} else if status == "used" {
+		query += " AND ri.used_at IS NOT NULL"
+	}
+
+	query += " ORDER BY ri.created_at DESC"
+
+	rows, err := s.store.Pool().Query(ctx, query, args...)
+	if err != nil {
+		return Response{OK: false, Error: "failed to list invites"}
+	}
+	defer rows.Close()
+
+	items := make([]AdminInviteItem, 0)
+	for rows.Next() {
+		var item AdminInviteItem
+		var roleStr string
+		var teacherID, lecternID, studentID *int32
+		var teacherName, lecternName, studentName, registeredAs string
+
+		err := rows.Scan(
+			&item.InviteID,
+			&item.InviteCode,
+			&roleStr,
+			&teacherID,
+			&teacherName,
+			&lecternID,
+			&lecternName,
+			&studentID,
+			&studentName,
+			&item.UsedAt,
+			&item.CreatedAt,
+			&registeredAs,
+		)
+		if err != nil {
+			continue
+		}
+
+		item.Role = roleStr
+		item.TeacherID = teacherID
+		item.TeacherName = teacherName
+		item.LecternID = lecternID
+		item.LecternName = lecternName
+		item.StudentID = studentID
+		item.StudentName = studentName
+		item.RegisteredAs = registeredAs
+
+		items = append(items, item)
+	}
+
+	return Response{
+		OK:     true,
+		Result: items,
+	}
+}
+
+func (s *Service) admin_revoke_invite(token string, data AdminRevokeInviteData) Response {
+	if _, auth := s.require_admin(token); !auth.OK {
+		return auth
+	}
+	if data.InviteID <= 0 {
+		return Response{OK: false, Error: "invite_id is required"}
+	}
+
+	ctx, cancel := s.dbContext()
+	defer cancel()
+
+	cmd, err := s.store.Pool().Exec(
+		ctx,
+		`DELETE FROM registration_invites WHERE invite_id = $1 AND used_at IS NULL`,
+		data.InviteID,
+	)
+	if err != nil {
+		return Response{OK: false, Error: "failed to revoke invite"}
+	}
+	if cmd.RowsAffected() == 0 {
+		return Response{OK: false, Error: "invite code not found or already used"}
+	}
+
+	return Response{OK: true, Result: map[string]any{"invite_id": data.InviteID, "status": "revoked"}}
+}
+

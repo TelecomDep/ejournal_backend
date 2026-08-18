@@ -2049,6 +2049,30 @@ func (s *Service) handleRequest(raw string) Response {
 		resp := s.admin_user_delete(req.Token, data.UserID)
 		resp.ID = req.ID
 		return resp
+	case "admin_generate_teacher_invite":
+		var data AdminGenerateTeacherInviteData
+		if err := json.Unmarshal(req.Data, &data); err != nil {
+			return Response{ID: req.ID, OK: false, Error: "invalid admin_generate_teacher_invite payload"}
+		}
+		resp := s.admin_generate_teacher_invite(req.Token, data)
+		resp.ID = req.ID
+		return resp
+	case "admin_list_invites":
+		var data AdminInvitesListData
+		if err := json.Unmarshal(req.Data, &data); err != nil {
+			return Response{ID: req.ID, OK: false, Error: "invalid admin_list_invites payload"}
+		}
+		resp := s.admin_list_invites(req.Token, data)
+		resp.ID = req.ID
+		return resp
+	case "admin_revoke_invite":
+		var data AdminRevokeInviteData
+		if err := json.Unmarshal(req.Data, &data); err != nil {
+			return Response{ID: req.ID, OK: false, Error: "invalid admin_revoke_invite payload"}
+		}
+		resp := s.admin_revoke_invite(req.Token, data)
+		resp.ID = req.ID
+		return resp
 	case "admin_notifications_create":
 		var data AdminNotificationCreateData
 		if err := json.Unmarshal(req.Data, &data); err != nil {

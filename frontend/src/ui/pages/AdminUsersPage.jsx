@@ -27,6 +27,13 @@ const EMPTY_CREATE_FORM = {
   job_title: ''
 };
 
+const EMPTY_INVITE_FORM = {
+  full_name: '',
+  lectern_id: '',
+  job_title: '',
+  custom_code: ''
+};
+
 const roleLabel = (role) => ROLE_OPTIONS.find((item) => item.value === role)?.label || role || '—';
 const statusLabel = (status) => STATUS_OPTIONS.find((item) => item.value === status)?.label || status || '—';
 
@@ -38,6 +45,19 @@ const formatDate = (value) => {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric'
+  }).format(date);
+};
+
+const formatDateTime = (value) => {
+  if (!value) return '—';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '—';
+  return new Intl.DateTimeFormat('ru-RU', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
   }).format(date);
 };
 
@@ -56,10 +76,13 @@ const AdminIcon = ({ name }) => {
     close: <path d="m6 6 12 12M18 6 6 18" />,
     previous: <path d="m15 18-6-6 6-6" />,
     next: <path d="m9 18 6-6-6-6" />,
-    users: <><circle cx="9" cy="8" r="3" /><path d="M3.5 19c.6-3.4 2.4-5.2 5.5-5.2s4.9 1.8 5.5 5.2" /><path d="M15.5 5.8a3 3 0 0 1 0 5.8M16 14c2.6.4 4 2.1 4.5 5" /></>
+    users: <><circle cx="9" cy="8" r="3" /><path d="M3.5 19c.6-3.4 2.4-5.2 5.5-5.2s4.9 1.8 5.5 5.2" /><path d="M15.5 5.8a3 3 0 0 1 0 5.8M16 14c2.6.4 4 2.1 4.5 5" /></>,
+    copy: <><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></>,
+    key: <><circle cx="7.5" cy="15.5" r="4.5" /><path d="m10.7 12.3 8.3-8.3M15 8l2 2M18 5l2 2" /></>,
+    trash: <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
   };
   return (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
+    <svg viewBox="0 0 24 24" aria-hidden="true" style={{ width: 18, height: 18, fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' }}>
       {icons[name] || icons.users}
     </svg>
   );
@@ -133,12 +156,21 @@ const RoleTargetField = ({ role, value, onChange }) => {
 };
 
 const AdminUsersPage = ({ token, currentUser }) => {
+  const [activeTab, setActiveTab] = useState('users'); // 'users' | 'invites'
+  
+  // Users state
   const [items, setItems] = useState([]);
   const [pagination, setPagination] = useState({ page: 1, page_size: 20, total: 0, pages: 0 });
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [searchDraft, setSearchDraft] = useState('');
   const [filters, setFilters] = useState({ search: '', role: '', status: '' });
+  
+  // Invites state
+  const [invites, setInvites] = useState([]);
+  const [inviteStatusFilter, setInviteStatusFilter] = useState(''); // '' (all) | 'pending' | 'used'
+  const [invitesLoading, setInvitesLoading] = useState(false);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -170,11 +202,32 @@ const AdminUsersPage = ({ token, currentUser }) => {
     } finally {
       setLoading(false);
     }
-  }, [filters.role, filters.search, filters.status, page, pageSize, reloadKey, token]);
+  }, [filters.role, filters.search, filters.status, page, pageSize, token]);
+
+  const loadInvites = useCallback(async () => {
+    setInvitesLoading(true);
+    setError('');
+    try {
+      const list = await api.getAdminInvites(token, {
+        role: 'teacher',
+        status: inviteStatusFilter
+      });
+      setInvites(Array.isArray(list) ? list : []);
+    } catch (requestError) {
+      setInvites([]);
+      setError(api.getErrorMessage(requestError, 'Не удалось загрузить список инвайтов'));
+    } finally {
+      setInvitesLoading(false);
+    }
+  }, [inviteStatusFilter, token]);
 
   useEffect(() => {
-    loadUsers();
-  }, [loadUsers]);
+    if (activeTab === 'users') {
+      loadUsers();
+    } else {
+      loadInvites();
+    }
+  }, [activeTab, loadUsers, loadInvites, reloadKey]);
 
   useEffect(() => {
     if (!notice) return undefined;
@@ -192,6 +245,22 @@ const AdminUsersPage = ({ token, currentUser }) => {
     withTwoFa: items.filter((item) => item.two_fa_enabled).length
   }), [items]);
 
+  const inviteStats = useMemo(() => ({
+    total: invites.length,
+    pending: invites.filter((inv) => !inv.used_at).length,
+    registered: invites.filter((inv) => !!inv.used_at).length
+  }), [invites]);
+
+  const copyInviteLink = (code) => {
+    const origin = window.location.origin + window.location.pathname;
+    const link = `${origin}#/register?code=${encodeURIComponent(code)}`;
+    navigator.clipboard.writeText(link).then(() => {
+      setNotice(`Ссылка для инвайта ${code} скопирована!`);
+    }).catch(() => {
+      setNotice(`Код инвайта: ${code}`);
+    });
+  };
+
   const submitSearch = (event) => {
     event.preventDefault();
     setPage(1);
@@ -205,6 +274,10 @@ const AdminUsersPage = ({ token, currentUser }) => {
 
   const openCreate = () => {
     setModal({ type: 'create', form: { ...EMPTY_CREATE_FORM }, error: '', saving: false });
+  };
+
+  const openCreateInvite = () => {
+    setModal({ type: 'create_invite', form: { ...EMPTY_INVITE_FORM }, error: '', saving: false });
   };
 
   const openEdit = async (item) => {
@@ -293,6 +366,46 @@ const AdminUsersPage = ({ token, currentUser }) => {
     }
   };
 
+  const createTeacherInvite = async (event) => {
+    event.preventDefault();
+    const form = modal.form;
+    if (!form.full_name.trim()) {
+      setModal((current) => ({ ...current, error: 'Укажите ФИО преподавателя' }));
+      return;
+    }
+    const payload = {
+      full_name: form.full_name.trim(),
+      lectern_id: numberOrUndefined(form.lectern_id) || 0,
+      job_title: form.job_title.trim(),
+      custom_code: form.custom_code.trim()
+    };
+    setModal((current) => ({ ...current, saving: true, error: '' }));
+    try {
+      const res = await api.createTeacherInvite(token, payload);
+      setModal(null);
+      const code = res.invite_code;
+      copyInviteLink(code);
+      setNotice(`Инвайт-код ${code} успешно создан! Ссылка скопирована в буфер обмена.`);
+      setReloadKey((value) => value + 1);
+    } catch (requestError) {
+      setModal((current) => ({
+        ...current,
+        saving: false,
+        error: api.getErrorMessage(requestError, 'Не удалось создать инвайт')
+      }));
+    }
+  };
+
+  const revokeInvite = async (inviteId, code) => {
+    try {
+      await api.revokeAdminInvite(token, inviteId);
+      setNotice(`Инвайт-код ${code} отозван`);
+      setReloadKey((value) => value + 1);
+    } catch (requestError) {
+      setError(api.getErrorMessage(requestError, 'Не удалось отозвать инвайт'));
+    }
+  };
+
   const updateUser = async (event) => {
     event.preventDefault();
     const { form, original, userId } = modal;
@@ -371,159 +484,334 @@ const AdminUsersPage = ({ token, currentUser }) => {
       <header className="admin-users-header">
         <div>
           <span>Администрирование</span>
-          <h1>Пользователи</h1>
-          <p>Учетные записи и права доступа</p>
+          <h1>{activeTab === 'users' ? 'Пользователи' : 'Инвайт-коды преподавателей'}</h1>
+          <p>Управление доступом и приглашениями</p>
         </div>
-        <button type="button" className="admin-primary-button" onClick={openCreate}>
-          <AdminIcon name="add" />
-          <span>Создать пользователя</span>
-        </button>
+        {activeTab === 'users' ? (
+          <button type="button" className="admin-primary-button" onClick={openCreate}>
+            <AdminIcon name="add" />
+            <span>Создать пользователя</span>
+          </button>
+        ) : (
+          <button type="button" className="admin-primary-button" onClick={openCreateInvite}>
+            <AdminIcon name="key" />
+            <span>Создать инвайт</span>
+          </button>
+        )}
       </header>
 
-      <div className="admin-users-strip" aria-label="Сводка текущей страницы">
-        <span><strong>{pagination.total}</strong> всего</span>
-        <span><strong>{pageStats.active}</strong> активных на странице</span>
-        <span><strong>{pageStats.blocked}</strong> заблокировано</span>
-        <span><strong>{pageStats.withTwoFa}</strong> используют 2FA</span>
-      </div>
-
-      <form className="admin-users-toolbar" onSubmit={submitSearch}>
-        <label className="admin-search-field">
-          <AdminIcon name="search" />
-          <input
-            type="search"
-            value={searchDraft}
-            onChange={(event) => setSearchDraft(event.target.value)}
-            placeholder="Логин или email"
-          />
-        </label>
-        <button type="submit" className="admin-secondary-button">Найти</button>
-        <label className="admin-filter-field">
-          <span>Роль</span>
-          <select value={filters.role} onChange={(event) => changeFilter('role', event.target.value)}>
-            <option value="">Все роли</option>
-            {ROLE_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-          </select>
-        </label>
-        <label className="admin-filter-field">
-          <span>Статус</span>
-          <select value={filters.status} onChange={(event) => changeFilter('status', event.target.value)}>
-            <option value="">Все статусы</option>
-            {STATUS_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-          </select>
-        </label>
+      {/* Top Tab Switcher */}
+      <div style={{ display: 'flex', gap: '12px', marginBottom: '20px', borderBottom: '1px solid var(--border-color, #e2e8f0)', paddingBottom: '10px' }}>
         <button
           type="button"
-          className="admin-icon-button"
-          onClick={() => setReloadKey((value) => value + 1)}
-          title="Обновить список"
-          aria-label="Обновить список"
+          className={`admin-secondary-button ${activeTab === 'users' ? 'is-active' : ''}`}
+          style={{ background: activeTab === 'users' ? 'var(--primary-color, #2563eb)' : 'transparent', color: activeTab === 'users' ? '#fff' : 'inherit' }}
+          onClick={() => setActiveTab('users')}
         >
-          <AdminIcon name="refresh" />
+          <AdminIcon name="users" />
+          <span> Учетные записи</span>
         </button>
-      </form>
+        <button
+          type="button"
+          className={`admin-secondary-button ${activeTab === 'invites' ? 'is-active' : ''}`}
+          style={{ background: activeTab === 'invites' ? 'var(--primary-color, #2563eb)' : 'transparent', color: activeTab === 'invites' ? '#fff' : 'inherit' }}
+          onClick={() => setActiveTab('invites')}
+        >
+          <AdminIcon name="key" />
+          <span> Инвайт-коды преподавателей</span>
+        </button>
+      </div>
 
       {notice && <div className="admin-notice is-success" role="status">{notice}</div>}
       {error && <div className="admin-notice is-error" role="alert">{error}</div>}
 
-      <div className={`admin-users-table-wrap ${loading ? 'is-loading' : ''}`}>
-        <table className="admin-users-table">
-          <thead>
-            <tr>
-              <th>Пользователь</th>
-              <th>Роль</th>
-              <th>Email</th>
-              <th>Статус</th>
-              <th>2FA</th>
-              <th>Создан</th>
-              <th><span className="sr-only">Действия</span></th>
-            </tr>
-          </thead>
-          <tbody>
-            {!loading && items.map((item) => {
-              const isSelf = Number(item.user_id) === currentUserId;
-              return (
-                <tr key={item.user_id}>
-                  <td data-label="Пользователь">
-                    <strong>{item.login || '—'}</strong>
-                    <small>#{item.user_id}{isSelf ? ' · вы' : ''}</small>
-                  </td>
-                  <td data-label="Роль"><span className={`admin-role-badge is-${item.role}`}>{roleLabel(item.role)}</span></td>
-                  <td data-label="Email" className="admin-email-cell">{item.email || 'Не привязан'}</td>
-                  <td data-label="Статус"><span className={`admin-status-badge is-${item.status}`}>{statusLabel(item.status)}</span></td>
-                  <td data-label="2FA"><span className={`admin-twofa ${item.two_fa_enabled ? 'is-enabled' : ''}`}>{item.two_fa_enabled ? 'Включена' : 'Нет'}</span></td>
-                  <td data-label="Создан">{formatDate(item.created_at)}</td>
-                  <td data-label="Действия">
-                    <div className="admin-row-actions">
-                      <button type="button" onClick={() => openEdit(item)} title="Редактировать" aria-label={`Редактировать ${item.login}`}>
-                        <AdminIcon name="edit" />
-                      </button>
-                      <button
-                        type="button"
-                        className="is-danger"
-                        disabled={isSelf || item.status === 'archived'}
-                        onClick={() => setModal({ type: 'archive', user: item, saving: false, error: '' })}
-                        title={isSelf ? 'Нельзя архивировать собственную учетную запись' : 'Архивировать'}
-                        aria-label={`Архивировать ${item.login}`}
-                      >
-                        <AdminIcon name="archive" />
-                      </button>
-                    </div>
-                  </td>
+      {/* TAB 1: USERS */}
+      {activeTab === 'users' && (
+        <>
+          <div className="admin-users-strip" aria-label="Сводка текущей страницы">
+            <span><strong>{pagination.total}</strong> всего</span>
+            <span><strong>{pageStats.active}</strong> активных на странице</span>
+            <span><strong>{pageStats.blocked}</strong> заблокировано</span>
+            <span><strong>{pageStats.withTwoFa}</strong> используют 2FA</span>
+          </div>
+
+          <form className="admin-users-toolbar" onSubmit={submitSearch}>
+            <label className="admin-search-field">
+              <AdminIcon name="search" />
+              <input
+                type="search"
+                value={searchDraft}
+                onChange={(event) => setSearchDraft(event.target.value)}
+                placeholder="Логин или email"
+              />
+            </label>
+            <button type="submit" className="admin-secondary-button">Найти</button>
+            <label className="admin-filter-field">
+              <span>Роль</span>
+              <select value={filters.role} onChange={(event) => changeFilter('role', event.target.value)}>
+                <option value="">Все роли</option>
+                {ROLE_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+              </select>
+            </label>
+            <label className="admin-filter-field">
+              <span>Статус</span>
+              <select value={filters.status} onChange={(event) => changeFilter('status', event.target.value)}>
+                <option value="">Все статусы</option>
+                {STATUS_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+              </select>
+            </label>
+            <button
+              type="button"
+              className="admin-icon-button"
+              onClick={() => setReloadKey((value) => value + 1)}
+              title="Обновить список"
+              aria-label="Обновить список"
+            >
+              <AdminIcon name="refresh" />
+            </button>
+          </form>
+
+          <div className={`admin-users-table-wrap ${loading ? 'is-loading' : ''}`}>
+            <table className="admin-users-table">
+              <thead>
+                <tr>
+                  <th>Пользователь</th>
+                  <th>Роль</th>
+                  <th>Email</th>
+                  <th>Статус</th>
+                  <th>2FA</th>
+                  <th>Создан</th>
+                  <th><span className="sr-only">Действия</span></th>
                 </tr>
-              );
-            })}
-            {!loading && !items.length && (
-              <tr className="admin-empty-row"><td colSpan={7}>Пользователи не найдены</td></tr>
-            )}
-            {loading && (
-              <tr className="admin-empty-row"><td colSpan={7}>Загрузка пользователей...</td></tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+              </thead>
+              <tbody>
+                {!loading && items.map((item) => {
+                  const isSelf = Number(item.user_id) === currentUserId;
+                  return (
+                    <tr key={item.user_id}>
+                      <td data-label="Пользователь">
+                        <strong>{item.login || '—'}</strong>
+                        <small>#{item.user_id}{isSelf ? ' · вы' : ''}</small>
+                      </td>
+                      <td data-label="Роль"><span className={`admin-role-badge is-${item.role}`}>{roleLabel(item.role)}</span></td>
+                      <td data-label="Email" className="admin-email-cell">{item.email || 'Не привязан'}</td>
+                      <td data-label="Статус"><span className={`admin-status-badge is-${item.status}`}>{statusLabel(item.status)}</span></td>
+                      <td data-label="2FA"><span className={`admin-twofa ${item.two_fa_enabled ? 'is-enabled' : ''}`}>{item.two_fa_enabled ? 'Включена' : 'Нет'}</span></td>
+                      <td data-label="Создан">{formatDate(item.created_at)}</td>
+                      <td data-label="Действия">
+                        <div className="admin-row-actions">
+                          <button type="button" onClick={() => openEdit(item)} title="Редактировать" aria-label={`Редактировать ${item.login}`}>
+                            <AdminIcon name="edit" />
+                          </button>
+                          <button
+                            type="button"
+                            className="is-danger"
+                            disabled={isSelf || item.status === 'archived'}
+                            onClick={() => setModal({ type: 'archive', user: item, saving: false, error: '' })}
+                            title={isSelf ? 'Нельзя архивировать собственную учетную запись' : 'Архивировать'}
+                            aria-label={`Архивировать ${item.login}`}
+                          >
+                            <AdminIcon name="archive" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {!loading && !items.length && (
+                  <tr className="admin-empty-row"><td colSpan={7}>Пользователи не найдены</td></tr>
+                )}
+                {loading && (
+                  <tr className="admin-empty-row"><td colSpan={7}>Загрузка пользователей...</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
 
-      <footer className="admin-pagination">
-        <span>{pageStart}–{pageEnd} из {pagination.total}</span>
-        <label>
-          <span>На странице</span>
-          <select value={pageSize} onChange={(event) => { setPageSize(Number(event.target.value)); setPage(1); }}>
-            <option value={10}>10</option>
-            <option value={20}>20</option>
-            <option value={50}>50</option>
-          </select>
-        </label>
-        <div>
-          <button
-            type="button"
-            disabled={page <= 1 || loading}
-            onClick={() => setPage((value) => Math.max(1, value - 1))}
-            aria-label="Предыдущая страница"
-            title="Предыдущая страница"
-          ><AdminIcon name="previous" /></button>
-          <strong>{pagination.page || 1} / {Math.max(1, pagination.pages || 1)}</strong>
-          <button
-            type="button"
-            disabled={!pagination.pages || page >= pagination.pages || loading}
-            onClick={() => setPage((value) => value + 1)}
-            aria-label="Следующая страница"
-            title="Следующая страница"
-          ><AdminIcon name="next" /></button>
-        </div>
-      </footer>
+          <footer className="admin-pagination">
+            <span>{pageStart}–{pageEnd} из {pagination.total}</span>
+            <label>
+              <span>На странице</span>
+              <select value={pageSize} onChange={(event) => { setPageSize(Number(event.target.value)); setPage(1); }}>
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+                <option value={50}>50</option>
+              </select>
+            </label>
+            <div>
+              <button
+                type="button"
+                disabled={page <= 1 || loading}
+                onClick={() => setPage((value) => Math.max(1, value - 1))}
+                aria-label="Предыдущая страница"
+                title="Предыдущая страница"
+              ><AdminIcon name="previous" /></button>
+              <strong>{pagination.page || 1} / {Math.max(1, pagination.pages || 1)}</strong>
+              <button
+                type="button"
+                disabled={!pagination.pages || page >= pagination.pages || loading}
+                onClick={() => setPage((value) => value + 1)}
+                aria-label="Следующая страница"
+                title="Следующая страница"
+              ><AdminIcon name="next" /></button>
+            </div>
+          </footer>
+        </>
+      )}
 
+      {/* TAB 2: TEACHER INVITES */}
+      {activeTab === 'invites' && (
+        <>
+          <div className="admin-users-strip" aria-label="Сводка инвайтов">
+            <span><strong>{inviteStats.total}</strong> всего инвайтов</span>
+            <span><strong style={{ color: '#d97706' }}>{inviteStats.pending}</strong> ожидают регистрации</span>
+            <span><strong style={{ color: '#16a34a' }}>{inviteStats.registered}</strong> зарегистрировано</span>
+          </div>
+
+          <div className="admin-users-toolbar">
+            <label className="admin-filter-field">
+              <span>Статус регистрации</span>
+              <select value={inviteStatusFilter} onChange={(event) => setInviteStatusFilter(event.target.value)}>
+                <option value="">Все статусы (Все)</option>
+                <option value="pending">Ожидают регистрации (Не зареган)</option>
+                <option value="used">Зарегистрированы (Зареган)</option>
+              </select>
+            </label>
+            <button
+              type="button"
+              className="admin-icon-button"
+              onClick={() => setReloadKey((value) => value + 1)}
+              title="Обновить список"
+              aria-label="Обновить список"
+            >
+              <AdminIcon name="refresh" />
+            </button>
+          </div>
+
+          <div className={`admin-users-table-wrap ${invitesLoading ? 'is-loading' : ''}`}>
+            <table className="admin-users-table">
+              <thead>
+                <tr>
+                  <th>Инвайт-код</th>
+                  <th>Преподаватель</th>
+                  <th>Статус</th>
+                  <th>Дата создания</th>
+                  <th>Дата регистрации</th>
+                  <th>Учетная запись</th>
+                  <th><span className="sr-only">Действия</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                {!invitesLoading && invites.map((item) => {
+                  const isUsed = !!item.used_at;
+                  return (
+                    <tr key={item.invite_id}>
+                      <td data-label="Инвайт-код">
+                        <strong style={{ fontFamily: 'monospace', fontSize: '1.05em', color: 'var(--primary-color, #2563eb)' }}>
+                          {item.invite_code}
+                        </strong>
+                      </td>
+                      <td data-label="Преподаватель">
+                        <strong>{item.teacher_name || '—'}</strong>
+                        {item.lectern_name && <small>Кафедра: {item.lectern_name}</small>}
+                      </td>
+                      <td data-label="Статус">
+                        <span className={`admin-status-badge ${isUsed ? 'is-active' : 'is-blocked'}`}>
+                          {isUsed ? 'Зарегистрирован' : 'Ожидает входа'}
+                        </span>
+                      </td>
+                      <td data-label="Создан">{formatDateTime(item.created_at)}</td>
+                      <td data-label="Зарегистрирован">{formatDateTime(item.used_at)}</td>
+                      <td data-label="Логин">
+                        {item.registered_as ? (
+                          <strong>{item.registered_as}</strong>
+                        ) : (
+                          <span style={{ color: '#94a3b8' }}>—</span>
+                        )}
+                      </td>
+                      <td data-label="Действия">
+                        <div className="admin-row-actions">
+                          <button
+                            type="button"
+                            onClick={() => copyInviteLink(item.invite_code)}
+                            title="Скопировать ссылку регистрации"
+                            aria-label={`Скопировать ссылку для ${item.invite_code}`}
+                          >
+                            <AdminIcon name="copy" />
+                          </button>
+                          {!isUsed && (
+                            <button
+                              type="button"
+                              className="is-danger"
+                              onClick={() => revokeInvite(item.invite_id, item.invite_code)}
+                              title="Отозвать инвайт"
+                              aria-label={`Отозвать инвайт ${item.invite_code}`}
+                            >
+                              <AdminIcon name="trash" />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {!invitesLoading && !invites.length && (
+                  <tr className="admin-empty-row"><td colSpan={7}>Инвайт-коды не найдены</td></tr>
+                )}
+                {invitesLoading && (
+                  <tr className="admin-empty-row"><td colSpan={7}>Загрузка инвайт-кодов...</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+
+      {/* MODALS */}
       {modal && (
         <div className="admin-modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && !modal.saving && setModal(null)}>
           <section className={`admin-modal ${modal.type === 'archive' ? 'is-confirm' : ''}`} role="dialog" aria-modal="true">
             <header>
               <div>
-                <span>{modal.type === 'create' ? 'Новая учетная запись' : modal.type === 'edit' ? 'Настройки пользователя' : 'Подтверждение'}</span>
-                <h2>{modal.type === 'create' ? 'Создать пользователя' : modal.type === 'edit' ? 'Редактировать пользователя' : 'Архивировать пользователя?'}</h2>
+                <span>
+                  {modal.type === 'create' ? 'Новая учетная запись' :
+                   modal.type === 'create_invite' ? 'Генерация инвайта' :
+                   modal.type === 'edit' ? 'Настройки пользователя' : 'Подтверждение'}
+                </span>
+                <h2>
+                  {modal.type === 'create' ? 'Создать пользователя' :
+                   modal.type === 'create_invite' ? 'Новый инвайт преподавателя' :
+                   modal.type === 'edit' ? 'Редактировать пользователя' : 'Архивировать пользователя?'}
+                </h2>
               </div>
               <button type="button" onClick={() => setModal(null)} disabled={modal.saving} aria-label="Закрыть" title="Закрыть">
                 <AdminIcon name="close" />
               </button>
             </header>
+
+            {modal.type === 'create_invite' && (
+              <form onSubmit={createTeacherInvite}>
+                <div className="admin-form-grid">
+                  <Field label="ФИО Преподавателя" required wide>
+                    <input name="full_name" value={modal.form.full_name} onChange={updateModalForm} placeholder="Иванов Иван Иванович" autoComplete="name" />
+                  </Field>
+                  <Field label="ID кафедры">
+                    <input name="lectern_id" value={modal.form.lectern_id} onChange={updateModalForm} inputMode="numeric" placeholder="Например: 1" />
+                  </Field>
+                  <Field label="Должность">
+                    <input name="job_title" value={modal.form.job_title} onChange={updateModalForm} placeholder="Старший преподаватель" />
+                  </Field>
+                  <Field label="Кастомный код (опционально)" wide>
+                    <input name="custom_code" value={modal.form.custom_code} onChange={updateModalForm} placeholder="Оставьте пустым для автокода (TCHR-XXXX)" />
+                  </Field>
+                </div>
+                {modal.error && <div className="admin-form-error" role="alert">{modal.error}</div>}
+                <footer>
+                  <button type="button" className="admin-secondary-button" onClick={() => setModal(null)} disabled={modal.saving}>Отмена</button>
+                  <button type="submit" className="admin-primary-button" disabled={modal.saving}>{modal.saving ? 'Создание...' : 'Сгенерировать инвайт'}</button>
+                </footer>
+              </form>
+            )}
 
             {modal.type === 'create' && (
               <form onSubmit={createUser}>
