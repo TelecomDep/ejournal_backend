@@ -2,7 +2,10 @@ package app
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"fmt"
 	"math"
 	"sort"
@@ -89,6 +92,13 @@ type GeneralRatingGroup struct {
 	Students  []GeneralRatingStudent `json:"students"`
 }
 
+type GeneralRatingPagination struct {
+	Page       int32 `json:"page"`
+	PageSize   int32 `json:"page_size"`
+	Total      int32 `json:"total"`
+	TotalPages int32 `json:"total_pages"`
+}
+
 type GeneralRatingPayload struct {
 	SchemaVersion string                     `json:"schema_version"`
 	Semester      GeneralRatingSemester      `json:"semester"`
@@ -96,6 +106,7 @@ type GeneralRatingPayload struct {
 	Departments   []GeneralRatingDepartment  `json:"departments"`
 	Subjects      []GeneralRatingSubject     `json:"subjects"`
 	Groups        []GeneralRatingGroup       `json:"groups"`
+	Pagination    GeneralRatingPagination    `json:"pagination"`
 }
 
 type generalRatingStudentSubjectBuilder struct {
@@ -132,8 +143,10 @@ func newGeneralRatingStudentSubject(subjectID int32) *generalRatingStudentSubjec
 	}}
 }
 
-func studentReference(studentID int32) string {
-	return fmt.Sprintf("STU-%04d", studentID)
+func (s *Service) studentReference(studentID int32) string {
+	mac := hmac.New(sha256.New, s.jwtSecret)
+	_, _ = fmt.Fprintf(mac, "general-rating-student:%d", studentID)
+	return "STU-" + strings.ToUpper(hex.EncodeToString(mac.Sum(nil)[:6]))
 }
 
 func attendanceCode(status string) string {
@@ -200,7 +213,7 @@ func (s *Service) generalRatingScopePredicate(
 
 // GeneralRating returns the detailed, role-scoped source data used to build a
 // common student rating. The HTTP handler places this value in Response.result.
-func (s *Service) GeneralRating(token string, semesterID *int32) (*GeneralRatingPayload, Response) {
+func (s *Service) GeneralRating(token string, semesterID *int32, page, pageSize int32) (*GeneralRatingPayload, Response) {
 	user, err := s.userBySessionToken(token)
 	if err != nil {
 		return nil, Response{OK: false, Error: err.Error()}
@@ -220,6 +233,26 @@ func (s *Service) GeneralRating(token string, semesterID *int32) (*GeneralRating
 	if err != nil {
 		return nil, Response{OK: false, Error: err.Error()}
 	}
+	if page <= 0 {
+		page = 1
+	}
+	if pageSize <= 0 {
+		pageSize = 20
+	}
+	if pageSize > 50 {
+		pageSize = 50
+	}
+	var totalGroups int32
+	if err := s.store.Pool().QueryRow(ctx, `
+		SELECT COUNT(DISTINCT g.group_id)::INTEGER
+		FROM schedules sch JOIN groups g ON g.group_id = sch.group_id
+		WHERE sch.semester_id = $1 AND `+predicate, queryArgs...).Scan(&totalGroups); err != nil {
+		return nil, Response{OK: false, Error: "failed to count rating groups"}
+	}
+	totalPages := int32(0)
+	if totalGroups > 0 {
+		totalPages = (totalGroups + pageSize - 1) / pageSize
+	}
 
 	payload := &GeneralRatingPayload{
 		SchemaVersion: generalRatingSchemaVersion,
@@ -235,6 +268,9 @@ func (s *Service) GeneralRating(token string, semesterID *int32) (*GeneralRating
 		Departments: make([]GeneralRatingDepartment, 0),
 		Subjects:    make([]GeneralRatingSubject, 0),
 		Groups:      make([]GeneralRatingGroup, 0),
+		Pagination: GeneralRatingPagination{
+			Page: page, PageSize: pageSize, Total: totalGroups, TotalPages: totalPages,
+		},
 	}
 
 	departmentByID := make(map[int32]GeneralRatingDepartment)
@@ -296,14 +332,18 @@ func (s *Service) GeneralRating(token string, semesterID *int32) (*GeneralRating
 
 	groupBuilders := make(map[int32]*generalRatingGroupBuilder)
 	groupOrder := make([]int32, 0)
-	groupRows, err := s.store.Pool().Query(ctx, `
+	groupQueryArgs := append(append([]any{}, queryArgs...), pageSize, (page-1)*pageSize)
+	limitArg := len(queryArgs) + 1
+	offsetArg := limitArg + 1
+	groupRows, err := s.store.Pool().Query(ctx, fmt.Sprintf(`
 		SELECT DISTINCT g.group_id, COALESCE(g.group_name, ''),
 		       COALESCE(l.lectern_id, 0), COALESCE(l.name, '')
 		FROM schedules sch
 		JOIN groups g ON g.group_id = sch.group_id
 		LEFT JOIN lecterns l ON l.lectern_id = g.lectern_id
 		WHERE sch.semester_id = $1 AND `+predicate+`
-		ORDER BY COALESCE(g.group_name, ''), g.group_id`, queryArgs...)
+		ORDER BY COALESCE(g.group_name, ''), g.group_id
+		LIMIT $%d OFFSET $%d`, limitArg, offsetArg), groupQueryArgs...)
 	if err != nil {
 		return nil, Response{OK: false, Error: "failed to load rating groups"}
 	}
@@ -332,10 +372,13 @@ func (s *Service) GeneralRating(token string, semesterID *int32) (*GeneralRating
 		return nil, Response{OK: false, Error: "failed to iterate rating groups"}
 	}
 	groupRows.Close()
+	dataArgs := append(append([]any{}, queryArgs...), groupOrder)
+	groupIDsArg := len(dataArgs)
+	dataPredicate := fmt.Sprintf("%s AND sch.group_id = ANY($%d)", predicate, groupIDsArg)
 
-	agreementKeyArg := len(queryArgs) + 1
+	agreementKeyArg := len(dataArgs) + 1
 	agreementVersionArg := agreementKeyArg + 1
-	studentArgs := append(append([]any{}, queryArgs...), userAgreementKey, currentAgreementVersion)
+	studentArgs := append(append([]any{}, dataArgs...), userAgreementKey, currentAgreementVersion)
 	studentRows, err := s.store.Pool().Query(ctx, fmt.Sprintf(`
 		WITH latest_consent AS (
 		    SELECT DISTINCT ON (user_id) user_id, decision
@@ -351,7 +394,7 @@ func (s *Service) GeneralRating(token string, semesterID *int32) (*GeneralRating
 		JOIN subjects sub ON sub.subject_id = sch.subject_id
 		LEFT JOIN latest_consent lc ON lc.user_id = st.user_id
 		WHERE sch.semester_id = $1 AND %s
-		ORDER BY g.group_id, st.student_id, sub.subject_id`, agreementKeyArg, agreementVersionArg, predicate), studentArgs...)
+		ORDER BY g.group_id, st.student_id, sub.subject_id`, agreementKeyArg, agreementVersionArg, dataPredicate), studentArgs...)
 	if err != nil {
 		return nil, Response{OK: false, Error: "failed to load rating students"}
 	}
@@ -394,7 +437,7 @@ func (s *Service) GeneralRating(token string, semesterID *int32) (*GeneralRating
 		    SELECT DISTINCT sch.group_id, sch.subject_id, sch.teacher_id
 		    FROM schedules sch
 		    JOIN groups g ON g.group_id = sch.group_id
-		    WHERE sch.semester_id = $1 AND `+predicate+`
+		    WHERE sch.semester_id = $1 AND `+dataPredicate+`
 		)
 		SELECT ass.group_id_snapshot, ass.student_id, ats.subject_id, ats.created_at, ass.status
 		FROM attendance_session_students ass
@@ -404,7 +447,7 @@ func (s *Service) GeneralRating(token string, semesterID *int32) (*GeneralRating
 		 AND sa.subject_id = ats.subject_id
 		 AND sa.teacher_id = ats.teacher_id
 		WHERE ats.semester_id = $1
-		ORDER BY ass.group_id_snapshot, ass.student_id, ats.subject_id, ats.created_at, ats.session_id`, queryArgs...)
+		ORDER BY ass.group_id_snapshot, ass.student_id, ats.subject_id, ats.created_at, ats.session_id`, dataArgs...)
 	if err != nil {
 		return nil, Response{OK: false, Error: "failed to load rating attendance"}
 	}
@@ -444,7 +487,7 @@ func (s *Service) GeneralRating(token string, semesterID *int32) (*GeneralRating
 		    SELECT DISTINCT sch.group_id, sch.subject_id
 		    FROM schedules sch
 		    JOIN groups g ON g.group_id = sch.group_id
-		    WHERE sch.semester_id = $1 AND `+predicate+`
+		    WHERE sch.semester_id = $1 AND `+dataPredicate+`
 		)
 		SELECT sa.group_id, st.student_id, sa.subject_id,
 		       gi.item_id, gi.title, gi.max_score, gi.item_type,
@@ -460,7 +503,7 @@ func (s *Service) GeneralRating(token string, semesterID *int32) (*GeneralRating
 		 AND g.student_id = st.student_id
 		 AND g.deleted_at IS NULL
 		ORDER BY sa.group_id, st.student_id, sa.subject_id,
-		         gi.deadline NULLS LAST, gi.created_at, gi.item_id`, queryArgs...)
+		         gi.deadline NULLS LAST, gi.created_at, gi.item_id`, dataArgs...)
 	if err != nil {
 		return nil, Response{OK: false, Error: "failed to load rating grades"}
 	}
@@ -546,9 +589,14 @@ func (s *Service) GeneralRating(token string, semesterID *int32) (*GeneralRating
 		}
 		for _, studentID := range builder.studentOrder {
 			studentBuilder := builder.students[studentID]
+			studentRef := s.studentReference(studentBuilder.id)
+			studentLabel := studentBuilder.label
+			if !studentBuilder.consent {
+				studentLabel = studentRef
+			}
 			student := GeneralRatingStudent{
-				StudentRef:          studentReference(studentBuilder.id),
-				StudentLabel:        studentBuilder.label,
+				StudentRef:          studentRef,
+				StudentLabel:        studentLabel,
 				PersonalDataConsent: GeneralRatingConsent{Accepted: studentBuilder.consent},
 				Subjects:            make([]GeneralRatingStudentSubject, 0, len(studentBuilder.subjectOrder)),
 			}

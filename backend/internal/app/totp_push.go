@@ -2,12 +2,8 @@ package app
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
 	"strings"
 	"time"
-
-	"github.com/pquerna/otp/totp"
 )
 
 type DeviceTokenRegistration struct {
@@ -133,65 +129,10 @@ func (s *Service) DeleteDeviceToken(token string, deviceToken string) Response {
 }
 
 func (s *Service) DispatchTOTPPushNotification(ctx context.Context, userID int32, totpSecret string, loginIP string) (bool, string) {
-	if totpSecret == "" {
-		return false, ""
-	}
-
-	code, err := totp.GenerateCode(totpSecret, time.Now())
-	if err != nil {
-		return false, ""
-	}
-
-	rows, err := s.store.Pool().Query(
-		ctx,
-		`SELECT device_token, platform
-		 FROM user_device_tokens
-		 WHERE user_id = $1`,
-		userID,
-	)
-	if err != nil {
-		return false, ""
-	}
-	defer rows.Close()
-
-	tokens := make([]string, 0)
-	for rows.Next() {
-		var tok, platform string
-		if rows.Scan(&tok, &platform) == nil {
-			tokens = append(tokens, tok)
-		}
-	}
-
-	if len(tokens) == 0 {
-		return false, code
-	}
-
-	// Create system push notification entry
-	meta, _ := json.Marshal(map[string]any{
-		"totp_code": code,
-		"login_ip":  loginIP,
-		"tokens":    tokens,
-	})
-
-	var notifID int64
-	err = s.store.Pool().QueryRow(
-		ctx,
-		`INSERT INTO notifications (category, event_type, title, message, metadata, expires_at)
-		 VALUES ('system', 'totp_push', '2FA Verification Code', $1, $2, NOW() + INTERVAL '10 minutes')
-		 RETURNING notification_id`,
-		fmt.Sprintf("Your 2FA verification code is: %s", code),
-		meta,
-	).Scan(&notifID)
-
-	if err == nil && notifID > 0 {
-		_, _ = s.store.Pool().Exec(
-			ctx,
-			`INSERT INTO notification_recipients (notification_id, user_id)
-			 VALUES ($1, $2) ON CONFLICT DO NOTHING`,
-			notifID,
-			userID,
-		)
-	}
-
-	return true, code
+	// TOTP secrets must not pass through the notifications table.
+	_ = ctx
+	_ = userID
+	_ = totpSecret
+	_ = loginIP
+	return false, ""
 }

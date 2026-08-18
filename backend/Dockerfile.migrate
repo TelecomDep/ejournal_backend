@@ -1,14 +1,18 @@
-FROM golang:1.26.1-alpine AS fetcher
+FROM golang:1.26.6-alpine3.24 AS fetcher
 
 RUN wget -q -O /usr/local/bin/goose https://github.com/pressly/goose/releases/download/v3.24.1/goose_linux_x86_64 && \
     chmod +x /usr/local/bin/goose
 
-FROM alpine:latest
+FROM alpine:3.24.1
 
 COPY --from=fetcher /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY --from=fetcher /usr/local/bin/goose /usr/local/bin/goose
 
 WORKDIR /app
 COPY migrations ./migrations
+
+RUN addgroup -S -g 10001 app && adduser -S -D -H -u 10001 -G app app \
+    && chown -R app:app /app
+USER 10001:10001
 
 ENTRYPOINT ["goose"]

@@ -99,6 +99,11 @@ spec:
             configMapKeyRef:
               name: ejournal-config
               key: CORS_ALLOW_ORIGINS
+        - name: TRUSTED_PROXIES
+          valueFrom:
+            configMapKeyRef:
+              name: ejournal-config
+              key: TRUSTED_PROXIES
         - name: DEFAULT_STUDENT_GROUP_ID
           valueFrom:
             configMapKeyRef:
@@ -134,6 +139,16 @@ spec:
             configMapKeyRef:
               name: ejournal-config
               key: SMTP_FROM
+        - name: SMTP_TLS_SERVER_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: ejournal-config
+              key: SMTP_TLS_SERVER_NAME
+        - name: SMTP_CA_FILE
+          valueFrom:
+            configMapKeyRef:
+              name: ejournal-config
+              key: SMTP_CA_FILE
 
         # Sensitive application secrets
         - name: JWT_SECRET
@@ -159,9 +174,15 @@ spec:
         volumeMounts:
         - name: uploads-volume
           mountPath: /app/uploads
+        - name: smtp-tls
+          mountPath: /etc/smtp-tls
+          readOnly: true
       volumes:
       - name: uploads-volume
         emptyDir: {}
+      - name: smtp-tls
+        secret:
+          secretName: ejournal-tls-secret
 ---
 apiVersion: v1
 kind: Service

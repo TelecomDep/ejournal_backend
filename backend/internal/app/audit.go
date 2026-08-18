@@ -35,16 +35,16 @@ func (s *Service) RecordAuditLog(
 	resourceID string,
 	details map[string]any,
 	ipAddress string,
-) {
+) error {
 	if details == nil {
 		details = make(map[string]any)
 	}
 	detailsJSON, err := json.Marshal(details)
 	if err != nil {
-		detailsJSON = []byte("{}")
+		return err
 	}
 
-	_, _ = s.store.Pool().Exec(
+	_, err = s.store.Pool().Exec(
 		ctx,
 		`INSERT INTO audit_logs (
 		     actor_id,
@@ -74,6 +74,7 @@ func (s *Service) RecordAuditLog(
 		detailsJSON,
 		ipAddress,
 	)
+	return err
 }
 
 func (s *Service) admin_audit_logs(token string, query AuditLogsQuery) Response {

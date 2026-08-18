@@ -194,6 +194,8 @@ const SecurityPanel = ({ user, token }) => {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+	const [emailStage, setEmailStage] = useState('idle');
+	const [emailBindCode, setEmailBindCode] = useState('');
   const [twoFaEnabled, setTwoFaEnabled] = useState(Boolean(user?.two_fa_enabled));
   const [twoFaStage, setTwoFaStage] = useState('idle'); // 'idle' | 'email_sent' | 'qr_ready'
   const [emailCode, setEmailCode] = useState('');
@@ -202,6 +204,16 @@ const SecurityPanel = ({ user, token }) => {
   const [twoFaMessage, setTwoFaMessage] = useState('');
   const [twoFaError, setTwoFaError] = useState('');
   const [twoFaAction, setTwoFaAction] = useState('');
+	const [agreement, setAgreement] = useState(null);
+	const [agreementAction, setAgreementAction] = useState('');
+
+	useEffect(() => {
+		let cancelled = false;
+		api.getCurrentAgreement(token)
+			.then((status) => { if (!cancelled) setAgreement(status); })
+			.catch(() => { if (!cancelled) setAgreement(null); });
+		return () => { cancelled = true; };
+	}, [token]);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -211,15 +223,38 @@ const SecurityPanel = ({ user, token }) => {
     try {
       setSaving(true);
       const nextEmail = email.trim();
-      await api.updateEmail(token, nextEmail);
-      setSavedEmail(nextEmail);
-      setMessage('Email сохранён. Его можно использовать для восстановления доступа.');
+	  await api.requestEmailBind(token, nextEmail);
+	  setEmailStage('confirmation');
+	  setEmailBindCode('');
+	  setMessage('Код подтверждения отправлен на новый email.');
     } catch (err) {
       setError(api.getErrorMessage(err, 'Не удалось сохранить email'));
     } finally {
       setSaving(false);
     }
   };
+
+	const confirmEmail = async () => {
+		setMessage('');
+		setError('');
+		if (!/^[0-9a-f]{6}$/i.test(emailBindCode.trim())) {
+			setError('Введите шестизначный код из письма.');
+			return;
+		}
+		try {
+			setSaving(true);
+			await api.confirmEmailBind(token, emailBindCode.trim());
+			const nextEmail = email.trim();
+			setSavedEmail(nextEmail);
+			setEmailStage('idle');
+			setEmailBindCode('');
+			setMessage('Email подтверждён и привязан.');
+		} catch (err) {
+			setError(api.getErrorMessage(err, 'Не удалось подтвердить email'));
+		} finally {
+			setSaving(false);
+		}
+	};
 
   const startTwoFaSetup = async () => {
     setTwoFaMessage('');
@@ -290,7 +325,9 @@ const SecurityPanel = ({ user, token }) => {
       setTwoFaStage('idle');
       setTwoFaCode('');
       setEmailCode('');
-      setTwoFaMessage('Двухфакторная аутентификация успешно включена.');
+	  setTwoFaMessage('Двухфакторная аутентификация включена. Войдите заново.');
+	  sessionStorage.removeItem('ejournal_token');
+	  window.setTimeout(() => window.location.reload(), 800);
     } catch (err) {
       setTwoFaError(getTwoFaErrorMessage(err, 'Не удалось подтвердить код 2FA'));
     } finally {
@@ -299,6 +336,10 @@ const SecurityPanel = ({ user, token }) => {
   };
 
   const disableTwoFa = async () => {
+	if (!/^\d{6}$/.test(twoFaCode)) {
+		setTwoFaError('Введите текущий шестизначный код из приложения-аутентификатора.');
+		return;
+	}
     if (!window.confirm('Отключить двухфакторную аутентификацию?')) {
       return;
     }
@@ -308,19 +349,33 @@ const SecurityPanel = ({ user, token }) => {
 
     try {
       setTwoFaAction('disable');
-      await api.disable2FA(token);
+	  await api.disable2FA(token, twoFaCode);
       setTwoFaEnabled(false);
       setTwoFaSetup(null);
       setTwoFaStage('idle');
       setTwoFaCode('');
       setEmailCode('');
-      setTwoFaMessage('Двухфакторная аутентификация отключена.');
+	  setTwoFaMessage('Двухфакторная аутентификация отключена. Войдите заново.');
+	  sessionStorage.removeItem('ejournal_token');
+	  window.setTimeout(() => window.location.reload(), 800);
     } catch (err) {
       setTwoFaError(getTwoFaErrorMessage(err, 'Не удалось отключить 2FA'));
     } finally {
       setTwoFaAction('');
     }
   };
+
+	const updateAgreement = async (decision) => {
+		try {
+			setAgreementAction(decision);
+			const result = await api.recordAgreementDecision(token, decision, agreement?.version || '2026-08-01');
+			setAgreement(result);
+		} catch (err) {
+			setError(api.getErrorMessage(err, 'Не удалось сохранить решение'));
+		} finally {
+			setAgreementAction('');
+		}
+	};
 
   const copyTwoFaSecret = async () => {
     try {
@@ -368,8 +423,17 @@ const SecurityPanel = ({ user, token }) => {
           {error && <div className="security-message security-message--error">{error}</div>}
 
           <button type="submit" disabled={saving}>
-            {saving ? 'Сохраняем...' : 'Сохранить email'}
+			{saving ? 'Отправляем...' : 'Подтвердить новый email'}
           </button>
+		  {emailStage === 'confirmation' && (
+			<div className="security-form">
+			  <label>
+				Код из письма
+				<input value={emailBindCode} onChange={(event) => setEmailBindCode(event.target.value.trim().slice(0, 6))} maxLength={6} />
+			  </label>
+			  <button type="button" onClick={confirmEmail} disabled={saving}>Подтвердить email</button>
+			</div>
+		  )}
         </form>
       </div>
 
@@ -395,14 +459,19 @@ const SecurityPanel = ({ user, token }) => {
             </span>
 
             {twoFaEnabled ? (
-              <button
-                type="button"
-                className="twofa-button twofa-button--danger"
-                onClick={disableTwoFa}
-                disabled={Boolean(twoFaAction)}
-              >
-                {twoFaAction === 'disable' ? 'Отключаем...' : 'Отключить'}
-              </button>
+			  <div>
+				<input
+				  type="text"
+				  inputMode="numeric"
+				  value={twoFaCode}
+				  onChange={(event) => setTwoFaCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
+				  placeholder="Текущий код"
+				  maxLength={6}
+				/>
+				<button type="button" className="twofa-button twofa-button--danger" onClick={disableTwoFa} disabled={Boolean(twoFaAction)}>
+				  {twoFaAction === 'disable' ? 'Отключаем...' : 'Отключить'}
+				</button>
+			  </div>
             ) : (
               <button
                 type="button"
@@ -514,11 +583,14 @@ const SecurityPanel = ({ user, token }) => {
       <button
         type="button"
         className="consent-revoke-button"
-        disabled
-        title="Для отзыва согласия требуется backend-ручка"
+		disabled={Boolean(agreementAction)}
+		onClick={() => updateAgreement(agreement?.accepted ? 'declined' : 'accepted')}
       >
-        Отозвать согласие на обработку персональных данных
+		{agreement?.accepted
+		  ? 'Отозвать согласие на обработку персональных данных'
+		  : 'Дать согласие на обработку персональных данных'}
       </button>
+	  <small>При отказе сервис продолжит работать, но ФИО в общем рейтинге будет скрыто.</small>
     </section>
   );
 };

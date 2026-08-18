@@ -1,6 +1,7 @@
 package app
 
 import (
+	"fmt"
 	"time"
 )
 
@@ -24,10 +25,10 @@ type FraudLogsQuery struct {
 }
 
 type TopCheaterItem struct {
-	StudentID          int32  `json:"student_id"`
-	StudentName        string `json:"student_name"`
-	GroupName          string `json:"group_name"`
-	TotalCheatAttempts int32  `json:"total_cheat_attempts"`
+	StudentID          int32      `json:"student_id"`
+	StudentName        string     `json:"student_name"`
+	GroupName          string     `json:"group_name"`
+	TotalCheatAttempts int32      `json:"total_cheat_attempts"`
 	LastAttemptAt      *time.Time `json:"last_attempt_at,omitempty"`
 }
 
@@ -50,21 +51,36 @@ func (s *Service) admin_antifraud_logs(token string, query FraudLogsQuery) Respo
 
 	ctx, cancel := s.dbContext()
 	defer cancel()
+	scope, err := s.scopeForUser(ctx, actor)
+	if err != nil {
+		return Response{OK: false, Error: "failed to resolve scope"}
+	}
+	scopePredicate := "TRUE"
+	scopeArgs := make([]any, 0)
+	if !scope.All {
+		scopePredicate = "g.lectern_id = ANY($1)"
+		scopeArgs = append(scopeArgs, nonNil(scope.LecternIDs))
+	}
 
 	var total int32
 	err = s.store.Pool().QueryRow(
 		ctx,
 		`SELECT COUNT(*)::INTEGER
 		 FROM attendance_session_students ass
-		 WHERE ass.is_fraud = TRUE`,
+		 JOIN students st ON st.student_id = ass.student_id
+		 LEFT JOIN groups g ON g.group_id = st.group_id
+		 WHERE ass.is_fraud = TRUE AND `+scopePredicate, scopeArgs...,
 	).Scan(&total)
 	if err != nil {
 		return Response{OK: false, Error: "failed to count fraud logs"}
 	}
 
+	listArgs := append(append([]any{}, scopeArgs...), query.PageSize, offset)
+	limitArg := len(scopeArgs) + 1
+	offsetArg := limitArg + 1
 	rows, err := s.store.Pool().Query(
 		ctx,
-		`SELECT ass.session_id,
+		fmt.Sprintf(`SELECT ass.session_id,
 		        ass.student_id,
 		        st.student_name,
 		        COALESCE(g.group_name, ''),
@@ -82,11 +98,10 @@ func (s *Service) admin_antifraud_logs(token string, query FraudLogsQuery) Respo
 		 LEFT JOIN subjects sub ON sub.subject_id = s.subject_id
 		 LEFT JOIN teachers t ON t.teacher_id = s.teacher_id
 		 LEFT JOIN users u_t ON u_t.id = t.user_id
-		 WHERE ass.is_fraud = TRUE
+		 WHERE ass.is_fraud = TRUE AND %s
 		 ORDER BY ass.marked_at DESC, ass.session_id DESC
-		 LIMIT $1 OFFSET $2`,
-		query.PageSize,
-		offset,
+		 LIMIT $%d OFFSET $%d`, scopePredicate, limitArg, offsetArg),
+		listArgs...,
 	)
 	if err != nil {
 		return Response{OK: false, Error: "failed to fetch fraud logs"}
@@ -108,9 +123,13 @@ func (s *Service) admin_antifraud_logs(token string, query FraudLogsQuery) Respo
 			&item.CheckInLon,
 			&item.FraudReason,
 			&item.MarkedAt,
-		); scanErr == nil {
-			items = append(items, item)
+		); scanErr != nil {
+			return Response{OK: false, Error: "failed to scan fraud logs"}
 		}
+		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return Response{OK: false, Error: "failed to iterate fraud logs"}
 	}
 
 	return Response{
@@ -135,6 +154,16 @@ func (s *Service) admin_antifraud_top_cheaters(token string) Response {
 
 	ctx, cancel := s.dbContext()
 	defer cancel()
+	scope, err := s.scopeForUser(ctx, actor)
+	if err != nil {
+		return Response{OK: false, Error: "failed to resolve scope"}
+	}
+	scopePredicate := "TRUE"
+	args := make([]any, 0)
+	if !scope.All {
+		scopePredicate = "g.lectern_id = ANY($1)"
+		args = append(args, nonNil(scope.LecternIDs))
+	}
 
 	rows, err := s.store.Pool().Query(
 		ctx,
@@ -146,10 +175,10 @@ func (s *Service) admin_antifraud_top_cheaters(token string) Response {
 		 FROM students st
 		 LEFT JOIN groups g ON g.group_id = st.group_id
 		 LEFT JOIN attendance_session_students ass ON ass.student_id = st.student_id AND ass.is_fraud = TRUE
-		 WHERE st.total_cheat_attempts > 0
+		 WHERE st.total_cheat_attempts > 0 AND `+scopePredicate+`
 		 GROUP BY st.student_id, st.student_name, g.group_name, st.total_cheat_attempts
 		 ORDER BY st.total_cheat_attempts DESC, st.student_name ASC
-		 LIMIT 50`,
+		 LIMIT 50`, args...,
 	)
 	if err != nil {
 		return Response{OK: false, Error: "failed to fetch top cheaters"}
@@ -165,9 +194,13 @@ func (s *Service) admin_antifraud_top_cheaters(token string) Response {
 			&item.GroupName,
 			&item.TotalCheatAttempts,
 			&item.LastAttemptAt,
-		); scanErr == nil {
-			items = append(items, item)
+		); scanErr != nil {
+			return Response{OK: false, Error: "failed to scan top cheaters"}
 		}
+		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return Response{OK: false, Error: "failed to iterate top cheaters"}
 	}
 
 	return Response{

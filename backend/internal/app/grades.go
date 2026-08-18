@@ -94,13 +94,7 @@ func (s *Service) teacherCanManageSubject(ctx context.Context, teacherID, subjec
 		`SELECT EXISTS (
 		     SELECT 1
 		     FROM schedules
-			     WHERE teacher_id = $1 AND subject_id = $2 AND semester_id = $3
-		 ) OR EXISTS (
-		     SELECT 1
-		     FROM teachers t
-		     JOIN users u ON u.id = t.user_id
-		     WHERE t.teacher_id = $1
-		       AND u.login = 'teacher_test'
+		     WHERE teacher_id = $1 AND subject_id = $2 AND semester_id = $3
 		 )`,
 		teacherID,
 		subjectID,
@@ -110,6 +104,53 @@ func (s *Service) teacherCanManageSubject(ctx context.Context, teacherID, subjec
 		return false, fmt.Errorf("check teacher subject access: %w", err)
 	}
 	return allowed, nil
+}
+
+func (s *Service) teacherCanAccessGroup(ctx context.Context, teacherID, groupID, semesterID int32, subjectID *int32) (bool, error) {
+	query := `SELECT EXISTS (
+		SELECT 1 FROM schedules
+		WHERE teacher_id = $1 AND group_id = $2 AND semester_id = $3`
+	args := []any{teacherID, groupID, semesterID}
+	if subjectID != nil {
+		query += ` AND subject_id = $4`
+		args = append(args, *subjectID)
+	}
+	query += `)`
+
+	var allowed bool
+	if err := s.store.Pool().QueryRow(ctx, query, args...).Scan(&allowed); err != nil {
+		return false, fmt.Errorf("check teacher group access: %w", err)
+	}
+	return allowed, nil
+}
+
+func (s *Service) teacherCanAccessStudentSubject(ctx context.Context, teacherID, studentID, subjectID, semesterID int32) (bool, error) {
+	var allowed bool
+	err := s.store.Pool().QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1
+			FROM schedules sch
+			JOIN students st ON st.group_id = sch.group_id
+			WHERE sch.teacher_id = $1
+			  AND st.student_id = $2
+			  AND sch.subject_id = $3
+			  AND sch.semester_id = $4
+		)`, teacherID, studentID, subjectID, semesterID).Scan(&allowed)
+	if err != nil {
+		return false, fmt.Errorf("check teacher student subject access: %w", err)
+	}
+	return allowed, nil
+}
+
+func (s *Service) ensureTeacherStudentSubjectAccess(ctx context.Context, teacherID, studentID, subjectID, semesterID int32) Response {
+	allowed, err := s.teacherCanAccessStudentSubject(ctx, teacherID, studentID, subjectID, semesterID)
+	if err != nil {
+		return Response{OK: false, Error: "failed to check teacher student access"}
+	}
+	if !allowed {
+		return Response{OK: false, Error: "forbidden: student is not assigned to this teacher and subject"}
+	}
+	return Response{OK: true}
 }
 
 func (s *Service) ensureTeacherSubjectAccess(ctx context.Context, teacherID, subjectID, semesterID int32) Response {
@@ -282,6 +323,9 @@ func (s *Service) upsertGradeByTeacher(sessionToken string, data GradeUpsertData
 	}
 	if !found {
 		return Response{OK: false, Error: "student not found"}
+	}
+	if resp := s.ensureTeacherStudentSubjectAccess(ctx, teacherProfile.ID, data.StudentID, item.SubjectID, item.SemesterID); !resp.OK {
+		return resp
 	}
 
 	if data.SessionID != nil {
@@ -594,6 +638,9 @@ func (s *Service) gradesBySubjectForTeacher(sessionToken string, data TeacherStu
 	if !found {
 		return Response{OK: false, Error: "student not found"}
 	}
+	if resp := s.ensureTeacherStudentSubjectAccess(ctx, teacherProfile.ID, data.StudentID, data.SubjectID, semester.ID); !resp.OK {
+		return resp
+	}
 
 	return s.studentGradesResult(data.StudentID, data.SubjectID, &semester.ID)
 }
@@ -654,12 +701,6 @@ func (s *Service) teacherCanViewStudent(ctx context.Context, teacherID, studentI
 		     FROM schedules sch
 		     JOIN students st ON st.group_id = sch.group_id
 		     WHERE sch.teacher_id = $1 AND st.student_id = $2 AND sch.semester_id = $3
-		 ) OR EXISTS (
-		     SELECT 1
-		     FROM teachers t
-		     JOIN users u ON u.id = t.user_id
-		     WHERE t.teacher_id = $1
-		       AND u.login = 'teacher_test'
 		 )`,
 		teacherID,
 		studentID,
@@ -839,7 +880,7 @@ func (s *Service) teacherStudentPerformanceRadar(sessionToken string, data Teach
 
 func isUnauthorizedGradeError(errText string) bool {
 	switch errText {
-	case "invalid token", "session not found", "missing token", "account is not active":
+	case "invalid token", "session not found", "session revoked", "missing token", "account is not active":
 		return true
 	default:
 		return false

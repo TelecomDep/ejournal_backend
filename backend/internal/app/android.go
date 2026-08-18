@@ -162,13 +162,20 @@ func (s *Service) createLessonForAndroid(sessionToken string, data AndroidLesson
 	if err != nil {
 		return Response{OK: false, Error: err.Error()}
 	}
-	if !isDemoTeacher(teacherUser) {
-		allowed, err := s.teacherCanManageSubject(ctx, teacherProfile.ID, subjectID, semester.ID)
+	allowed, err := s.teacherCanManageSubject(ctx, teacherProfile.ID, subjectID, semester.ID)
+	if err != nil {
+		return Response{OK: false, Error: "failed to check teacher subject access"}
+	}
+	if !allowed {
+		return Response{OK: false, Error: "forbidden: teacher is not assigned to subject"}
+	}
+	for _, groupID := range groupIDs {
+		allowed, err = s.teacherCanAccessGroup(ctx, teacherProfile.ID, groupID, semester.ID, &subjectID)
 		if err != nil {
-			return Response{OK: false, Error: "failed to check teacher subject access"}
+			return Response{OK: false, Error: "failed to check teacher group access"}
 		}
 		if !allowed {
-			return Response{OK: false, Error: "forbidden: teacher is not assigned to subject"}
+			return Response{OK: false, Error: "forbidden: group is not assigned to teacher for this subject"}
 		}
 	}
 

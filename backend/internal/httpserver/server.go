@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"mime"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -16,6 +17,9 @@ import (
 	"github.com/ansrivas/fiberprometheus/v2"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
+	"github.com/gofiber/fiber/v2/middleware/helmet"
+	"github.com/gofiber/fiber/v2/middleware/limiter"
+	"github.com/gofiber/fiber/v2/middleware/recover"
 	swagger "github.com/gofiber/swagger"
 )
 
@@ -36,8 +40,20 @@ func New(cfg config.AppConfig, svc *app.Service) *Server {
 }
 
 func (s *Server) Start() {
-	fiberApp := fiber.New()
+	trustedProxies := strings.FieldsFunc(s.cfg.TrustedProxies, func(r rune) bool { return r == ',' || r == ' ' })
+	fiberApp := fiber.New(fiber.Config{
+		BodyLimit:               52 * 1024 * 1024,
+		ReadTimeout:             15 * time.Second,
+		WriteTimeout:            60 * time.Second,
+		IdleTimeout:             60 * time.Second,
+		ProxyHeader:             fiber.HeaderXForwardedFor,
+		EnableTrustedProxyCheck: true,
+		TrustedProxies:          trustedProxies,
+	})
+	fiberApp.Use(recover.New())
+	fiberApp.Use(helmet.New())
 	fiberApp.Use(s.metricsMiddleware)
+	fiberApp.Use(s.metricsAccessMiddleware)
 
 	prometheus := fiberprometheus.NewWithDefaultRegistry("ejournal-backend")
 	prometheus.RegisterAt(fiberApp, "/metrics")
@@ -48,19 +64,25 @@ func (s *Server) Start() {
 		AllowMethods: "GET,POST,PUT,DELETE,PATCH,OPTIONS",
 		AllowHeaders: "Origin, Content-Type, Accept, Authorization",
 	}))
+	fiberApp.Use(s.maintenanceMiddleware)
 
-	fiberApp.Post("/register", s.registerHandler)
+	loginLimit := limiter.New(limiter.Config{Max: 10, Expiration: 5 * time.Minute})
+	registrationLimit := limiter.New(limiter.Config{Max: 5, Expiration: 5 * time.Minute})
+	recoveryLimit := limiter.New(limiter.Config{Max: 5, Expiration: 15 * time.Minute})
+	verificationLimit := limiter.New(limiter.Config{Max: 10, Expiration: 5 * time.Minute})
+
+	fiberApp.Post("/register", registrationLimit, s.registerHandler)
 	fiberApp.Get("/healthz", s.healthHandler)
 	fiberApp.Get("/internal/metrics", s.internalMetricsHandler)
-	fiberApp.Post("/register/by-invite", s.registerByInviteHandler)
-	fiberApp.Post("/login", s.loginHandler)
+	fiberApp.Post("/register/by-invite", registrationLimit, s.registerByInviteHandler)
+	fiberApp.Post("/login", loginLimit, s.loginHandler)
 	fiberApp.Get("/profile", s.profileHandler)
 	fiberApp.Post("/lessons/create", s.androidLessonCreateHandler)
-	fiberApp.Post("/api/auth/forgot-password", s.forgotPasswordHandler)
-	fiberApp.Post("/api/auth/reset-password", s.resetPasswordHandler)
+	fiberApp.Post("/api/auth/forgot-password", recoveryLimit, s.forgotPasswordHandler)
+	fiberApp.Post("/api/auth/reset-password", recoveryLimit, s.resetPasswordHandler)
 	fiberApp.Post("/api/user/email", s.updateEmailHandler)
-	fiberApp.Post("/api/user/email/bind/request", s.requestEmailBindHandler)
-	fiberApp.Post("/api/user/email/bind/confirm", s.confirmEmailBindHandler)
+	fiberApp.Post("/api/user/email/bind/request", verificationLimit, s.requestEmailBindHandler)
+	fiberApp.Post("/api/user/email/bind/confirm", verificationLimit, s.confirmEmailBindHandler)
 	fiberApp.Get("/api/user/notifications", s.notificationsListHandler)
 	fiberApp.Get("/api/user/notifications/unread-count", s.notificationsUnreadCountHandler)
 	fiberApp.Patch("/api/user/notifications/read-all", s.notificationsMarkAllReadHandler)
@@ -68,11 +90,11 @@ func (s *Server) Start() {
 	fiberApp.Delete("/api/user/notifications/:notification_id", s.notificationDeleteHandler)
 	fiberApp.Get("/api/user/notification-settings", s.notificationSettingsGetHandler)
 	fiberApp.Put("/api/user/notification-settings", s.notificationSettingsUpdateHandler)
-	fiberApp.Post("/api/user/2fa/request-enable", s.request2FAEnableHandler)
+	fiberApp.Post("/api/user/2fa/request-enable", verificationLimit, s.request2FAEnableHandler)
 	fiberApp.Get("/api/user/2fa/generate", s.generate2faHandler)
 	fiberApp.Post("/api/user/2fa/generate", s.generate2faHandler)
-	fiberApp.Post("/api/user/2fa/verify", s.verify2faHandler)
-	fiberApp.Post("/api/user/2fa/disable", s.disable2faHandler)
+	fiberApp.Post("/api/user/2fa/verify", verificationLimit, s.verify2faHandler)
+	fiberApp.Post("/api/user/2fa/disable", verificationLimit, s.disable2faHandler)
 	fiberApp.Get("/api/semesters", s.semestersListHandler)
 	fiberApp.Get("/api/semesters/current", s.currentSemesterHandler)
 	fiberApp.Post("/api/admin/semesters", s.createSemesterHandler)
@@ -139,7 +161,6 @@ func (s *Server) Start() {
 	fiberApp.Post("/api/teacher/student/performance/radar", s.teacherStudentPerformanceRadarHandler)
 	fiberApp.Post("/api/user/agreements/decision", s.userAgreementDecisionHandler)
 	fiberApp.Get("/api/user/agreements/current", s.currentUserAgreementHandler)
-	fiberApp.Static("/uploads", s.cfg.UploadDir)
 	fiberApp.Get("/swagger/*", swagger.HandlerDefault)
 	fiberApp.Get("/healthz", s.healthzHandler)
 	fiberApp.Delete("/api/user/email", s.deleteEmailHandler)
@@ -225,7 +246,7 @@ func (s *Server) androidJSONActionHandler(c *fiber.Ctx, requestID, action string
 	}
 	if !resp.OK {
 		switch resp.Error {
-		case "invalid token", "session not found", "missing token", "account is not active":
+		case "invalid token", "session not found", "session revoked", "missing token", "account is not active":
 			return c.Status(fiber.StatusUnauthorized).JSON(resp)
 		case "forbidden: teacher role required",
 			"forbidden: student role required",
@@ -320,7 +341,7 @@ func (s *Server) uploadAvatarHandler(c *fiber.Ctx) error {
 	resp := s.svc.SaveAvatarData(token, file)
 	if !resp.OK {
 		switch resp.Error {
-		case "invalid token", "session not found", "missing token", "account is not active":
+		case "invalid token", "session not found", "session revoked", "missing token", "account is not active":
 			return c.Status(fiber.StatusUnauthorized).JSON(resp)
 		default:
 			return c.Status(fiber.StatusBadRequest).JSON(resp)
@@ -355,13 +376,20 @@ func (s *Server) uploadAttachmentHandler(c *fiber.Ctx) error {
 }
 
 func (s *Server) getAttachmentHandler(c *fiber.Ctx) error {
+	token := c.Get("Authorization")
+	if token == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(app.Response{OK: false, Error: "missing Authorization header"})
+	}
 	id, err := strconv.ParseInt(c.Params("id"), 10, 64)
 	if err != nil || id <= 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(app.Response{OK: false, Error: "invalid attachment id"})
 	}
 
-	att, found, err := s.svc.GetAttachmentByID(id)
+	att, found, err := s.svc.GetAttachmentByID(token, id)
 	if err != nil {
+		if strings.Contains(err.Error(), "token") || strings.Contains(err.Error(), "session") {
+			return c.Status(fiber.StatusUnauthorized).JSON(app.Response{OK: false, Error: "invalid token"})
+		}
 		return c.Status(fiber.StatusInternalServerError).JSON(app.Response{OK: false, Error: "failed to load attachment"})
 	}
 	if !found {
@@ -369,7 +397,12 @@ func (s *Server) getAttachmentHandler(c *fiber.Ctx) error {
 	}
 
 	c.Set("Content-Type", att.MimeType)
-	c.Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, att.Filename))
+	disposition := mime.FormatMediaType("attachment", map[string]string{"filename": att.Filename})
+	if disposition == "" {
+		disposition = "attachment"
+	}
+	c.Set("Content-Disposition", disposition)
+	c.Set("X-Content-Type-Options", "nosniff")
 	return c.Send(att.Data)
 }
 
@@ -810,7 +843,7 @@ func (s *Server) loadStaffPerformanceReport(c *fiber.Ctx) (*app.PerformanceRepor
 		switch resp.Error {
 		case "forbidden: head role or higher required":
 			return nil, c.Status(fiber.StatusForbidden).JSON(resp)
-		case "invalid token", "session not found", "missing token", "account is not active":
+		case "invalid token", "session not found", "session revoked", "missing token", "account is not active":
 			return nil, c.Status(fiber.StatusUnauthorized).JSON(resp)
 		case "semester not found", "open semester not found":
 			return nil, c.Status(fiber.StatusNotFound).JSON(resp)
@@ -950,7 +983,7 @@ func (s *Server) teacherAttendanceLinkHandler(c *fiber.Ctx) error {
 		if resp.Error == "forbidden: teacher role required" {
 			return c.Status(fiber.StatusForbidden).JSON(resp)
 		}
-		if resp.Error == "invalid token" || resp.Error == "session not found" || resp.Error == "missing token" || resp.Error == "account is not active" {
+		if resp.Error == "invalid token" || resp.Error == "session not found" || resp.Error == "session revoked" || resp.Error == "missing token" || resp.Error == "account is not active" {
 			return c.Status(fiber.StatusUnauthorized).JSON(resp)
 		}
 		if resp.Error == "semester is not open for changes" ||
@@ -1016,7 +1049,7 @@ func (s *Server) studentAttendanceConfirmHandler(c *fiber.Ctx) error {
 		if resp.Error == "forbidden: student is not in session roster" {
 			return c.Status(fiber.StatusForbidden).JSON(resp)
 		}
-		if resp.Error == "invalid token" || resp.Error == "session not found" || resp.Error == "missing token" || resp.Error == "account is not active" {
+		if resp.Error == "invalid token" || resp.Error == "session not found" || resp.Error == "session revoked" || resp.Error == "missing token" || resp.Error == "account is not active" {
 			return c.Status(fiber.StatusUnauthorized).JSON(resp)
 		}
 		if resp.Error == "attendance already confirmed" {
@@ -1073,7 +1106,7 @@ func (s *Server) teacherAttendanceByGroupHandler(c *fiber.Ctx) error {
 		if resp.Error == "forbidden: teacher role required" {
 			return c.Status(fiber.StatusForbidden).JSON(resp)
 		}
-		if resp.Error == "invalid token" || resp.Error == "session not found" || resp.Error == "missing token" || resp.Error == "account is not active" {
+		if resp.Error == "invalid token" || resp.Error == "session not found" || resp.Error == "session revoked" || resp.Error == "missing token" || resp.Error == "account is not active" {
 			return c.Status(fiber.StatusUnauthorized).JSON(resp)
 		}
 		return c.Status(fiber.StatusBadRequest).JSON(resp)
@@ -1194,7 +1227,7 @@ func (s *Server) teacherAttendanceReadHandler(c *fiber.Ctx, requestID, action st
 		if resp.Error == "forbidden: teacher role required" || resp.Error == "forbidden: lesson belongs to another teacher" {
 			return c.Status(fiber.StatusForbidden).JSON(resp)
 		}
-		if resp.Error == "invalid token" || resp.Error == "session not found" || resp.Error == "missing token" || resp.Error == "account is not active" {
+		if resp.Error == "invalid token" || resp.Error == "session not found" || resp.Error == "session revoked" || resp.Error == "missing token" || resp.Error == "account is not active" {
 			return c.Status(fiber.StatusUnauthorized).JSON(resp)
 		}
 		return c.Status(fiber.StatusBadRequest).JSON(resp)
@@ -1247,7 +1280,7 @@ func (s *Server) teacherAttendanceMarkHandler(c *fiber.Ctx) error {
 		if resp.Error == "forbidden: teacher role required" || resp.Error == "forbidden: lesson belongs to another teacher" {
 			return c.Status(fiber.StatusForbidden).JSON(resp)
 		}
-		if resp.Error == "invalid token" || resp.Error == "session not found" || resp.Error == "missing token" || resp.Error == "account is not active" {
+		if resp.Error == "invalid token" || resp.Error == "session not found" || resp.Error == "session revoked" || resp.Error == "missing token" || resp.Error == "account is not active" {
 			return c.Status(fiber.StatusUnauthorized).JSON(resp)
 		}
 		if resp.Error == "student not found in this session's roster" {
@@ -1341,7 +1374,7 @@ func (s *Server) studentAttendanceHistoryHandler(c *fiber.Ctx) error {
 		if resp.Error == "forbidden: student role required" {
 			return c.Status(fiber.StatusForbidden).JSON(resp)
 		}
-		if resp.Error == "invalid token" || resp.Error == "session not found" || resp.Error == "missing token" || resp.Error == "account is not active" {
+		if resp.Error == "invalid token" || resp.Error == "session not found" || resp.Error == "session revoked" || resp.Error == "missing token" || resp.Error == "account is not active" {
 			return c.Status(fiber.StatusUnauthorized).JSON(resp)
 		}
 		return c.Status(fiber.StatusBadRequest).JSON(resp)
@@ -1741,7 +1774,7 @@ func semesterHTTPStatus(resp app.Response) int {
 		return fiber.StatusOK
 	}
 	switch resp.Error {
-	case "missing token", "invalid token", "session not found", "account is not active":
+	case "missing token", "invalid token", "session not found", "session revoked", "account is not active":
 		return fiber.StatusUnauthorized
 	case "forbidden: admin role required":
 		return fiber.StatusForbidden
@@ -1922,7 +1955,7 @@ func (s *Server) updateEmailHandler(c *fiber.Ctx) error {
 	}
 
 	if !resp.OK {
-		if resp.Error == "invalid token" || resp.Error == "session not found" || resp.Error == "missing token" || resp.Error == "account is not active" {
+		if resp.Error == "invalid token" || resp.Error == "session not found" || resp.Error == "session revoked" || resp.Error == "missing token" || resp.Error == "account is not active" {
 			return c.Status(fiber.StatusUnauthorized).JSON(resp)
 		}
 		return c.Status(fiber.StatusBadRequest).JSON(resp)

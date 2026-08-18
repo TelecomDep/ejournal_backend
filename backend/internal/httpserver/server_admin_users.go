@@ -167,7 +167,7 @@ func adminUserHTTPStatus(resp app.Response) int {
 	}
 
 	switch resp.Error {
-	case "missing token", "invalid token", "session not found", "account is not active":
+	case "missing token", "invalid token", "session not found", "session revoked", "account is not active":
 		return fiber.StatusUnauthorized
 	case "forbidden: admin role required",
 		"admin cannot change own role or status",

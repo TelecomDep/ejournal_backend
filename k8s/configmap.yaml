@@ -14,6 +14,7 @@ data:
   APP_PORT: "8888"
   SITE_BASE_URL: "http://lms.signal.qlabs.pro"
   CORS_ALLOW_ORIGINS: "http://lms.signal.qlabs.pro,http://localhost:8888,http://localhost:9999"
+  TRUSTED_PROXIES: "127.0.0.1,::1,10.0.0.0/8"
   DEFAULT_STUDENT_GROUP_ID: "1"
   ALLOW_EARLY_ATTENDANCE: "true"
   UPLOAD_DIR: "/app/uploads"
@@ -23,6 +24,8 @@ data:
   SMTP_PORT: "587"
   SMTP_USER: "noreply@signal.qlabs.pro"
   SMTP_FROM: "noreply@signal.qlabs.pro"
+  SMTP_TLS_SERVER_NAME: "lms.signal.qlabs.pro"
+  SMTP_CA_FILE: "/etc/smtp-tls/tls.crt"
 
   # Frontend configuration
   DOMAIN: "lms.signal.qlabs.pro"

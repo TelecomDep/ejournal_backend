@@ -148,6 +148,12 @@ type AttendanceInviteClaims struct {
 	jwt.RegisteredClaims
 }
 
+type SessionClaims struct {
+	UserID       int32 `json:"user_id"`
+	TokenVersion int64 `json:"token_version"`
+	jwt.RegisteredClaims
+}
+
 type TeacherNearestLesson struct {
 	SubjectID int32
 	LessonNum int32
@@ -185,6 +191,11 @@ type RuntimeStats struct {
 }
 
 var appTimeLocation = loadAppTimeLocation()
+
+var dummyPasswordHash = func() []byte {
+	hash, _ := bcrypt.GenerateFromPassword([]byte("invalid-password-placeholder"), bcrypt.DefaultCost)
+	return hash
+}()
 
 func normalizeInviteTTL(expiresMinutes int) int {
 	if expiresMinutes <= 0 {
@@ -280,10 +291,6 @@ func containsAllGroupIDs(fromSchedule, requested []int32) bool {
 	return true
 }
 
-func isDemoTeacher(user User) bool {
-	return user.Role == "teacher" && strings.EqualFold(user.Login, "teacher_test")
-}
-
 func NewService(jwtSecret, siteBaseURL, roleHashTeacher, roleHashStudent string, defaultGroupID int32, allowEarlyAttendance bool, store *db.Store, mailer *Mailer) *Service {
 	return &Service{
 		jwtSecret:            []byte(strings.TrimSpace(jwtSecret)),
@@ -314,10 +321,20 @@ func (s *Service) StartWorkerPool(workersCount int) {
 	for i := 0; i < workersCount; i++ {
 		go func() {
 			for job := range s.requestQueue {
-				job.resultCh <- s.handleRequest(job.rawRequest)
+				job.resultCh <- s.safeHandleRequest(job.rawRequest)
 			}
 		}()
 	}
+}
+
+func (s *Service) safeHandleRequest(raw string) (resp Response) {
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			log.Printf("recovered request worker panic: %v", recovered)
+			resp = Response{OK: false, Error: "internal server error"}
+		}
+	}()
+	return s.handleRequest(raw)
 }
 
 func (s *Service) DispatchRequest(raw string, timeout time.Duration) (Response, error) {
@@ -373,8 +390,11 @@ func normalizeRole(role string) string {
 
 func normalizeAuthHeader(token string) string {
 	token = strings.TrimSpace(token)
-	token = strings.TrimPrefix(token, "Bearer ")
-	return strings.TrimSpace(token)
+	parts := strings.Fields(token)
+	if len(parts) == 2 && strings.EqualFold(parts[0], "Bearer") {
+		return parts[1]
+	}
+	return token
 }
 
 func (s *Service) dbContext() (context.Context, context.CancelFunc) {
@@ -387,12 +407,7 @@ func (s *Service) userBySessionToken(token string) (User, error) {
 		return User{}, errors.New("missing token")
 	}
 
-	userID, err := s.validateJWT(token)
-	if err != nil {
-		return User{}, errors.New("invalid token")
-	}
-
-	id64, err := strconv.ParseInt(userID, 10, 32)
+	userID, tokenVersion, err := s.validateJWT(token)
 	if err != nil {
 		return User{}, errors.New("invalid token")
 	}
@@ -400,7 +415,7 @@ func (s *Service) userBySessionToken(token string) (User, error) {
 	ctx, cancel := s.dbContext()
 	defer cancel()
 
-	dbUser, ok, err := s.store.Users.GetByID(ctx, int32(id64))
+	dbUser, ok, err := s.store.Users.GetByID(ctx, userID)
 	if err != nil {
 		return User{}, errors.New("session not found")
 	}
@@ -409,6 +424,13 @@ func (s *Service) userBySessionToken(token string) (User, error) {
 	}
 	if dbUser.Status != "active" {
 		return User{}, errors.New("account is not active")
+	}
+	var currentTokenVersion int64
+	if err := s.store.Pool().QueryRow(ctx, `SELECT token_version FROM users WHERE id = $1`, userID).Scan(&currentTokenVersion); err != nil {
+		return User{}, errors.New("session not found")
+	}
+	if tokenVersion != currentTokenVersion {
+		return User{}, errors.New("session revoked")
 	}
 
 	var emailStr string
@@ -637,8 +659,11 @@ func (s *Service) generateAttendanceInviteTokenUntil(lessonID, teacherID string,
 		LessonID:  lessonID,
 		TeacherID: teacherID,
 		RegisteredClaims: jwt.RegisteredClaims{
+			Issuer:    "ejournal",
+			Audience:  jwt.ClaimStrings{"ejournal-attendance"},
 			ExpiresAt: jwt.NewNumericDate(exp),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			NotBefore: jwt.NewNumericDate(time.Now().Add(-5 * time.Second)),
 		},
 	}
 
@@ -657,9 +682,15 @@ func (s *Service) parseAttendanceInviteToken(inviteToken string) (*AttendanceInv
 		return nil, errors.New("missing invite token")
 	}
 
-	parsed, err := jwt.ParseWithClaims(inviteToken, &AttendanceInviteClaims{}, func(token *jwt.Token) (any, error) {
-		return s.jwtSecret, nil
-	})
+	parsed, err := jwt.ParseWithClaims(
+		inviteToken,
+		&AttendanceInviteClaims{},
+		func(token *jwt.Token) (any, error) { return s.jwtSecret, nil },
+		jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}),
+		jwt.WithIssuer("ejournal"),
+		jwt.WithAudience("ejournal-attendance"),
+		jwt.WithExpirationRequired(),
+	)
 	if err != nil {
 		return nil, errors.New("invalid invite token")
 	}
@@ -694,6 +725,9 @@ func (s *Service) register(data RegisterData) Response {
 	password := strings.TrimSpace(data.Password)
 	if login == "" || password == "" {
 		return Response{OK: false, Error: "login and password are required"}
+	}
+	if len(password) < 8 {
+		return Response{OK: false, Error: "password must be at least 8 characters long"}
 	}
 
 	role, ok := s.resolveRoleByHash(data.RoleHash)
@@ -756,6 +790,9 @@ func (s *Service) registerByInvite(data RegisterByInviteData) Response {
 	}
 	if login == "" || password == "" {
 		return Response{OK: false, Error: "login and password are required"}
+	}
+	if len(password) < 8 {
+		return Response{OK: false, Error: "password must be at least 8 characters long"}
 	}
 
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
@@ -883,7 +920,7 @@ func (s *Service) registerByInvite(data RegisterByInviteData) Response {
 	}
 
 	userID := strconv.FormatInt(int64(created.ID), 10)
-	token, err := s.generateJWT(userID)
+	token, err := s.generateJWT(created.ID, 1)
 	if err != nil {
 		return Response{OK: false, Error: "EROR_generateJWT: " + err.Error()}
 	}
@@ -930,19 +967,23 @@ func (s *Service) login(data LoginData) Response {
 		return Response{OK: false, Error: "failed to read user"}
 	}
 	if !ok {
-		return Response{OK: false, Error: "user does not exist"}
-	}
-	if storedUser.Status != "active" {
-		return Response{OK: false, Error: "account is not active"}
+		_ = bcrypt.CompareHashAndPassword(dummyPasswordHash, []byte(password))
+		return Response{OK: false, Error: "invalid credentials"}
 	}
 
-	if !s.passwordMatches(ctx, storedUser.PasswordHash, password) {
-		return Response{OK: false, Error: "wrong password"}
+	if !s.passwordMatches(ctx, storedUser.PasswordHash, password) || storedUser.Status != "active" {
+		return Response{OK: false, Error: "invalid credentials"}
 	}
 
 	var is2faEnabled bool
 	var totpSecret string
-	_ = s.store.Pool().QueryRow(ctx, "SELECT is_2fa_enabled, COALESCE(totp_secret, '') FROM users WHERE id = $1", storedUser.ID).Scan(&is2faEnabled, &totpSecret)
+	var tokenVersion int64
+	if err := s.store.Pool().QueryRow(ctx, `
+		SELECT is_2fa_enabled, COALESCE(totp_secret, ''), token_version
+		FROM users WHERE id = $1
+	`, storedUser.ID).Scan(&is2faEnabled, &totpSecret, &tokenVersion); err != nil {
+		return Response{OK: false, Error: "failed to read user security settings"}
+	}
 
 	if is2faEnabled {
 		if data.TwoFaCode == "" {
@@ -952,7 +993,7 @@ func (s *Service) login(data LoginData) Response {
 				Error: "requires_2fa",
 				Result: map[string]any{
 					"push_sent": pushSent,
-					"message":   "TOTP 2FA code dispatched via Push notification to registered device",
+					"message":   "Enter the current code from your authenticator app",
 				},
 			}
 		}
@@ -962,7 +1003,7 @@ func (s *Service) login(data LoginData) Response {
 	}
 
 	userID := strconv.FormatInt(int64(storedUser.ID), 10)
-	token, err := s.generateJWT(userID)
+	token, err := s.generateJWT(storedUser.ID, tokenVersion)
 	if err != nil {
 		return Response{OK: false, Error: "EROR_generateJWT: " + err.Error()}
 	}
@@ -1009,7 +1050,6 @@ func (s *Service) createAttendanceLinkByTeacher(sessionToken string, data Attend
 	if teacherUser.Role != "teacher" {
 		return Response{OK: false, Error: "forbidden: teacher role required"}
 	}
-	demoTeacher := isDemoTeacher(teacherUser)
 	teacherProfile, err := s.teacherProfileByUser(teacherUser)
 	if err != nil {
 		return Response{OK: false, Error: err.Error()}
@@ -1023,10 +1063,10 @@ func (s *Service) createAttendanceLinkByTeacher(sessionToken string, data Attend
 	if err != nil {
 		return Response{OK: false, Error: "failed to load nearest lesson"}
 	}
-	if !found && !demoTeacher {
+	if !found {
 		return Response{OK: false, Error: "no scheduled lessons found for teacher"}
 	}
-	if found && !demoTeacher && !s.allowEarlyAttendance && nowLocal.Before(nearestLesson.StartAt.Add(-15*time.Minute)) {
+	if !s.allowEarlyAttendance && nowLocal.Before(nearestLesson.StartAt.Add(-15*time.Minute)) {
 		return Response{
 			OK: false,
 			Error: fmt.Sprintf(
@@ -1043,7 +1083,7 @@ func (s *Service) createAttendanceLinkByTeacher(sessionToken string, data Attend
 	if requestedSubjectID <= 0 {
 		return Response{OK: false, Error: "subject_id is required"}
 	}
-	if found && !demoTeacher && requestedSubjectID != nearestLesson.SubjectID {
+	if requestedSubjectID != nearestLesson.SubjectID {
 		return Response{OK: false, Error: "subject_id does not match nearest scheduled lesson"}
 	}
 
@@ -1054,7 +1094,7 @@ func (s *Service) createAttendanceLinkByTeacher(sessionToken string, data Attend
 	if len(groupIDs) == 0 {
 		return Response{OK: false, Error: "group_ids are required"}
 	}
-	if found && !demoTeacher && !containsAllGroupIDs(nearestLesson.GroupIDs, groupIDs) {
+	if !containsAllGroupIDs(nearestLesson.GroupIDs, groupIDs) {
 		return Response{OK: false, Error: "group_ids do not match nearest scheduled lesson"}
 	}
 	sort.Slice(groupIDs, func(i, j int) bool { return groupIDs[i] < groupIDs[j] })
@@ -1247,6 +1287,13 @@ func (s *Service) attendanceByGroupForTeacher(sessionToken string, data Attendan
 	if err != nil {
 		return Response{OK: false, Error: err.Error()}
 	}
+	allowed, err := s.teacherCanAccessGroup(ctx, teacherProfile.ID, data.GroupID, semester.ID, data.SubjectID)
+	if err != nil {
+		return Response{OK: false, Error: "failed to check teacher group access"}
+	}
+	if !allowed {
+		return Response{OK: false, Error: "forbidden: group is not assigned to teacher"}
+	}
 
 	stats, err := s.store.Attendance.GetTeacherGroupAttendanceStats(ctx, teacherProfile.ID, data.GroupID, data.SubjectID, semester.ID)
 	if err != nil {
@@ -1346,6 +1393,13 @@ func (s *Service) groupPerformanceForTeacher(sessionToken string, data GroupPerf
 	}
 	if resp := s.ensureTeacherSubjectAccess(ctx, teacherProfile.ID, data.SubjectID, semester.ID); !resp.OK {
 		return resp
+	}
+	allowed, err := s.teacherCanAccessGroup(ctx, teacherProfile.ID, data.GroupID, semester.ID, &data.SubjectID)
+	if err != nil {
+		return Response{OK: false, Error: "failed to check teacher group access"}
+	}
+	if !allowed {
+		return Response{OK: false, Error: "forbidden: group is not assigned to teacher for this subject"}
 	}
 
 	rows, err := s.store.Attendance.GetGroupSubjectPerformance(ctx, teacherProfile.ID, data.GroupID, data.SubjectID, semester.ID)
@@ -1746,6 +1800,9 @@ func (s *Service) attendanceHistoryForTeacherStudent(sessionToken string, data T
 	if resp := s.ensureTeacherSubjectAccess(ctx, teacherProfile.ID, data.SubjectID, semester.ID); !resp.OK {
 		return resp
 	}
+	if resp := s.ensureTeacherStudentSubjectAccess(ctx, teacherProfile.ID, data.StudentID, data.SubjectID, semester.ID); !resp.OK {
+		return resp
+	}
 
 	rows, err := s.store.Attendance.GetStudentSubjectAttendanceHistory(ctx, data.StudentID, data.SubjectID, semester.ID)
 	if err != nil {
@@ -1789,42 +1846,9 @@ func (s *Service) teacherSubjects(sessionToken string) Response {
 	defer cancel()
 
 	items := make([]TeacherSubjectsResultItem, 0)
-	if isDemoTeacher(teacherUser) {
-		rows, err := s.store.Pool().Query(
-			ctx,
-			`SELECT sub.subject_id,
-			        sub.name,
-			        COALESCE(ARRAY_REMOVE(ARRAY_AGG(DISTINCT sch.group_id), NULL), '{}')::INTEGER[] AS group_ids
-			 FROM subjects sub
-			 LEFT JOIN schedules sch
-			        ON sch.subject_id = sub.subject_id
-			       AND sch.teacher_id = $1
-			       AND sch.semester_id = (
-			           SELECT semester_id FROM semesters WHERE status = 'open' LIMIT 1
-			       )
-			 GROUP BY sub.subject_id, sub.name
-			 ORDER BY sub.name, sub.subject_id`,
-			teacherProfile.ID,
-		)
-		if err != nil {
-			return Response{OK: false, Error: "failed to load teacher subjects"}
-		}
-		defer rows.Close()
-
-		for rows.Next() {
-			var item TeacherSubjectsResultItem
-			if err := rows.Scan(&item.SubjectID, &item.SubjectName, &item.GroupIDs); err != nil {
-				return Response{OK: false, Error: "failed to scan teacher subjects"}
-			}
-			items = append(items, item)
-		}
-		if err := rows.Err(); err != nil {
-			return Response{OK: false, Error: "failed to iterate teacher subjects"}
-		}
-	} else {
-		rows, err := s.store.Pool().Query(
-			ctx,
-			`SELECT sch.subject_id,
+	rows, err := s.store.Pool().Query(
+		ctx,
+		`SELECT sch.subject_id,
 			        sub.name,
 			        COALESCE(ARRAY_REMOVE(ARRAY_AGG(DISTINCT sch.group_id), NULL), '{}')::INTEGER[] AS group_ids
 			 FROM schedules sch
@@ -1835,23 +1859,22 @@ func (s *Service) teacherSubjects(sessionToken string) Response {
 			   )
 			 GROUP BY sch.subject_id, sub.name
 			 ORDER BY sub.name, sch.subject_id`,
-			teacherProfile.ID,
-		)
-		if err != nil {
-			return Response{OK: false, Error: "failed to load teacher subjects"}
-		}
-		defer rows.Close()
+		teacherProfile.ID,
+	)
+	if err != nil {
+		return Response{OK: false, Error: "failed to load teacher subjects"}
+	}
+	defer rows.Close()
 
-		for rows.Next() {
-			var item TeacherSubjectsResultItem
-			if err := rows.Scan(&item.SubjectID, &item.SubjectName, &item.GroupIDs); err != nil {
-				return Response{OK: false, Error: "failed to scan teacher subjects"}
-			}
-			items = append(items, item)
+	for rows.Next() {
+		var item TeacherSubjectsResultItem
+		if err := rows.Scan(&item.SubjectID, &item.SubjectName, &item.GroupIDs); err != nil {
+			return Response{OK: false, Error: "failed to scan teacher subjects"}
 		}
-		if err := rows.Err(); err != nil {
-			return Response{OK: false, Error: "failed to iterate teacher subjects"}
-		}
+		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return Response{OK: false, Error: "failed to iterate teacher subjects"}
 	}
 
 	if err := s.populateSubjectGroupNames(ctx, items); err != nil {
@@ -1929,7 +1952,7 @@ func (s *Service) populateSubjectGroupNames(ctx context.Context, items []Teacher
 func (s *Service) handleRequest(raw string) Response {
 	var req Request
 	if err := json.Unmarshal([]byte(raw), &req); err != nil {
-		return Response{OK: false, Error: "EROR: " + err.Error()}
+		return Response{OK: false, Error: "invalid request payload"}
 	}
 
 	switch req.Action {
@@ -1942,7 +1965,7 @@ func (s *Service) handleRequest(raw string) Response {
 	case "register":
 		var data RegisterData
 		if err := json.Unmarshal(req.Data, &data); err != nil {
-			return Response{ID: req.ID, OK: false, Error: "EROR reg: " + err.Error()}
+			return Response{ID: req.ID, OK: false, Error: "invalid registration payload"}
 		}
 		resp := s.register(data)
 		resp.ID = req.ID
@@ -1959,7 +1982,7 @@ func (s *Service) handleRequest(raw string) Response {
 		var data LoginData
 		err := json.Unmarshal(req.Data, &data)
 		if err != nil {
-			return Response{ID: req.ID, OK: false, Error: "EROR_login: " + err.Error()}
+			return Response{ID: req.ID, OK: false, Error: "invalid login payload"}
 		}
 		resp := s.login(data)
 		resp.ID = req.ID
@@ -2218,7 +2241,11 @@ func (s *Service) handleRequest(raw string) Response {
 		resp.ID = req.ID
 		return resp
 	case "disable_2fa":
-		resp := s.disable2fa(req.Token)
+		var data TwoFaCodeData
+		if err := json.Unmarshal(req.Data, &data); err != nil {
+			return Response{ID: req.ID, OK: false, Error: "invalid disable_2fa payload"}
+		}
+		resp := s.disable2fa(req.Token, data)
 		resp.ID = req.ID
 		return resp
 	case "request_email_bind":
@@ -2510,41 +2537,58 @@ func (s *Service) handleRequest(raw string) Response {
 	}
 }
 
-func (s *Service) generateJWT(userID string) (string, error) {
-	cl := jwt.MapClaims{
-		"user_id": userID,
-		"exp":     time.Now().Add(time.Hour * 12).Unix(),
+func (s *Service) generateJWT(userID int32, tokenVersion int64) (string, error) {
+	if userID <= 0 || tokenVersion <= 0 {
+		return "", errors.New("invalid session identity")
+	}
+	jtiBytes := make([]byte, 16)
+	if _, err := rand.Read(jtiBytes); err != nil {
+		return "", err
+	}
+	now := time.Now().UTC()
+	claims := SessionClaims{
+		UserID:       userID,
+		TokenVersion: tokenVersion,
+		RegisteredClaims: jwt.RegisteredClaims{
+			Issuer:    "ejournal",
+			Subject:   strconv.FormatInt(int64(userID), 10),
+			Audience:  jwt.ClaimStrings{"ejournal-web"},
+			ExpiresAt: jwt.NewNumericDate(now.Add(time.Hour)),
+			IssuedAt:  jwt.NewNumericDate(now),
+			NotBefore: jwt.NewNumericDate(now.Add(-5 * time.Second)),
+			ID:        hex.EncodeToString(jtiBytes),
+		},
 	}
 
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, cl)
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString(s.jwtSecret)
 }
 
-func (s *Service) validateJWT(tokenString string) (string, error) {
-	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (any, error) {
-		return s.jwtSecret, nil
-	})
+func (s *Service) validateJWT(tokenString string) (int32, int64, error) {
+	claims := &SessionClaims{}
+	token, err := jwt.ParseWithClaims(
+		tokenString,
+		claims,
+		func(token *jwt.Token) (any, error) { return s.jwtSecret, nil },
+		jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}),
+		jwt.WithIssuer("ejournal"),
+		jwt.WithAudience("ejournal-web"),
+		jwt.WithExpirationRequired(),
+	)
 	if err != nil {
-		return "", err
+		return 0, 0, err
 	}
 
 	if !token.Valid {
-		return "", errors.New("token is not valid")
+		return 0, 0, errors.New("token is not valid")
 	}
-
-	cl, ok := token.Claims.(jwt.MapClaims)
-	if !ok {
-		return "", errors.New("claims type is invalid")
+	if claims.UserID <= 0 || claims.TokenVersion <= 0 {
+		return 0, 0, errors.New("session claims are incomplete")
 	}
-
-	if userID, ok := cl["user_id"].(string); ok {
-		return userID, nil
+	if claims.Subject != strconv.FormatInt(int64(claims.UserID), 10) {
+		return 0, 0, errors.New("session subject does not match user")
 	}
-	if userID, ok := cl["user_id"].(float64); ok {
-		return strconv.FormatInt(int64(userID), 10), nil
-	}
-
-	return "", fmt.Errorf("no user id found in claims")
+	return claims.UserID, claims.TokenVersion, nil
 }
 
 func (s *Service) deleteEmail(sessionToken string) Response {
@@ -2560,10 +2604,8 @@ func (s *Service) deleteEmail(sessionToken string) Response {
 	defer cancel()
 
 	if err := s.store.Users.DeleteEmail(ctx, user.ID); err != nil {
-		return Response{
-			OK:    false,
-			Error: fmt.Sprintf("failed to delete email: %v", err),
-		}
+		log.Printf("failed to delete email for user %d: %v", user.ID, err)
+		return Response{OK: false, Error: "failed to delete email"}
 	}
 
 	return Response{
@@ -2592,31 +2634,36 @@ func (s *Service) forgotPassword(data ForgotPasswordData) Response {
 	}
 
 	if err != nil {
-		return Response{OK: false, Error: fmt.Sprintf("Error finding user: %v", err)}
+		log.Printf("password reset identity lookup failed: %v", err)
+		return Response{OK: false, Error: "password reset is temporarily unavailable"}
 	}
 	if !ok {
 		return Response{OK: true, Result: "If the account exists and has a registered email, a reset link has been sent."}
 	}
 
 	if dbUser.Email == nil || *dbUser.Email == "" {
-		return Response{OK: false, Error: "User has no registered email address"}
+		return Response{OK: true, Result: "If the account exists and has a registered email, a reset link has been sent."}
+	}
+	if s.mailer == nil || !s.mailer.Available() {
+		return Response{OK: true, Result: "If the account exists and has a registered email, a reset link has been sent."}
 	}
 
 	tokenBytes := make([]byte, 32)
 	if _, err := rand.Read(tokenBytes); err != nil {
-		return Response{OK: false, Error: fmt.Sprintf("Error generating token: %v", err)}
+		return Response{OK: false, Error: "password reset is temporarily unavailable"}
 	}
 	token := hex.EncodeToString(tokenBytes)
 	expiresAt := time.Now().Add(15 * time.Minute)
 
 	if err := s.store.Users.CreateResetToken(ctx, dbUser.ID, token, expiresAt); err != nil {
-		return Response{OK: false, Error: fmt.Sprintf("Error creating reset token: %v", err)}
+		log.Printf("failed to create password reset token: %v", err)
+		return Response{OK: false, Error: "password reset is temporarily unavailable"}
 	}
 
 	email := *dbUser.Email
 	go func() {
 		if err := s.mailer.SendPasswordReset(email, token); err != nil {
-			log.Printf("Failed to send password reset email to %s: %v", email, err)
+			log.Printf("failed to send password reset email: %v", err)
 		}
 	}()
 
@@ -2629,62 +2676,30 @@ func (s *Service) resetPassword(data ResetPasswordData) Response {
 	if token == "" || newPassword == "" {
 		return Response{OK: false, Error: "Token and new password are required"}
 	}
-	if len(newPassword) < 6 {
-		return Response{OK: false, Error: "Password must be at least 6 characters long"}
+	if len(newPassword) < 8 {
+		return Response{OK: false, Error: "Password must be at least 8 characters long"}
 	}
 
 	ctx, cancel := s.dbContext()
 	defer cancel()
 
-	userID, expiresAt, err := s.store.Users.GetResetToken(ctx, token)
-	if err != nil {
-		return Response{OK: false, Error: "Invalid or expired token"}
-	}
-
-	if time.Now().After(expiresAt) {
-		_ = s.store.Users.DeleteResetToken(ctx, token)
-		return Response{OK: false, Error: "Invalid or expired token"}
-	}
-
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
 	if err != nil {
-		return Response{OK: false, Error: fmt.Sprintf("Error hashing password: %v", err)}
+		return Response{OK: false, Error: "failed to update password"}
 	}
 
-	if err := s.store.Users.UpdatePassword(ctx, userID, string(hashedPassword)); err != nil {
-		return Response{OK: false, Error: fmt.Sprintf("Error updating password: %v", err)}
+	updated, err := s.store.Users.ResetPasswordWithToken(ctx, token, string(hashedPassword))
+	if err != nil {
+		log.Printf("failed to consume password reset token: %v", err)
+		return Response{OK: false, Error: "failed to update password"}
 	}
-
-	_ = s.store.Users.DeleteResetToken(ctx, token)
+	if !updated {
+		return Response{OK: false, Error: "Invalid or expired token"}
+	}
 
 	return Response{OK: true, Result: "Password has been successfully updated"}
 }
 
 func (s *Service) updateEmail(sessionToken string, data UpdateEmailData) Response {
-	user, err := s.userBySessionToken(sessionToken)
-	if err != nil {
-		return Response{OK: false, Error: "Unauthorized: " + err.Error()}
-	}
-
-	email := strings.TrimSpace(data.Email)
-	if email == "" {
-		return Response{OK: false, Error: "Email is required"}
-	}
-	if !strings.Contains(email, "@") {
-		return Response{OK: false, Error: "Invalid email format"}
-	}
-
-	ctx, cancel := s.dbContext()
-	defer cancel()
-
-	existingUser, ok, err := s.store.Users.GetByEmail(ctx, email)
-	if err == nil && ok && existingUser.ID != user.ID {
-		return Response{OK: false, Error: "Email is already in use by another user"}
-	}
-
-	if err := s.store.Users.UpdateEmail(ctx, user.ID, email); err != nil {
-		return Response{OK: false, Error: fmt.Sprintf("Error updating email: %v", err)}
-	}
-
-	return Response{OK: true, Result: "Email has been successfully updated"}
+	return s.requestEmailBind(sessionToken, RequestEmailData{Email: data.Email})
 }

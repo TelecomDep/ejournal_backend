@@ -72,8 +72,13 @@ func TestRatingPercent(t *testing.T) {
 
 func TestStudentReference(t *testing.T) {
 	t.Parallel()
-	if got := studentReference(1); got != "STU-0001" {
-		t.Fatalf("studentReference(1) = %q, want STU-0001", got)
+	svc := &Service{jwtSecret: []byte("test-secret")}
+	got := svc.studentReference(1)
+	if got == "STU-0001" || len(got) != len("STU-")+12 {
+		t.Fatalf("studentReference(1) = %q, want a non-reversible stable pseudonym", got)
+	}
+	if got != svc.studentReference(1) {
+		t.Fatalf("studentReference(1) is not stable")
 	}
 }
 

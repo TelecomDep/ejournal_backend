@@ -25,6 +25,8 @@ func (r *Agreement) RecordDecision(
 	version string,
 	decision string,
 	documentHash string,
+	actorLogin string,
+	actorRole string,
 	ip string,
 	userAgent string,
 ) (int64, time.Time, error) {
@@ -38,6 +40,8 @@ func (r *Agreement) RecordDecision(
 			version,
 			decision,
 			document_hash,
+			actor_login,
+			actor_role,
 			ip,
 			user_agent
 		)
@@ -46,9 +50,11 @@ func (r *Agreement) RecordDecision(
 			$2,
 			$3,
 			$4,
-			NULLIF($5, ''),
-			NULLIF($6, '')::inet,
-			$7
+			$5,
+			$6,
+			$7,
+			NULLIF($8, '')::inet,
+			$9
 		)
 		RETURNING decision_id, decided_at
 	`,
@@ -57,6 +63,8 @@ func (r *Agreement) RecordDecision(
 		version,
 		decision,
 		documentHash,
+		actorLogin,
+		actorRole,
 		ip,
 		userAgent,
 	).Scan(&decisionID, &decidedAt)

@@ -24,7 +24,10 @@ type AppConfig struct {
 	SMTPUser             string
 	SMTPPassword         string
 	SMTPFrom             string
+	SMTPTLSServerName    string
+	SMTPCAFile           string
 	MetricsToken         string
+	TrustedProxies       string
 }
 
 func Load() AppConfig {
@@ -46,7 +49,10 @@ func Load() AppConfig {
 		SMTPUser:             getEnv("SMTP_USER", ""),
 		SMTPPassword:         getEnv("SMTP_PASSWORD", ""),
 		SMTPFrom:             getEnv("SMTP_FROM", ""),
+		SMTPTLSServerName:    getEnv("SMTP_TLS_SERVER_NAME", ""),
+		SMTPCAFile:           getEnv("SMTP_CA_FILE", ""),
 		MetricsToken:         strings.TrimSpace(os.Getenv("METRICS_TOKEN")),
+		TrustedProxies:       getEnv("TRUSTED_PROXIES", "127.0.0.1,::1"),
 	}
 
 	if cfg.JWTSecret == "" {

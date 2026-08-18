@@ -23,6 +23,8 @@ type generalRatingResponse struct {
 // @Produce json
 // @Security BearerAuth
 // @Param semester_id query int false "Semester ID; defaults to the open semester"
+// @Param page query int false "Group page; defaults to 1"
+// @Param page_size query int false "Groups per page; defaults to 20, maximum 50"
 // @Success 200 {object} generalRatingResponse
 // @Failure 400 {object} app.Response
 // @Failure 401 {object} app.Response
@@ -41,7 +43,7 @@ func (s *Server) generalRatingHandler(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(app.Response{ID: generalRatingRequestID, OK: false, Error: err.Error()})
 	}
 
-	payload, resp := s.svc.GeneralRating(token, semesterID)
+	payload, resp := s.svc.GeneralRating(token, semesterID, int32(c.QueryInt("page", 1)), int32(c.QueryInt("page_size", 20)))
 	resp.ID = generalRatingRequestID
 	if payload == nil {
 		return c.Status(generalRatingHTTPStatus(resp)).JSON(resp)
@@ -55,7 +57,7 @@ func (s *Server) generalRatingHandler(c *fiber.Ctx) error {
 
 func generalRatingHTTPStatus(resp app.Response) int {
 	switch resp.Error {
-	case "invalid token", "session not found", "missing token", "account is not active":
+	case "invalid token", "session not found", "session revoked", "missing token", "account is not active":
 		return fiber.StatusUnauthorized
 	case "forbidden: staff role required":
 		return fiber.StatusForbidden

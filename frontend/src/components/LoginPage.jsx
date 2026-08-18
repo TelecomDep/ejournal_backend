@@ -46,12 +46,8 @@ const LoginPage = ({ onLogin, onRegister, loading, error }) => {
     setLocalError('');
     setLocalMessage('');
 
-    if (view === 'register') {
-      if (!personalDataConsent) {
-        setLocalError('Для регистрации необходимо согласие на обработку персональных данных');
-        return;
-      }
-      onRegister(login.trim(), password, registrationCode.trim());
+	if (view === 'register') {
+		onRegister(login.trim(), password, registrationCode.trim(), personalDataConsent);
     } else if (view === 'login') {
       onLogin(login.trim(), password, twoFaCode.trim());
     } else if (view === 'forgot') {
@@ -74,8 +70,8 @@ const LoginPage = ({ onLogin, onRegister, loading, error }) => {
         setLocalError('Токен сброса пароля обязателен');
         return;
       }
-      if (newPassword.length < 4) {
-        setLocalError('Пароль должен содержать минимум 4 символа');
+	  if (newPassword.length < 8) {
+		setLocalError('Пароль должен содержать минимум 8 символов');
         return;
       }
       if (newPassword !== confirmPassword) {
@@ -149,8 +145,7 @@ const LoginPage = ({ onLogin, onRegister, loading, error }) => {
                     value={login}
                     onChange={(e) => setLogin(e.target.value)}
                     placeholder="Введите логин"
-                    required
-                  />
+				  />
                 </label>
 
                 <label>
@@ -215,14 +210,14 @@ const LoginPage = ({ onLogin, onRegister, loading, error }) => {
                       setPersonalDataConsent(event.target.checked);
                       if (event.target.checked) setLocalError('');
                     }}
-                    required
                   />
                   <div>
                     <label htmlFor="personal-data-consent">
                       Я даю согласие на обработку персональных данных
                     </label>
+                    <small>Отказ не ограничивает работу сервиса; в общем рейтинге ФИО будет скрыто.</small>
                     <a
-                      href={`${process.env.PUBLIC_URL}/personal-data-consent.pdf`}
+                      href="/personal-data-consent.pdf"
                       target="_blank"
                       rel="noopener noreferrer"
                     >
@@ -289,7 +284,7 @@ const LoginPage = ({ onLogin, onRegister, loading, error }) => {
 
           <button
             type="submit"
-            disabled={loading || localLoading || (view === 'register' && !personalDataConsent)}
+            disabled={loading || localLoading}
           >
             {loading || localLoading
               ? (view === 'register' ? 'Регистрация...' : view === 'forgot' ? 'Отправка...' : view === 'reset' ? 'Сброс...' : 'Выполняется вход...')

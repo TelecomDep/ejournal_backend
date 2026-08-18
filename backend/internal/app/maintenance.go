@@ -3,7 +3,11 @@ package app
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"strings"
 	"time"
+
+	"github.com/jackc/pgx/v5"
 )
 
 type MaintenanceStatus struct {
@@ -21,19 +25,26 @@ func (s *Service) GetMaintenanceStatus(ctx context.Context) (MaintenanceStatus, 
 		 FROM system_settings
 		 WHERE setting_key = 'maintenance_mode'`,
 	).Scan(&valJSON, &updatedAt)
-	if err != nil {
+	if errors.Is(err, pgx.ErrNoRows) {
 		return MaintenanceStatus{Enabled: false, Message: "System operating normally"}, nil
+	}
+	if err != nil {
+		return MaintenanceStatus{}, err
 	}
 
 	var status MaintenanceStatus
 	if err := json.Unmarshal(valJSON, &status); err != nil {
-		return MaintenanceStatus{Enabled: false, Message: "System operating normally"}, nil
+		return MaintenanceStatus{}, err
 	}
 	status.UpdatedAt = updatedAt
 	return status, nil
 }
 
 func (s *Service) SetMaintenanceStatus(ctx context.Context, enabled bool, message string) error {
+	message = strings.TrimSpace(message)
+	if len(message) > 500 {
+		message = message[:500]
+	}
 	status := MaintenanceStatus{
 		Enabled: enabled,
 		Message: message,
@@ -55,6 +66,13 @@ func (s *Service) SetMaintenanceStatus(ctx context.Context, enabled bool, messag
 }
 
 func (s *Service) admin_system_maintenance_get(token string) Response {
+	actor, err := s.userBySessionToken(token)
+	if err != nil {
+		return Response{OK: false, Error: "unauthorized"}
+	}
+	if actor.Role != RoleAdmin && actor.Role != RoleMinister {
+		return Response{OK: false, Error: "forbidden: admin role required"}
+	}
 	ctx, cancel := s.dbContext()
 	defer cancel()
 
@@ -85,7 +103,7 @@ func (s *Service) admin_system_maintenance_set(token string, req MaintenanceStat
 		return Response{OK: false, Error: "failed to update maintenance status"}
 	}
 
-	s.RecordAuditLog(
+	if err := s.RecordAuditLog(
 		ctx,
 		actor.ID,
 		actor.Login,
@@ -98,7 +116,9 @@ func (s *Service) admin_system_maintenance_set(token string, req MaintenanceStat
 			"message": req.Message,
 		},
 		"",
-	)
+	); err != nil {
+		return Response{OK: false, Error: "maintenance updated, but audit log could not be recorded"}
+	}
 
 	return Response{
 		OK: true,

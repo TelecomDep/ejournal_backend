@@ -38,6 +38,7 @@ services:
       SITE_BASE_URL: ${SITE_BASE_URL:-https://${DOMAIN:-lms.signal.qlabs.pro}}
       APP_PORT: ${APP_PORT:-8888}
       CORS_ALLOW_ORIGINS: ${CORS_ALLOW_ORIGINS:-https://${DOMAIN:-lms.signal.qlabs.pro},http://localhost:8888,http://127.0.0.1:8888,http://localhost:3000,http://127.0.0.1:3000}
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-127.0.0.1,::1,172.16.0.0/12}
       DB_DSN: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-ejournal}?sslmode=disable
       ROLE_HASH_TEACHER: ${ROLE_HASH_TEACHER:-TEACHER-HASH-2026}
       ROLE_HASH_STUDENT: ${ROLE_HASH_STUDENT:-STUDENT-HASH-2026}
@@ -49,6 +50,7 @@ services:
       SMTP_USER: ${SMTP_USER:-noreply@signal.qlabs.pro}
       SMTP_PASSWORD: ${SMTP_PASSWORD}
       SMTP_FROM: ${SMTP_FROM:-noreply@signal.qlabs.pro}
+      SMTP_TLS_SERVER_NAME: ${SMTP_TLS_SERVER_NAME:-${DOMAIN:-lms.signal.qlabs.pro}}
     depends_on:
       postgres:
         condition: service_healthy
@@ -91,8 +93,7 @@ services:
   mailserver:
     image: mailserver/docker-mailserver:14.0.0
     container_name: mailserver
-    hostname: signal
-    domainname: qlabs.pro
+    hostname: ${DOMAIN:-lms.signal.qlabs.pro}
     ports:
       - "25:25"
       - "587:587"
@@ -103,13 +104,13 @@ services:
       - ENABLE_CLAMAV=0
       - ENABLE_AMAVIS=0
       - ENABLE_FAIL2BAN=1
-      - SSL_TYPE=
+      - SSL_TYPE=letsencrypt
     volumes:
       - mail-data:/var/mail
       - mail-state:/var/mail-state
       - mail-config:/tmp/docker-mailserver
       - /etc/localtime:/etc/localtime:ro
-      - /etc/letsencrypt:/etc/letsencrypt:ro
+      - ./certbot/conf:/etc/letsencrypt:ro
     restart: unless-stopped
 
   postgres-exporter:

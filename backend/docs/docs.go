@@ -1079,6 +1079,18 @@ const docTemplate = `{
                         "description": "Semester ID; defaults to the open semester",
                         "name": "semester_id",
                         "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Group page; defaults to 1",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Groups per page; defaults to 20, maximum 50",
+                        "name": "page_size",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -4053,6 +4065,23 @@ const docTemplate = `{
                 }
             }
         },
+        "app.GeneralRatingPagination": {
+            "type": "object",
+            "properties": {
+                "page": {
+                    "type": "integer"
+                },
+                "page_size": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
+                },
+                "total_pages": {
+                    "type": "integer"
+                }
+            }
+        },
         "app.GeneralRatingPayload": {
             "type": "object",
             "properties": {
@@ -4070,6 +4099,9 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/app.GeneralRatingGroup"
                     }
+                },
+                "pagination": {
+                    "$ref": "#/definitions/app.GeneralRatingPagination"
                 },
                 "schema_version": {
                     "type": "string"

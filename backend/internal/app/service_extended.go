@@ -2,13 +2,21 @@ package app
 
 import (
 	"bytes"
-	"crypto/rand"
 	"encoding/base64"
-	"encoding/hex"
 	"image/png"
+	"log"
+	"net/mail"
+	"regexp"
+	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/pquerna/otp/totp"
+)
+
+var (
+	hexConfirmationCodePattern = regexp.MustCompile(`^[0-9a-f]{6}$`)
+	totpCodePattern            = regexp.MustCompile(`^[0-9]{6}$`)
 )
 
 type TwoFaCodeData struct {
@@ -37,25 +45,26 @@ func (s *Service) request2FAEnable(token string) Response {
 		return Response{OK: false, Error: "email_required"}
 	}
 
-	b := make([]byte, 3)
-	rand.Read(b)
-	code := hex.EncodeToString(b) // 6 chars hex
-
-	ctx, cancel := s.dbContext()
-	defer cancel()
-
-	_, err = s.store.Pool().Exec(ctx, `
-		INSERT INTO password_reset_tokens (user_id, token, expires_at) 
-		VALUES ($1, $2, $3)
-	`, user.ID, "2FA_ENABLE_"+code, time.Now().Add(15*time.Minute))
-
+	if s.mailer == nil || !s.mailer.Available() {
+		return Response{OK: false, Error: "email delivery is unavailable"}
+	}
+	code, err := randomHexCode(3)
 	if err != nil {
 		return Response{OK: false, Error: "failed to generate confirmation code"}
 	}
 
-	if s.mailer != nil {
-		go s.mailer.Send2FAEnableConfirmation(user.Email, code)
+	ctx, cancel := s.dbContext()
+	defer cancel()
+
+	if err := s.createAuthChallenge(ctx, user.ID, "2fa_enable", "", code, 15*time.Minute); err != nil {
+		return Response{OK: false, Error: "failed to generate confirmation code"}
 	}
+
+	go func() {
+		if err := s.mailer.Send2FAEnableConfirmation(user.Email, code); err != nil {
+			log.Printf("failed to send 2FA enable confirmation: %v", err)
+		}
+	}()
 
 	return Response{OK: true, Result: "confirmation code sent to email"}
 }
@@ -70,25 +79,13 @@ func (s *Service) generate2fa(token string, data Generate2FAData) Response {
 		return Response{OK: false, Error: "email_required"}
 	}
 
-	if data.EmailCode == "" {
+	emailCode := strings.ToLower(strings.TrimSpace(data.EmailCode))
+	if !hexConfirmationCodePattern.MatchString(emailCode) {
 		return Response{OK: false, Error: "email confirmation code is required"}
 	}
 
 	ctx, cancel := s.dbContext()
 	defer cancel()
-
-	var dbToken string
-	err = s.store.Pool().QueryRow(ctx, `
-		SELECT token FROM password_reset_tokens 
-		WHERE user_id = $1 AND token = $2 AND expires_at > NOW()
-	`, user.ID, "2FA_ENABLE_"+data.EmailCode).Scan(&dbToken)
-
-	if err != nil {
-		return Response{OK: false, Error: "invalid or expired email confirmation code"}
-	}
-
-	// Code is valid, remove used token
-	_, _ = s.store.Pool().Exec(ctx, "DELETE FROM password_reset_tokens WHERE user_id = $1 AND token = $2", user.ID, "2FA_ENABLE_"+data.EmailCode)
 
 	key, err := totp.Generate(totp.GenerateOpts{
 		Issuer:      "TelecomDep E-Journal",
@@ -98,8 +95,14 @@ func (s *Service) generate2fa(token string, data Generate2FAData) Response {
 		return Response{OK: false, Error: "failed to generate TOTP secret"}
 	}
 
-	_, err = s.store.Pool().Exec(ctx, "UPDATE users SET totp_secret = $1 WHERE id = $2", key.Secret(), user.ID)
+	err = s.consumeAuthChallenge(ctx, user.ID, "2fa_enable", emailCode, func(tx pgx.Tx, _ string) error {
+		_, err := tx.Exec(ctx, "UPDATE users SET totp_secret = $1 WHERE id = $2", key.Secret(), user.ID)
+		return err
+	})
 	if err != nil {
+		if err == errInvalidAuthChallenge {
+			return Response{OK: false, Error: "invalid or expired email confirmation code"}
+		}
 		return Response{OK: false, Error: "failed to save TOTP secret"}
 	}
 
@@ -138,20 +141,25 @@ func (s *Service) verify2fa(token string, data TwoFaCodeData) Response {
 		return Response{OK: false, Error: "2FA setup not initiated"}
 	}
 
-	valid := totp.Validate(data.Code, secret)
+	code := strings.TrimSpace(data.Code)
+	valid := totpCodePattern.MatchString(code) && totp.Validate(code, secret)
 	if !valid {
 		return Response{OK: false, Error: "invalid TOTP code"}
 	}
 
-	_, err = s.store.Pool().Exec(ctx, "UPDATE users SET is_2fa_enabled = true WHERE id = $1", user.ID)
+	_, err = s.store.Pool().Exec(ctx, `
+		UPDATE users
+		SET is_2fa_enabled = true, token_version = token_version + 1
+		WHERE id = $1
+	`, user.ID)
 	if err != nil {
 		return Response{OK: false, Error: "failed to enable 2FA"}
 	}
 
-	return Response{OK: true, Result: "2FA enabled"}
+	return Response{OK: true, Result: "2FA enabled; sign in again"}
 }
 
-func (s *Service) disable2fa(token string) Response {
+func (s *Service) disable2fa(token string, data TwoFaCodeData) Response {
 	user, err := s.userBySessionToken(token)
 	if err != nil {
 		return Response{OK: false, Error: err.Error()}
@@ -160,12 +168,30 @@ func (s *Service) disable2fa(token string) Response {
 	ctx, cancel := s.dbContext()
 	defer cancel()
 
-	_, err = s.store.Pool().Exec(ctx, "UPDATE users SET is_2fa_enabled = false, totp_secret = NULL WHERE id = $1", user.ID)
+	code := strings.TrimSpace(data.Code)
+	if !totpCodePattern.MatchString(code) {
+		return Response{OK: false, Error: "valid TOTP code is required"}
+	}
+
+	var secret string
+	if err := s.store.Pool().QueryRow(ctx, `
+		SELECT COALESCE(totp_secret, '') FROM users WHERE id = $1 AND is_2fa_enabled = true
+	`, user.ID).Scan(&secret); err != nil || secret == "" || !totp.Validate(code, secret) {
+		return Response{OK: false, Error: "invalid TOTP code"}
+	}
+
+	_, err = s.store.Pool().Exec(ctx, `
+		UPDATE users
+		SET is_2fa_enabled = false,
+		    totp_secret = NULL,
+		    token_version = token_version + 1
+		WHERE id = $1
+	`, user.ID)
 	if err != nil {
 		return Response{OK: false, Error: "failed to disable 2FA"}
 	}
 
-	return Response{OK: true, Result: "2FA disabled"}
+	return Response{OK: true, Result: "2FA disabled; sign in again"}
 }
 
 func (s *Service) requestEmailBind(token string, data RequestEmailData) Response {
@@ -174,29 +200,41 @@ func (s *Service) requestEmailBind(token string, data RequestEmailData) Response
 		return Response{OK: false, Error: err.Error()}
 	}
 
-	if data.Email == "" {
+	emailAddress := strings.ToLower(strings.TrimSpace(data.Email))
+	parsedAddress, parseErr := mail.ParseAddress(emailAddress)
+	if parseErr != nil || !strings.EqualFold(parsedAddress.Address, emailAddress) || len(emailAddress) > 254 {
 		return Response{OK: false, Error: "email is required"}
 	}
+	if s.mailer == nil || !s.mailer.Available() {
+		return Response{OK: false, Error: "email delivery is unavailable"}
+	}
 
-	b := make([]byte, 3)
-	rand.Read(b)
-	code := hex.EncodeToString(b) // 6 chars hex
-
-	ctx, cancel := s.dbContext()
-	defer cancel()
-
-	_, err = s.store.Pool().Exec(ctx, `
-		INSERT INTO password_reset_tokens (user_id, token, expires_at) 
-		VALUES ($1, $2, $3)
-	`, user.ID, "EMAIL_BIND_"+code+"_"+data.Email, time.Now().Add(15*time.Minute))
-	
+	code, err := randomHexCode(3)
 	if err != nil {
 		return Response{OK: false, Error: "failed to generate confirmation code"}
 	}
 
-	if s.mailer != nil {
-		go s.mailer.SendEmailConfirmation(data.Email, code)
+	ctx, cancel := s.dbContext()
+	defer cancel()
+
+	var existingUserID int32
+	err = s.store.Pool().QueryRow(ctx, `SELECT id FROM users WHERE LOWER(email) = LOWER($1)`, emailAddress).Scan(&existingUserID)
+	if err == nil && existingUserID != user.ID {
+		return Response{OK: false, Error: "email is already in use"}
 	}
+	if err != nil && err != pgx.ErrNoRows {
+		return Response{OK: false, Error: "failed to validate email"}
+	}
+
+	if err := s.createAuthChallenge(ctx, user.ID, "email_bind", emailAddress, code, 15*time.Minute); err != nil {
+		return Response{OK: false, Error: "failed to generate confirmation code"}
+	}
+
+	go func() {
+		if err := s.mailer.SendEmailConfirmation(emailAddress, code); err != nil {
+			log.Printf("failed to send email confirmation: %v", err)
+		}
+	}()
 
 	return Response{OK: true, Result: "confirmation code sent"}
 }
@@ -207,28 +245,24 @@ func (s *Service) confirmEmailBind(token string, data ConfirmEmailData) Response
 		return Response{OK: false, Error: err.Error()}
 	}
 
-	ctx, cancel := s.dbContext()
-	defer cancel()
-
-	var dbToken string
-	err = s.store.Pool().QueryRow(ctx, `
-		SELECT token FROM password_reset_tokens 
-		WHERE user_id = $1 AND token LIKE $2 AND expires_at > NOW() 
-		ORDER BY created_at DESC LIMIT 1
-	`, user.ID, "EMAIL_BIND_"+data.Code+"_%").Scan(&dbToken)
-
-	if err != nil {
+	code := strings.ToLower(strings.TrimSpace(data.Code))
+	if !hexConfirmationCodePattern.MatchString(code) {
 		return Response{OK: false, Error: "invalid or expired confirmation code"}
 	}
 
-	email := dbToken[len("EMAIL_BIND_"+data.Code+"_"):]
+	ctx, cancel := s.dbContext()
+	defer cancel()
 
-	_, err = s.store.Pool().Exec(ctx, "UPDATE users SET email = $1 WHERE id = $2", email, user.ID)
+	err = s.consumeAuthChallenge(ctx, user.ID, "email_bind", code, func(tx pgx.Tx, email string) error {
+		_, err := tx.Exec(ctx, `UPDATE users SET email = $1 WHERE id = $2`, email, user.ID)
+		return err
+	})
 	if err != nil {
+		if err == errInvalidAuthChallenge {
+			return Response{OK: false, Error: "invalid or expired confirmation code"}
+		}
 		return Response{OK: false, Error: "failed to update email, maybe it is already in use"}
 	}
-
-	_, _ = s.store.Pool().Exec(ctx, "DELETE FROM password_reset_tokens WHERE user_id = $1 AND token LIKE 'EMAIL_BIND_%'", user.ID)
 
 	return Response{OK: true, Result: "email successfully bound"}
 }

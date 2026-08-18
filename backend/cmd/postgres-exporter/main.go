@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"log"
 	"net/http"
@@ -71,7 +72,9 @@ func main() {
 				time.Sleep(5 * time.Second)
 				continue
 			}
-			err := db.Ping()
+			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+			err := db.PingContext(ctx)
+			cancel()
 			if err != nil {
 				log.Printf("DB ping failed: %v", err)
 				pgUp.Set(0)
@@ -82,7 +85,9 @@ func main() {
 
 			var numBackends int
 			var commits, rollbacks, blksHit, blksRead float64
-			err = db.QueryRow("SELECT COALESCE(sum(numbackends), 0), COALESCE(sum(xact_commit), 0), COALESCE(sum(xact_rollback), 0), COALESCE(sum(blks_hit), 0), COALESCE(sum(blks_read), 0) FROM pg_stat_database").Scan(&numBackends, &commits, &rollbacks, &blksHit, &blksRead)
+			ctx, cancel = context.WithTimeout(context.Background(), 3*time.Second)
+			err = db.QueryRowContext(ctx, "SELECT COALESCE(sum(numbackends), 0), COALESCE(sum(xact_commit), 0), COALESCE(sum(xact_rollback), 0), COALESCE(sum(blks_hit), 0), COALESCE(sum(blks_read), 0) FROM pg_stat_database").Scan(&numBackends, &commits, &rollbacks, &blksHit, &blksRead)
+			cancel()
 			if err != nil {
 				log.Printf("Query pg_stat_database failed: %v", err)
 			} else {
@@ -104,7 +109,15 @@ func main() {
 
 	http.Handle("/metrics", promhttp.Handler())
 	log.Println("Starting postgres-exporter on :9187")
-	if err := http.ListenAndServe(":9187", nil); err != nil {
+	server := &http.Server{
+		Addr:              ":9187",
+		Handler:           http.DefaultServeMux,
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       10 * time.Second,
+		WriteTimeout:      10 * time.Second,
+		IdleTimeout:       60 * time.Second,
+	}
+	if err := server.ListenAndServe(); err != nil {
 		log.Fatal(err)
 	}
 }

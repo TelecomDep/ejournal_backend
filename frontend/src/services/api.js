@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const DEFAULT_BACKEND_URL = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8888';
-const BACKEND_URL = (process.env.REACT_APP_BACKEND_URL || DEFAULT_BACKEND_URL).replace(/\/$/, '');
+const BACKEND_URL = (import.meta.env.VITE_BACKEND_URL || DEFAULT_BACKEND_URL).replace(/\/$/, '');
 
 function unwrapApiResponse(data) {
   if (data && typeof data === 'object' && Object.prototype.hasOwnProperty.call(data, 'ok')) {
@@ -471,14 +471,28 @@ const api = {
     }
   },
 
-  async disable2FA(token) {
+  async disable2FA(token, code) {
     try {
-      const response = await axios.post(`${BACKEND_URL}/api/user/2fa/disable`, {}, { headers: authHeaders(token) });
+      const response = await axios.post(`${BACKEND_URL}/api/user/2fa/disable`, { code }, { headers: authHeaders(token) });
       return unwrapApiResponse(response.data);
     } catch (error) {
       console.error('Ошибка отключения 2FA:', error);
       throw error;
     }
+  },
+
+  async getCurrentAgreement(token) {
+    const response = await axios.get(`${BACKEND_URL}/api/user/agreements/current`, { headers: authHeaders(token) });
+    return unwrapApiResponse(response.data);
+  },
+
+  async recordAgreementDecision(token, decision, version) {
+    const response = await axios.post(
+      `${BACKEND_URL}/api/user/agreements/decision`,
+      { decision, version },
+      { headers: authHeaders(token) }
+    );
+    return unwrapApiResponse(response.data);
   },
 
   // Student: all subjects with their grade items and totals in one request

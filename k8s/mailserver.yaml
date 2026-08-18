@@ -32,7 +32,11 @@ spec:
         - name: ENABLE_FAIL2BAN
           value: "1"
         - name: SSL_TYPE
-          value: ""
+          value: "manual"
+        - name: SSL_CERT_PATH
+          value: "/etc/tls/tls.crt"
+        - name: SSL_KEY_PATH
+          value: "/etc/tls/tls.key"
         ports:
         - containerPort: 25
           name: smtp
@@ -47,6 +51,9 @@ spec:
           mountPath: /var/mail-state
         - name: mail-config
           mountPath: /tmp/docker-mailserver
+        - name: tls
+          mountPath: /etc/tls
+          readOnly: true
       volumes:
       - name: mail-data
         emptyDir: {}
@@ -54,6 +61,9 @@ spec:
         emptyDir: {}
       - name: mail-config
         emptyDir: {}
+      - name: tls
+        secret:
+          secretName: ejournal-tls-secret
 ---
 apiVersion: v1
 kind: Service

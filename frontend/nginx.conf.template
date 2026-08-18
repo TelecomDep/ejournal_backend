@@ -6,6 +6,7 @@ events {
 }
 
 http {
+	server_tokens off;
     include /etc/nginx/mime.types;
     default_type application/octet-stream;
     absolute_redirect off;
@@ -37,6 +38,13 @@ http {
 
         ssl_certificate /etc/letsencrypt/live/$DOMAIN/fullchain.pem;
         ssl_certificate_key /etc/letsencrypt/live/$DOMAIN/privkey.pem;
+
+		add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+		add_header X-Content-Type-Options "nosniff" always;
+		add_header X-Frame-Options "DENY" always;
+		add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+		add_header Permissions-Policy "camera=(), microphone=(), geolocation=(self)" always;
+		add_header Content-Security-Policy "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'" always;
 
         error_page 497 =307 https://$http_host$request_uri;
 
@@ -96,6 +104,8 @@ http {
         }
 
         location /swagger/ {
+			auth_basic "Restricted Admin Area";
+			auth_basic_user_file /etc/nginx/.htpasswd;
             proxy_pass http://ejournal-backend:8888;
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $remote_addr;
@@ -157,11 +167,15 @@ http {
         }
 
         location ^~ /elm/ {
+			auth_basic "Restricted Admin Area";
+			auth_basic_user_file /etc/nginx/.htpasswd;
             set $azimutt_elm_upstream http://ejournal-azimutt:4000;
             proxy_pass $azimutt_elm_upstream;
         }
 
         location ^~ /dist/ {
+			auth_basic "Restricted Admin Area";
+			auth_basic_user_file /etc/nginx/.htpasswd;
             set $azimutt_dist_upstream http://ejournal-azimutt:4000;
             proxy_pass $azimutt_dist_upstream;
         }
@@ -171,11 +185,23 @@ http {
             add_header Cache-Control "no-cache, no-store, must-revalidate";
             add_header Pragma "no-cache";
             add_header Expires "0";
+			add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+			add_header X-Content-Type-Options "nosniff" always;
+			add_header X-Frame-Options "DENY" always;
+			add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+			add_header Permissions-Policy "camera=(), microphone=(), geolocation=(self)" always;
+			add_header Content-Security-Policy "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'" always;
         }
 
         location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg)$ {
             expires 1y;
             add_header Cache-Control "public, immutable";
+			add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+			add_header X-Content-Type-Options "nosniff" always;
+			add_header X-Frame-Options "DENY" always;
+			add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+			add_header Permissions-Policy "camera=(), microphone=(), geolocation=(self)" always;
+			add_header Content-Security-Policy "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'" always;
         }
     }
 }

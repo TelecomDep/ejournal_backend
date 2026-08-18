@@ -2,6 +2,8 @@ package db
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"strings"
@@ -13,6 +15,11 @@ import (
 )
 
 var ErrUserLoginTaken = errors.New("user login already exists")
+
+func hashResetToken(token string) string {
+	digest := sha256.Sum256([]byte(strings.TrimSpace(token)))
+	return hex.EncodeToString(digest[:])
+}
 
 type UserRepository struct {
 	pool *pgxpool.Pool
@@ -191,19 +198,63 @@ func (r *UserRepository) CreateResetToken(ctx context.Context, userID int32, tok
 		return fmt.Errorf("token is required")
 	}
 
-	_, _ = r.pool.Exec(ctx, `DELETE FROM password_reset_tokens WHERE user_id = $1`, userID)
-
-	_, err := r.pool.Exec(
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return fmt.Errorf("begin reset token transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if _, err := tx.Exec(ctx, `DELETE FROM password_reset_tokens WHERE user_id = $1`, userID); err != nil {
+		return fmt.Errorf("replace reset token: %w", err)
+	}
+	_, err = tx.Exec(
 		ctx,
 		`INSERT INTO password_reset_tokens (user_id, token, expires_at) VALUES ($1, $2, $3)`,
 		userID,
-		token,
+		hashResetToken(token),
 		expiresAt,
 	)
 	if err != nil {
 		return fmt.Errorf("create reset token: %w", err)
 	}
-	return nil
+	return tx.Commit(ctx)
+}
+
+func (r *UserRepository) ResetPasswordWithToken(ctx context.Context, token, passwordHash string) (bool, error) {
+	token = strings.TrimSpace(token)
+	passwordHash = strings.TrimSpace(passwordHash)
+	if token == "" || passwordHash == "" {
+		return false, fmt.Errorf("token and password hash are required")
+	}
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return false, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	var userID int32
+	err = tx.QueryRow(ctx, `
+		SELECT user_id FROM password_reset_tokens
+		WHERE token = $1 AND expires_at > NOW()
+		FOR UPDATE
+	`, hashResetToken(token)).Scan(&userID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	if _, err := tx.Exec(ctx, `
+		UPDATE users SET password_hash = $1, token_version = token_version + 1 WHERE id = $2
+	`, passwordHash, userID); err != nil {
+		return false, err
+	}
+	if _, err := tx.Exec(ctx, `DELETE FROM password_reset_tokens WHERE token = $1`, hashResetToken(token)); err != nil {
+		return false, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 func (r *UserRepository) GetResetToken(ctx context.Context, token string) (int32, time.Time, error) {
@@ -217,7 +268,7 @@ func (r *UserRepository) GetResetToken(ctx context.Context, token string) (int32
 	err := r.pool.QueryRow(
 		ctx,
 		`SELECT user_id, expires_at FROM password_reset_tokens WHERE token = $1`,
-		token,
+		hashResetToken(token),
 	).Scan(&userID, &expiresAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return 0, time.Time{}, errors.New("token not found")
@@ -235,7 +286,7 @@ func (r *UserRepository) DeleteResetToken(ctx context.Context, token string) err
 		return fmt.Errorf("token is required")
 	}
 
-	_, err := r.pool.Exec(ctx, `DELETE FROM password_reset_tokens WHERE token = $1`, token)
+	_, err := r.pool.Exec(ctx, `DELETE FROM password_reset_tokens WHERE token = $1`, hashResetToken(token))
 	if err != nil {
 		return fmt.Errorf("delete reset token: %w", err)
 	}
@@ -248,7 +299,11 @@ func (r *UserRepository) UpdatePassword(ctx context.Context, userID int32, passw
 		return fmt.Errorf("password hash is required")
 	}
 
-	_, err := r.pool.Exec(ctx, `UPDATE users SET password_hash = $1 WHERE id = $2`, passwordHash, userID)
+	_, err := r.pool.Exec(ctx, `
+		UPDATE users
+		SET password_hash = $1, token_version = token_version + 1
+		WHERE id = $2
+	`, passwordHash, userID)
 	if err != nil {
 		return fmt.Errorf("update password hash: %w", err)
 	}
@@ -426,13 +481,21 @@ func (r *UserRepository) SaveAttachment(ctx context.Context, att Attachment) (in
 	return id, nil
 }
 
-func (r *UserRepository) GetAttachmentByID(ctx context.Context, id int64) (Attachment, bool, error) {
+func (r *UserRepository) AttachmentBytesByOwner(ctx context.Context, ownerID int32) (int64, error) {
+	var total int64
+	if err := r.pool.QueryRow(ctx, `SELECT COALESCE(SUM(file_size), 0) FROM attachments WHERE owner_id = $1`, ownerID).Scan(&total); err != nil {
+		return 0, fmt.Errorf("sum attachment bytes: %w", err)
+	}
+	return total, nil
+}
+
+func (r *UserRepository) GetAttachmentByIDForOwner(ctx context.Context, id int64, ownerID int32) (Attachment, bool, error) {
 	var att Attachment
 	err := r.pool.QueryRow(ctx, `
 		SELECT id, owner_id, filename, file_size, mime_type, storage_type, data, COALESCE(storage_path, ''), created_at
 		FROM attachments
-		WHERE id = $1
-	`, id).Scan(&att.ID, &att.OwnerID, &att.Filename, &att.FileSize, &att.MimeType, &att.StorageType, &att.Data, &att.StoragePath, &att.CreatedAt)
+		WHERE id = $1 AND owner_id = $2
+	`, id, ownerID).Scan(&att.ID, &att.OwnerID, &att.Filename, &att.FileSize, &att.MimeType, &att.StorageType, &att.Data, &att.StoragePath, &att.CreatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Attachment{}, false, nil
 	}

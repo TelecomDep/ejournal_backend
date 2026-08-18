@@ -3,6 +3,9 @@ package app
 import (
 	"context"
 	"errors"
+	"log"
+	"net/mail"
+	"strconv"
 	"strings"
 
 	"github.com/TelecomDep/ejournal_backend/internal/db"
@@ -79,8 +82,11 @@ func validate_admin_user_create(data AdminUserCreateData) error {
 	if !valid_admin_role(data.Role) {
 		return errors.New("invalid user role")
 	}
-	if data.Email != "" && !strings.Contains(data.Email, "@") {
-		return errors.New("invalid email")
+	if email := strings.ToLower(strings.TrimSpace(data.Email)); email != "" {
+		parsed, err := mail.ParseAddress(email)
+		if err != nil || !strings.EqualFold(parsed.Address, email) || len(email) > 254 {
+			return errors.New("invalid email")
+		}
 	}
 
 	switch data.Role {
@@ -236,7 +242,7 @@ func create_admin_role_data(ctx context.Context, tx pgx.Tx, user_id int32, data 
 			strings.TrimSpace(data.JobTitle),
 		)
 		return err
-	case RoleHead:
+	case RoleHead, RoleSecretary, RoleProgramCreator:
 		_, err := tx.Exec(
 			ctx,
 			`INSERT INTO org_scopes (user_id, lectern_id)
@@ -245,7 +251,7 @@ func create_admin_role_data(ctx context.Context, tx pgx.Tx, user_id int32, data 
 			data.LecternID,
 		)
 		return err
-	case RoleDean:
+	case RoleDean, RoleDirector:
 		_, err := tx.Exec(
 			ctx,
 			`INSERT INTO org_scopes (user_id, faculty_id)
@@ -260,7 +266,8 @@ func create_admin_role_data(ctx context.Context, tx pgx.Tx, user_id int32, data 
 }
 
 func (s *Service) admin_user_create(token string, data AdminUserCreateData) Response {
-	if _, auth := s.require_admin(token); !auth.OK {
+	actor, auth := s.require_admin(token)
+	if !auth.OK {
 		return auth
 	}
 	if err := validate_admin_user_create(data); err != nil {
@@ -312,6 +319,11 @@ func (s *Service) admin_user_create(token string, data AdminUserCreateData) Resp
 	if err != nil || !found {
 		return Response{OK: false, Error: "user created but failed to load result"}
 	}
+	if err := s.RecordAuditLog(ctx, actor.ID, actor.Login, actor.Role, "user_created", "user", strconv.Itoa(int(user_id)), map[string]any{
+		"login": data.Login, "role": data.Role,
+	}, ""); err != nil {
+		log.Printf("failed to audit admin user creation: %v", err)
+	}
 	return Response{OK: true, Result: item}
 }
 
@@ -325,13 +337,13 @@ func check_admin_role_target(data AdminUserUpdateData, role string) error {
 		if data.TeacherID <= 0 {
 			return errors.New("teacher_id is required when role changes to teacher")
 		}
-	case RoleHead:
+	case RoleHead, RoleSecretary, RoleProgramCreator:
 		if data.LecternID <= 0 {
-			return errors.New("lectern_id is required for head")
+			return errors.New("lectern_id is required for lectern-scoped role")
 		}
-	case RoleDean:
+	case RoleDean, RoleDirector:
 		if data.FacultyID <= 0 {
-			return errors.New("faculty_id is required for dean")
+			return errors.New("faculty_id is required for faculty-scoped role")
 		}
 	}
 	return nil
@@ -371,7 +383,7 @@ func bind_admin_role(ctx context.Context, tx pgx.Tx, user_id int32, role string,
 		if cmd.RowsAffected() == 0 {
 			return errors.New("teacher profile not found or already used")
 		}
-	case RoleHead:
+	case RoleHead, RoleSecretary, RoleProgramCreator:
 		_, err := tx.Exec(
 			ctx,
 			`INSERT INTO org_scopes (user_id, lectern_id)
@@ -380,7 +392,7 @@ func bind_admin_role(ctx context.Context, tx pgx.Tx, user_id int32, role string,
 			data.LecternID,
 		)
 		return err
-	case RoleDean:
+	case RoleDean, RoleDirector:
 		_, err := tx.Exec(
 			ctx,
 			`INSERT INTO org_scopes (user_id, faculty_id)
@@ -453,9 +465,12 @@ func (s *Service) admin_user_update(token string, data AdminUserUpdateData) Resp
 		email = *current.Email
 	}
 	if data.Email != nil {
-		email = strings.TrimSpace(*data.Email)
-		if email != "" && !strings.Contains(email, "@") {
-			return Response{OK: false, Error: "invalid email"}
+		email = strings.ToLower(strings.TrimSpace(*data.Email))
+		if email != "" {
+			parsed, parseErr := mail.ParseAddress(email)
+			if parseErr != nil || !strings.EqualFold(parsed.Address, email) || len(email) > 254 {
+				return Response{OK: false, Error: "invalid email"}
+			}
 		}
 	}
 
@@ -509,8 +524,8 @@ func (s *Service) admin_user_update(token string, data AdminUserUpdateData) Resp
 	rebind_role := role_changed ||
 		(role == RoleStudent && data.StudentID > 0) ||
 		(role == RoleTeacher && data.TeacherID > 0) ||
-		(role == RoleHead && data.LecternID > 0) ||
-		(role == RoleDean && data.FacultyID > 0)
+		((role == RoleHead || role == RoleSecretary || role == RoleProgramCreator) && data.LecternID > 0) ||
+		((role == RoleDean || role == RoleDirector) && data.FacultyID > 0)
 	if role_changed {
 		if err := check_admin_role_target(data, role); err != nil {
 			return Response{OK: false, Error: err.Error()}
@@ -535,7 +550,8 @@ func (s *Service) admin_user_update(token string, data AdminUserUpdateData) Resp
 		     password_hash = $3,
 		     role = $4,
 		     email = NULLIF($5, ''),
-		     status = $6
+		     status = $6,
+		     token_version = token_version + 1
 		 WHERE id = $1`,
 		current.ID,
 		login,
@@ -564,6 +580,11 @@ func (s *Service) admin_user_update(token string, data AdminUserUpdateData) Resp
 	item, found, err := s.store.Users.AdminGetByID(ctx, current.ID)
 	if err != nil || !found {
 		return Response{OK: false, Error: "user updated but failed to load result"}
+	}
+	if err := s.RecordAuditLog(ctx, actor.ID, actor.Login, actor.Role, "user_updated", "user", strconv.Itoa(int(current.ID)), map[string]any{
+		"old_role": current.Role, "new_role": role, "old_status": current.Status, "new_status": status,
+	}, ""); err != nil {
+		log.Printf("failed to audit admin user update: %v", err)
 	}
 	return Response{OK: true, Result: item}
 }
@@ -623,13 +644,18 @@ func (s *Service) admin_user_delete(token string, user_id int32) Response {
 
 	if _, err := tx.Exec(
 		ctx,
-		`UPDATE users SET status = 'archived' WHERE id = $1`,
+		`UPDATE users SET status = 'archived', token_version = token_version + 1 WHERE id = $1`,
 		user_id,
 	); err != nil {
 		return Response{OK: false, Error: "failed to archive user"}
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return Response{OK: false, Error: "failed to archive user"}
+	}
+	if err := s.RecordAuditLog(ctx, actor.ID, actor.Login, actor.Role, "user_archived", "user", strconv.Itoa(int(user_id)), map[string]any{
+		"previous_role": role, "previous_status": status,
+	}, ""); err != nil {
+		log.Printf("failed to audit admin user archive: %v", err)
 	}
 
 	return Response{OK: true, Result: map[string]any{
@@ -715,38 +741,50 @@ func (s *Service) admin_org_structure(token string) Response {
 
 	ctx, cancel := s.dbContext()
 	defer cancel()
+	scope, err := s.scopeForUser(ctx, actor)
+	if err != nil {
+		return Response{OK: false, Error: "failed to resolve scope"}
+	}
+	scopeWhere := "TRUE"
+	args := make([]any, 0)
+	if !scope.All {
+		scopeWhere = "lectern_id = ANY($1)"
+		args = append(args, nonNil(scope.LecternIDs))
+	}
 
 	facultiesMap := make(map[int32]*AdminOrgFaculty)
 
-	fRows, err := s.store.Pool().Query(ctx, `SELECT faculty_id, name FROM faculties ORDER BY name`)
-	if err == nil {
-		for fRows.Next() {
-			var f AdminOrgFaculty
-			if scanErr := fRows.Scan(&f.FacultyID, &f.Name); scanErr == nil {
-				f.Lecterns = make([]AdminOrgLectern, 0)
-				facultiesMap[f.FacultyID] = &f
-			}
-		}
-		fRows.Close()
+	fRows, err := s.store.Pool().Query(ctx, `SELECT DISTINCT f.faculty_id, f.name
+		FROM faculties f JOIN lecterns l ON l.faculty_id = f.faculty_id
+		WHERE `+strings.ReplaceAll(scopeWhere, "lectern_id", "l.lectern_id")+` ORDER BY f.name`, args...)
+	if err != nil {
+		return Response{OK: false, Error: "failed to load faculties"}
 	}
+	for fRows.Next() {
+		var f AdminOrgFaculty
+		if scanErr := fRows.Scan(&f.FacultyID, &f.Name); scanErr != nil {
+			fRows.Close()
+			return Response{OK: false, Error: "failed to scan faculties"}
+		}
+		f.Lecterns = make([]AdminOrgLectern, 0)
+		facultiesMap[f.FacultyID] = &f
+	}
+	fRows.Close()
 
 	lecternsMap := make(map[int32]*AdminOrgLectern)
-	lRows, err := s.store.Pool().Query(ctx, `SELECT lectern_id, faculty_id, name FROM lecterns ORDER BY name`)
+	lRows, err := s.store.Pool().Query(ctx, `SELECT lectern_id, faculty_id, name FROM lecterns WHERE `+scopeWhere+` ORDER BY name`, args...)
 	if err == nil {
 		for lRows.Next() {
 			var l AdminOrgLectern
 			if scanErr := lRows.Scan(&l.LecternID, &l.FacultyID, &l.Name); scanErr == nil {
 				l.Groups = make([]AdminOrgGroup, 0)
 				lecternsMap[l.LecternID] = &l
-				if fPtr, ok := facultiesMap[l.FacultyID]; ok {
-					fPtr.Lecterns = append(fPtr.Lecterns, l)
-				}
 			}
 		}
 		lRows.Close()
 	}
 
-	gRows, err := s.store.Pool().Query(ctx, `SELECT group_id, COALESCE(lectern_id, 0), group_name FROM groups ORDER BY group_name`)
+	gRows, err := s.store.Pool().Query(ctx, `SELECT group_id, COALESCE(lectern_id, 0), group_name FROM groups WHERE `+scopeWhere+` ORDER BY group_name`, args...)
 	if err == nil {
 		for gRows.Next() {
 			var g AdminOrgGroup
@@ -757,6 +795,11 @@ func (s *Service) admin_org_structure(token string) Response {
 			}
 		}
 		gRows.Close()
+	}
+	for _, lPtr := range lecternsMap {
+		if fPtr, ok := facultiesMap[lPtr.FacultyID]; ok {
+			fPtr.Lecterns = append(fPtr.Lecterns, *lPtr)
+		}
 	}
 
 	facultiesList := make([]AdminOrgFaculty, 0, len(facultiesMap))
@@ -793,13 +836,5 @@ func (s *Service) admin_role_update(token string, role string, payload RolePermi
 		return Response{OK: false, Error: "forbidden: admin role required"}
 	}
 
-	updated, err := UpdateRolePermissions(role, payload)
-	if err != nil {
-		return Response{OK: false, Error: err.Error()}
-	}
-
-	return Response{
-		OK:     true,
-		Result: updated,
-	}
+	return Response{OK: false, Error: "role permissions are code-defined and cannot be changed at runtime"}
 }

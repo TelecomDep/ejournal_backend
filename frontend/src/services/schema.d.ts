@@ -4,2645 +4,5446 @@
  */
 
 export interface paths {
-  "/api/admin/notifications": {
-    get: {
-      responses: {
-        /** OK */
-        200: {
-          schema: definitions["app.Response"];
-        };
-      };
-    };
-    post: {
-      parameters: {
-        body: {
-          /** Notification payload */
-          request: definitions["app.AdminNotificationCreateData"];
-        };
-      };
-      responses: {
-        /** Created */
-        201: {
-          schema: definitions["app.Response"];
-        };
-      };
-    };
-  };
-  "/api/admin/notifications/{notification_id}": {
-    delete: {
-      parameters: {
-        path: {
-          /** Notification ID */
-          notification_id: number;
-        };
-      };
-      responses: {
-        /** OK */
-        200: {
-          schema: definitions["app.Response"];
-        };
-      };
-    };
-    patch: {
-      parameters: {
-        path: {
-          /** Notification ID */
-          notification_id: number;
-        };
-        body: {
-          /** Notification payload */
-          request: definitions["app.AdminNotificationUpdateData"];
-        };
-      };
-      responses: {
-        /** OK */
-        200: {
-          schema: definitions["app.Response"];
-        };
-      };
-    };
-  };
-  "/api/admin/semesters": {
-    /** Admin creates a planned semester or opens it immediately with status=open. */
-    post: {
-      parameters: {
-        body: {
-          /** Semester payload */
-          request: definitions["app.SemesterCreateData"];
-        };
-      };
-      responses: {
-        /** OK */
-        200: {
-          schema: definitions["app.Response"];
-        };
-        /** Bad Request */
-        400: {
-          schema: definitions["app.Response"];
-        };
-        /** Unauthorized */
-        401: {
-          schema: definitions["app.Response"];
-        };
-        /** Forbidden */
-        403: {
-          schema: definitions["app.Response"];
-        };
-        /** Conflict */
-        409: {
-          schema: definitions["app.Response"];
-        };
-      };
-    };
-  };
-  "/api/admin/semesters/{semester_id}": {
-    /** Admin deletes a non-open semester. */
-    delete: {
-      parameters: {
-        path: {
-          /** Semester ID */
-          semester_id: number;
-        };
-      };
-      responses: {
-        /** OK */
-        200: {
-          schema: definitions["app.Response"];
-        };
-        /** Bad Request */
-        400: {
-          schema: definitions["app.Response"];
-        };
-        /** Unauthorized */
-        401: {
-          schema: definitions["app.Response"];
-        };
-        /** Forbidden */
-        403: {
-          schema: definitions["app.Response"];
-        };
-        /** Not Found */
-        404: {
-          schema: definitions["app.Response"];
-        };
-      };
-    };
-  };
-  "/api/admin/semesters/{semester_id}/activate": {
-    /** Admin opens a planned semester and closes the previously open semester. */
-    patch: {
-      parameters: {
-        path: {
-          /** Semester ID */
-          semester_id: number;
-        };
-      };
-      responses: {
-        /** OK */
-        200: {
-          schema: definitions["app.Response"];
-        };
-        /** Bad Request */
-        400: {
-          schema: definitions["app.Response"];
-        };
-        /** Unauthorized */
-        401: {
-          schema: definitions["app.Response"];
-        };
-        /** Forbidden */
-        403: {
-          schema: definitions["app.Response"];
-        };
-        /** Not Found */
-        404: {
-          schema: definitions["app.Response"];
-        };
-        /** Conflict */
-        409: {
-          schema: definitions["app.Response"];
-        };
-      };
-    };
-  };
-  "/api/admin/semesters/{semester_id}/archive": {
-    /** Admin archives a closed semester. Archived data remains available for historical reads. */
-    patch: {
-      parameters: {
-        path: {
-          /** Semester ID */
-          semester_id: number;
-        };
-      };
-      responses: {
-        /** OK */
-        200: {
-          schema: definitions["app.Response"];
-        };
-        /** Bad Request */
-        400: {
-          schema: definitions["app.Response"];
-        };
-        /** Unauthorized */
-        401: {
-          schema: definitions["app.Response"];
-        };
-        /** Forbidden */
-        403: {
-          schema: definitions["app.Response"];
-        };
-        /** Not Found */
-        404: {
-          schema: definitions["app.Response"];
-        };
-        /** Conflict */
-        409: {
-          schema: definitions["app.Response"];
-        };
-      };
-    };
-  };
-  "/api/admin/semesters/{semester_id}/close": {
-    /** Admin closes the open semester. Closed semester data becomes read-only. */
-    patch: {
-      parameters: {
-        path: {
-          /** Semester ID */
-          semester_id: number;
-        };
-      };
-      responses: {
-        /** OK */
-        200: {
-          schema: definitions["app.Response"];
-        };
-        /** Bad Request */
-        400: {
-          schema: definitions["app.Response"];
-        };
-        /** Unauthorized */
-        401: {
-          schema: definitions["app.Response"];
-        };
-        /** Forbidden */
-        403: {
-          schema: definitions["app.Response"];
-        };
-        /** Not Found */
-        404: {
-          schema: definitions["app.Response"];
-        };
-        /** Conflict */
-        409: {
-          schema: definitions["app.Response"];
-        };
-      };
-    };
-  };
-  "/api/admin/users": {
-    /** Returns users with pagination, search and filters. Admin only. */
-    get: {
-      parameters: {
-        query: {
-          /** Page */
-          page?: number;
-          /** Page size */
-          page_size?: number;
-          /** Search by login or email */
-          search?: string;
-          /** Role */
-          role?: string;
-          /** Status */
-          status?: string;
-        };
-      };
-      responses: {
-        /** OK */
-        200: {
-          schema: definitions["app.Response"];
-        };
-        /** Bad Request */
-        400: {
-          schema: definitions["app.Response"];
-        };
-        /** Unauthorized */
-        401: {
-          schema: definitions["app.Response"];
-        };
-        /** Forbidden */
-        403: {
-          schema: definitions["app.Response"];
-        };
-      };
-    };
-    /** Creates a user and the required role profile in one transaction. Admin only. */
-    post: {
-      parameters: {
-        body: {
-          /** User payload */
-          request: definitions["app.AdminUserCreateData"];
-        };
-      };
-      responses: {
-        /** Created */
-        201: {
-          schema: definitions["app.Response"];
-        };
-        /** Bad Request */
-        400: {
-          schema: definitions["app.Response"];
-        };
-        /** Unauthorized */
-        401: {
-          schema: definitions["app.Response"];
-        };
-        /** Forbidden */
-        403: {
-          schema: definitions["app.Response"];
-        };
-        /** Conflict */
-        409: {
-          schema: definitions["app.Response"];
-        };
-      };
-    };
-  };
-  "/api/admin/users/{user_id}": {
-    /** Returns one user. Admin only. */
-    get: {
-      parameters: {
-        path: {
-          /** User ID */
-          user_id: number;
-        };
-      };
-      responses: {
-        /** OK */
-        200: {
-          schema: definitions["app.Response"];
-        };
-        /** Bad Request */
-        400: {
-          schema: definitions["app.Response"];
-        };
-        /** Unauthorized */
-        401: {
-          schema: definitions["app.Response"];
-        };
-        /** Forbidden */
-        403: {
-          schema: definitions["app.Response"];
-        };
-        /** Not Found */
-        404: {
-          schema: definitions["app.Response"];
-        };
-      };
-    };
-    /** Soft deletes a user by setting status=archived. Admin only. */
-    delete: {
-      parameters: {
-        path: {
-          /** User ID */
-          user_id: number;
-        };
-      };
-      responses: {
-        /** OK */
-        200: {
-          schema: definitions["app.Response"];
-        };
-        /** Bad Request */
-        400: {
-          schema: definitions["app.Response"];
-        };
-        /** Unauthorized */
-        401: {
-          schema: definitions["app.Response"];
-        };
-        /** Forbidden */
-        403: {
-          schema: definitions["app.Response"];
-        };
-        /** Not Found */
-        404: {
-          schema: definitions["app.Response"];
-        };
-        /** Conflict */
-        409: {
-          schema: definitions["app.Response"];
-        };
-      };
-    };
-    /** Updates user fields, status or role. Admin only. */
-    patch: {
-      parameters: {
-        path: {
-          /** User ID */
-          user_id: number;
-        };
-        body: {
-          /** User payload */
-          request: definitions["app.AdminUserUpdateData"];
-        };
-      };
-      responses: {
-        /** OK */
-        200: {
-          schema: definitions["app.Response"];
-        };
-        /** Bad Request */
-        400: {
-          schema: definitions["app.Response"];
-        };
-        /** Unauthorized */
-        401: {
-          schema: definitions["app.Response"];
-        };
-        /** Forbidden */
-        403: {
-          schema: definitions["app.Response"];
-        };
-        /** Not Found */
-        404: {
-          schema: definitions["app.Response"];
-        };
-        /** Conflict */
-        409: {
-          schema: definitions["app.Response"];
-        };
-      };
-    };
-  };
-  "/api/auth/forgot-password": {
-    /** Generates a password reset token and sends it to the user's email. */
-    post: {
-      parameters: {
-        body: {
-          /** Forgot password payload */
-          request: definitions["app.ForgotPasswordData"];
-        };
-      };
-      responses: {
-        /** OK */
-        200: {
-          schema: definitions["app.Response"];
-        };
-        /** Bad Request */
-        400: {
-          schema: definitions["app.Response"];
-        };
-        /** Internal Server Error */
-        500: {
-          schema: definitions["app.Response"];
-        };
-      };
-    };
-  };
-  "/api/auth/reset-password": {
-    /** Resets user password using the provided reset token. */
-    post: {
-      parameters: {
-        body: {
-          /** Reset password payload */
-          request: definitions["app.ResetPasswordData"];
-        };
-      };
-      responses: {
-        /** OK */
-        200: {
-          schema: definitions["app.Response"];
-        };
-        /** Bad Request */
-        400: {
-          schema: definitions["app.Response"];
-        };
-        /** Internal Server Error */
-        500: {
-          schema: definitions["app.Response"];
-        };
-      };
-    };
-  };
-  "/api/semesters": {
-    /** Returns all known semesters ordered by start date. */
-    get: {
-      responses: {
-        /** OK */
-        200: {
-          schema: definitions["app.Response"];
-        };
-        /** Bad Request */
-        400: {
-          schema: definitions["app.Response"];
-        };
-      };
-    };
-  };
-  "/api/semesters/current": {
-    /** Returns the active semester used by grade and attendance calculations. */
-    get: {
-      responses: {
-        /** OK */
-        200: {
-          schema: definitions["app.Response"];
-        };
-        /** Not Found */
-        404: {
-          schema: definitions["app.Response"];
-        };
-      };
-    };
-  };
-  "/api/staff/overview": {
-    /** Returns groups, teachers and students scoped to the caller's role: teacher -> own groups, head -> own lectern, dean -> own faculty, admin -> everything. */
-    get: {
-      responses: {
-        /** OK */
-        200: {
-          schema: definitions["app.Response"];
-        };
-        /** Unauthorized */
-        401: {
-          schema: definitions["app.Response"];
-        };
-        /** Forbidden */
-        403: {
-          schema: definitions["app.Response"];
-        };
-      };
-    };
-  };
-  "/api/staff/overview/students": {
-    /** Returns a role-scoped, paginated student list for staff users. */
-    get: {
-      parameters: {
-        query: {
-          /** Page number */
-          page?: number;
-          /** Rows per page */
-          page_size?: number;
-          /** Filter by group ID */
-          group_id?: number;
-          /** Search by student name or related fields */
-          search?: string;
-          /** Sort field */
-          sort?: string;
-          /** Sort order: asc or desc */
-          order?: string;
-        };
-      };
-      responses: {
-        /** OK */
-        200: {
-          schema: definitions["app.Response"];
-        };
-        /** Bad Request */
-        400: {
-          schema: definitions["app.Response"];
-        };
-        /** Unauthorized */
-        401: {
-          schema: definitions["app.Response"];
-        };
-        /** Forbidden */
-        403: {
-          schema: definitions["app.Response"];
-        };
-      };
-    };
-  };
-  "/api/staff/ratings/general": {
-    /** Returns semester metadata, role-scoped departments, subjects, groups, student consent status, attendance, laboratory/practice grades, and per-subject summaries in the standard response envelope. */
-    get: {
-      parameters: {
-        query: {
-          /** Semester ID; defaults to the open semester */
-          semester_id?: number;
-        };
-      };
-      responses: {
-        /** OK */
-        200: {
-          schema: definitions["httpserver.generalRatingResponse"];
-        };
-        /** Bad Request */
-        400: {
-          schema: definitions["app.Response"];
-        };
-        /** Unauthorized */
-        401: {
-          schema: definitions["app.Response"];
-        };
-        /** Forbidden */
-        403: {
-          schema: definitions["app.Response"];
-        };
-        /** Not Found */
-        404: {
-          schema: definitions["app.Response"];
-        };
-        /** Internal Server Error */
-        500: {
-          schema: definitions["app.Response"];
-        };
-      };
-    };
-  };
-  "/api/staff/reports/performance.pdf": {
-    /** Head, dean, or admin downloads a PDF performance rating report: one page (or more) for the whole scope plus one section per group, colour-coded by percent, matching the xlsx report. */
-    get: {
-      parameters: {
-        query: {
-          /** Semester ID; defaults to the open semester */
-          semester_id?: number;
-        };
-      };
-      responses: {
-        /** PDF document */
-        200: {
-          schema: unknown;
-        };
-        /** Unauthorized */
-        401: {
-          schema: definitions["app.Response"];
-        };
-        /** Forbidden */
-        403: {
-          schema: definitions["app.Response"];
-        };
-        /** Internal Server Error */
-        500: {
-          schema: definitions["app.Response"];
-        };
-      };
-    };
-  };
-  "/api/staff/reports/performance.xlsx": {
-    /** Head, dean, or admin downloads an xlsx performance rating report: one sheet for the whole scope plus one sheet per group. Rows are students ranked by overall rating with per-subject percents and attendance. */
-    get: {
-      parameters: {
-        query: {
-          /** Semester ID; defaults to the open semester */
-          semester_id?: number;
-        };
-      };
-      responses: {
-        /** Excel workbook */
-        200: {
-          schema: unknown;
-        };
-        /** Unauthorized */
-        401: {
-          schema: definitions["app.Response"];
-        };
-        /** Forbidden */
-        403: {
-          schema: definitions["app.Response"];
-        };
-        /** Internal Server Error */
-        500: {
-          schema: definitions["app.Response"];
-        };
-      };
-    };
-  };
-  "/api/student/attendance/confirm": {
-    /** Student confirms attendance for active session. */
-    post: {
-      parameters: {
-        body: {
-          /** Attendance confirm payload */
-          request: definitions["app.AttendanceConfirmData"];
-        };
-      };
-      responses: {
-        /** OK */
-        200: {
-          schema: definitions["httpserver.studentAttendanceConfirmResponse"];
-        };
-        /** Bad Request */
-        400: {
-          schema: definitions["app.Response"];
-        };
-        /** Unauthorized */
-        401: {
-          schema: definitions["app.Response"];
-        };
-        /** Forbidden */
-        403: {
-          schema: definitions["app.Response"];
-        };
-        /** Conflict */
-        409: {
-          schema: definitions["app.Response"];
-        };
-        /** Internal Server Error */
-        500: {
-          schema: definitions["app.Response"];
-        };
-      };
-    };
-  };
-  "/api/student/attendance/history": {
-    /** Returns attendance marks grouped by date for current student and selected year. */
-    get: {
-      parameters: {
-        query: {
-          /** History year */
-          year?: number;
-        };
-      };
-      responses: {
-        /** OK */
-        200: {
-          schema: definitions["httpserver.studentAttendanceHistoryResponse"];
-        };
-        /** Bad Request */
-        400: {
-          schema: definitions["app.Response"];
-        };
-        /** Unauthorized */
-        401: {
-          schema: definitions["app.Response"];
-        };
-        /** Forbidden */
-        403: {
-          schema: definitions["app.Response"];
-        };
-        /** Internal Server Error */
-        500: {
-          schema: definitions["app.Response"];
-        };
-      };
-    };
-  };
-  "/api/student/grades": {
-    /** Student gets own grade sheet for a subject. */
-    post: {
-      parameters: {
-        body: {
-          /** Subject payload */
-          request: definitions["app.GradeSubjectData"];
-        };
-      };
-      responses: {
-        /** OK */
-        200: {
-          schema: definitions["app.Response"];
-        };
-        /** Bad Request */
-        400: {
-          schema: definitions["app.Response"];
-        };
-        /** Unauthorized */
-        401: {
-          schema: definitions["app.Response"];
-        };
-        /** Forbidden */
-        403: {
-          schema: definitions["app.Response"];
-        };
-        /** Not Found */
-        404: {
-          schema: definitions["app.Response"];
-        };
-      };
-    };
-  };
-  "/api/student/grades/all": {
-    /** Returns every plan subject with its grade items and totals for the selected semester. Defaults to the open semester. */
-    get: {
-      parameters: {
-        query: {
-          /** Semester ID; defaults to the open semester */
-          semester_id?: number;
-        };
-      };
-      responses: {
-        /** OK */
-        200: {
-          schema: definitions["app.Response"];
-        };
-        /** Unauthorized */
-        401: {
-          schema: definitions["app.Response"];
-        };
-        /** Forbidden */
-        403: {
-          schema: definitions["app.Response"];
-        };
-      };
-    };
-  };
-  "/api/student/mark-attendance": {
-    /** Student marks attendance with lesson ID, device ID, and current location. */
-    post: {
-      parameters: {
-        body: {
-          /** Android attendance payload */
-          request: definitions["app.AndroidAttendanceMarkData"];
-        };
-      };
-      responses: {
-        /** OK */
-        200: {
-          schema: definitions["app.Response"];
-        };
-        /** Bad Request */
-        400: {
-          schema: definitions["app.Response"];
-        };
-        /** Unauthorized */
-        401: {
-          schema: definitions["app.Response"];
-        };
-        /** Forbidden */
-        403: {
-          schema: definitions["app.Response"];
-        };
-        /** Conflict */
-        409: {
-          schema: definitions["app.Response"];
-        };
-      };
-    };
-  };
-  "/api/student/performance/radar": {
-    /** Returns one point per subject for the selected semester. Defaults to the open semester. */
-    get: {
-      parameters: {
-        query: {
-          /** Semester ID; defaults to the open semester */
-          semester_id?: number;
-        };
-      };
-      responses: {
-        /** OK */
-        200: {
-          schema: definitions["app.Response"];
-        };
-        /** Unauthorized */
-        401: {
-          schema: definitions["app.Response"];
-        };
-        /** Forbidden */
-        403: {
-          schema: definitions["app.Response"];
-        };
-        /** Internal Server Error */
-        500: {
-          schema: definitions["app.Response"];
-        };
-      };
-    };
-  };
-  "/api/student/schedule/day": {
-    /** Returns the current student's lessons for a given date, restricted to the current or next calendar week. Defaults to today if date is omitted. */
-    get: {
-      parameters: {
-        query: {
-          /** Date in YYYY-MM-DD format (defaults to today) */
-          date?: string;
-        };
-      };
-      responses: {
-        /** OK */
-        200: {
-          schema: definitions["app.Response"];
-        };
-        /** Bad Request */
-        400: {
-          schema: definitions["app.Response"];
-        };
-        /** Unauthorized */
-        401: {
-          schema: definitions["app.Response"];
-        };
-        /** Forbidden */
-        403: {
-          schema: definitions["app.Response"];
-        };
-      };
-    };
-  };
-  "/api/teacher/attendance-link": {
-    /** Teacher creates attendance session and gets invite/join URL. If subject_id/group_ids are omitted, they are taken from nearest scheduled lesson. */
-    post: {
-      parameters: {
-        body: {
-          /** Attendance session payload (subject_id/group_ids are optional) */
-          request: definitions["httpserver.teacherAttendanceLinkRequest"];
-        };
-      };
-      responses: {
-        /** OK */
-        200: {
-          schema: definitions["httpserver.teacherAttendanceLinkResponse"];
-        };
-        /** Bad Request */
-        400: {
-          schema: definitions["app.Response"];
-        };
-        /** Unauthorized */
-        401: {
-          schema: definitions["app.Response"];
-        };
-        /** Forbidden */
-        403: {
-          schema: definitions["app.Response"];
-        };
-        /** Internal Server Error */
-        500: {
-          schema: definitions["app.Response"];
-        };
-      };
-    };
-  };
-  "/api/teacher/attendance/group": {
-    /** Returns per-student attendance stats for selected group and optional subject. */
-    post: {
-      parameters: {
-        body: {
-          /** Group stats payload */
-          request: definitions["app.AttendanceGroupStatsData"];
-        };
-      };
-      responses: {
-        /** OK */
-        200: {
-          schema: definitions["httpserver.teacherAttendanceGroupResponse"];
-        };
-        /** Bad Request */
-        400: {
-          schema: definitions["app.Response"];
-        };
-        /** Unauthorized */
-        401: {
-          schema: definitions["app.Response"];
-        };
-        /** Forbidden */
-        403: {
-          schema: definitions["app.Response"];
-        };
-        /** Internal Server Error */
-        500: {
-          schema: definitions["app.Response"];
-        };
-      };
-    };
-  };
-  "/api/teacher/attendance/mark": {
-    /** Teacher sets a student's attendance status (present/absent/late/excused) for a session they own, overriding self/device check-in. */
-    post: {
-      parameters: {
-        body: {
-          /** Lesson, student and new status */
-          request: definitions["app.TeacherAttendanceMarkData"];
-        };
-      };
-      responses: {
-        /** OK */
-        200: {
-          schema: definitions["app.Response"];
-        };
-        /** Bad Request */
-        400: {
-          schema: definitions["app.Response"];
-        };
-        /** Unauthorized */
-        401: {
-          schema: definitions["app.Response"];
-        };
-        /** Forbidden */
-        403: {
-          schema: definitions["app.Response"];
-        };
-        /** Not Found */
-        404: {
-          schema: definitions["app.Response"];
-        };
-      };
-    };
-  };
-  "/api/teacher/attendance/session": {
-    /** Teacher creates attendance session and gets invite/join URL. If subject_id/group_ids are omitted, they are taken from nearest scheduled lesson. */
-    post: {
-      parameters: {
-        body: {
-          /** Attendance session payload (subject_id/group_ids are optional) */
-          request: definitions["httpserver.teacherAttendanceLinkRequest"];
-        };
-      };
-      responses: {
-        /** OK */
-        200: {
-          schema: definitions["httpserver.teacherAttendanceLinkResponse"];
-        };
-        /** Bad Request */
-        400: {
-          schema: definitions["app.Response"];
-        };
-        /** Unauthorized */
-        401: {
-          schema: definitions["app.Response"];
-        };
-        /** Forbidden */
-        403: {
-          schema: definitions["app.Response"];
-        };
-        /** Internal Server Error */
-        500: {
-          schema: definitions["app.Response"];
-        };
-      };
-    };
-  };
-  "/api/teacher/attendance/session/active": {
-    /** Returns current teacher attendance session that has not expired yet. */
-    get: {
-      responses: {
-        /** OK */
-        200: {
-          schema: definitions["httpserver.teacherActiveAttendanceSessionResponse"];
-        };
-        /** Bad Request */
-        400: {
-          schema: definitions["app.Response"];
-        };
-        /** Unauthorized */
-        401: {
-          schema: definitions["app.Response"];
-        };
-        /** Forbidden */
-        403: {
-          schema: definitions["app.Response"];
-        };
-      };
-    };
-  };
-  "/api/teacher/attendance/session/marked-count": {
-    /** Returns how many students have marked attendance in a teacher-owned session. */
-    get: {
-      parameters: {
-        query: {
-          /** Attendance session ID */
-          lesson_id: number;
-        };
-      };
-      responses: {
-        /** OK */
-        200: {
-          schema: definitions["httpserver.teacherAttendanceMarkedCountResponse"];
-        };
-        /** Bad Request */
-        400: {
-          schema: definitions["app.Response"];
-        };
-        /** Unauthorized */
-        401: {
-          schema: definitions["app.Response"];
-        };
-        /** Forbidden */
-        403: {
-          schema: definitions["app.Response"];
-        };
-      };
-    };
-  };
-  "/api/teacher/attendance/session/timer": {
-    /** Returns remaining seconds for a teacher-owned attendance session. */
-    get: {
-      parameters: {
-        query: {
-          /** Attendance session ID */
-          lesson_id: number;
-        };
-      };
-      responses: {
-        /** OK */
-        200: {
-          schema: definitions["httpserver.teacherAttendanceSessionTimerResponse"];
-        };
-        /** Bad Request */
-        400: {
-          schema: definitions["app.Response"];
-        };
-        /** Unauthorized */
-        401: {
-          schema: definitions["app.Response"];
-        };
-        /** Forbidden */
-        403: {
-          schema: definitions["app.Response"];
-        };
-      };
-    };
-  };
-  "/api/teacher/attendance/student/history": {
-    /** Teacher gets the detailed attendance history of a specific student for a specific subject. */
-    post: {
-      parameters: {
-        body: {
-          /** Student and subject payload */
-          request: definitions["app.TeacherAttendanceStudentHistoryData"];
-        };
-      };
-      responses: {
-        /** OK */
-        200: {
-          schema: definitions["httpserver.teacherAttendanceStudentHistoryResponse"];
-        };
-        /** Bad Request */
-        400: {
-          schema: definitions["app.Response"];
-        };
-        /** Unauthorized */
-        401: {
-          schema: definitions["app.Response"];
-        };
-        /** Forbidden */
-        403: {
-          schema: definitions["app.Response"];
-        };
-        /** Not Found */
-        404: {
-          schema: definitions["app.Response"];
-        };
-      };
-    };
-  };
-  "/api/teacher/grades": {
-    /** Teacher creates or updates a student's score for a grade item. */
-    post: {
-      parameters: {
-        body: {
-          /** Grade payload */
-          request: definitions["app.GradeUpsertData"];
-        };
-      };
-      responses: {
-        /** OK */
-        200: {
-          schema: definitions["app.Response"];
-        };
-        /** Bad Request */
-        400: {
-          schema: definitions["app.Response"];
-        };
-        /** Unauthorized */
-        401: {
-          schema: definitions["app.Response"];
-        };
-        /** Forbidden */
-        403: {
-          schema: definitions["app.Response"];
-        };
-        /** Not Found */
-        404: {
-          schema: definitions["app.Response"];
-        };
-      };
-    };
-  };
-  "/api/teacher/grades/items": {
-    /** Teacher creates a subject grade item/control point. */
-    post: {
-      parameters: {
-        body: {
-          /** Grade item payload */
-          request: definitions["app.GradeItemCreateData"];
-        };
-      };
-      responses: {
-        /** OK */
-        200: {
-          schema: definitions["app.Response"];
-        };
-        /** Bad Request */
-        400: {
-          schema: definitions["app.Response"];
-        };
-        /** Unauthorized */
-        401: {
-          schema: definitions["app.Response"];
-        };
-        /** Forbidden */
-        403: {
-          schema: definitions["app.Response"];
-        };
-        /** Not Found */
-        404: {
-          schema: definitions["app.Response"];
-        };
-      };
-    };
-  };
-  "/api/teacher/grades/items/list": {
-    /** Teacher lists grade items/control points for assigned subject. */
-    post: {
-      parameters: {
-        body: {
-          /** Subject payload */
-          request: definitions["app.GradeSubjectData"];
-        };
-      };
-      responses: {
-        /** OK */
-        200: {
-          schema: definitions["app.Response"];
-        };
-        /** Bad Request */
-        400: {
-          schema: definitions["app.Response"];
-        };
-        /** Unauthorized */
-        401: {
-          schema: definitions["app.Response"];
-        };
-        /** Forbidden */
-        403: {
-          schema: definitions["app.Response"];
-        };
-        /** Not Found */
-        404: {
-          schema: definitions["app.Response"];
-        };
-      };
-    };
-  };
-  "/api/teacher/grades/items/{item_id}": {
-    /** Soft-deletes a grade item in the open semester. Set cascade=true to also delete its active grades. */
-    delete: {
-      parameters: {
-        path: {
-          /** Grade item ID */
-          item_id: number;
-        };
-        body: {
-          /** Deletion options; item_id from the path takes precedence */
-          request?: definitions["app.GradeItemDeleteData"];
-        };
-      };
-      responses: {
-        /** OK */
-        200: {
-          schema: definitions["app.Response"];
-        };
-        /** Bad Request */
-        400: {
-          schema: definitions["app.Response"];
-        };
-        /** Unauthorized */
-        401: {
-          schema: definitions["app.Response"];
-        };
-        /** Forbidden */
-        403: {
-          schema: definitions["app.Response"];
-        };
-        /** Not Found */
-        404: {
-          schema: definitions["app.Response"];
-        };
-        /** Conflict */
-        409: {
-          schema: definitions["app.Response"];
-        };
-      };
-    };
-  };
-  "/api/teacher/grades/items/{item_id}/restore": {
-    /** Restores a soft-deleted grade item and its cascade-deleted grades in the open semester. */
-    post: {
-      parameters: {
-        path: {
-          /** Grade item ID */
-          item_id: number;
-        };
-      };
-      responses: {
-        /** OK */
-        200: {
-          schema: definitions["app.Response"];
-        };
-        /** Bad Request */
-        400: {
-          schema: definitions["app.Response"];
-        };
-        /** Unauthorized */
-        401: {
-          schema: definitions["app.Response"];
-        };
-        /** Forbidden */
-        403: {
-          schema: definitions["app.Response"];
-        };
-        /** Not Found */
-        404: {
-          schema: definitions["app.Response"];
-        };
-        /** Conflict */
-        409: {
-          schema: definitions["app.Response"];
-        };
-      };
-    };
-  };
-  "/api/teacher/grades/student": {
-    /** Teacher gets a student's grade sheet for an assigned subject. */
-    post: {
-      parameters: {
-        body: {
-          /** Student subject payload */
-          request: definitions["app.TeacherStudentGradesData"];
-        };
-      };
-      responses: {
-        /** OK */
-        200: {
-          schema: definitions["app.Response"];
-        };
-        /** Bad Request */
-        400: {
-          schema: definitions["app.Response"];
-        };
-        /** Unauthorized */
-        401: {
-          schema: definitions["app.Response"];
-        };
-        /** Forbidden */
-        403: {
-          schema: definitions["app.Response"];
-        };
-        /** Not Found */
-        404: {
-          schema: definitions["app.Response"];
-        };
-      };
-    };
-  };
-  "/api/teacher/grades/{grade_id}": {
-    /** Soft-deletes a grade in the open semester. An optional reason can be sent in the request body. */
-    delete: {
-      parameters: {
-        path: {
-          /** Grade ID */
-          grade_id: number;
-        };
-        body: {
-          /** Optional deletion reason; grade_id from the path takes precedence */
-          request?: definitions["app.GradeDeleteData"];
-        };
-      };
-      responses: {
-        /** OK */
-        200: {
-          schema: definitions["app.Response"];
-        };
-        /** Bad Request */
-        400: {
-          schema: definitions["app.Response"];
-        };
-        /** Unauthorized */
-        401: {
-          schema: definitions["app.Response"];
-        };
-        /** Forbidden */
-        403: {
-          schema: definitions["app.Response"];
-        };
-        /** Not Found */
-        404: {
-          schema: definitions["app.Response"];
-        };
-        /** Conflict */
-        409: {
-          schema: definitions["app.Response"];
-        };
-      };
-    };
-  };
-  "/api/teacher/grades/{grade_id}/restore": {
-    /** Restores a soft-deleted grade in the open semester. */
-    post: {
-      parameters: {
-        path: {
-          /** Grade ID */
-          grade_id: number;
-        };
-      };
-      responses: {
-        /** OK */
-        200: {
-          schema: definitions["app.Response"];
-        };
-        /** Bad Request */
-        400: {
-          schema: definitions["app.Response"];
-        };
-        /** Unauthorized */
-        401: {
-          schema: definitions["app.Response"];
-        };
-        /** Forbidden */
-        403: {
-          schema: definitions["app.Response"];
-        };
-        /** Not Found */
-        404: {
-          schema: definitions["app.Response"];
-        };
-        /** Conflict */
-        409: {
-          schema: definitions["app.Response"];
-        };
-      };
-    };
-  };
-  "/api/teacher/group/performance": {
-    /** Teacher gets a combined per-student overview (attendance and grade totals) for a group on a subject. */
-    post: {
-      parameters: {
-        body: {
-          /** Group and subject payload */
-          request: definitions["app.GroupPerformanceData"];
-        };
-      };
-      responses: {
-        /** OK */
-        200: {
-          schema: definitions["httpserver.teacherGroupPerformanceResponse"];
-        };
-        /** Bad Request */
-        400: {
-          schema: definitions["app.Response"];
-        };
-        /** Unauthorized */
-        401: {
-          schema: definitions["app.Response"];
-        };
-        /** Forbidden */
-        403: {
-          schema: definitions["app.Response"];
-        };
-        /** Not Found */
-        404: {
-          schema: definitions["app.Response"];
-        };
-      };
-    };
-  };
-  "/api/teacher/student/performance/radar": {
-    /** Teacher gets the per-subject performance radar for a student they teach. */
-    post: {
-      parameters: {
-        body: {
-          /** Student payload */
-          request: definitions["app.TeacherStudentRadarData"];
-        };
-      };
-      responses: {
-        /** OK */
-        200: {
-          schema: definitions["app.Response"];
-        };
-        /** Bad Request */
-        400: {
-          schema: definitions["app.Response"];
-        };
-        /** Unauthorized */
-        401: {
-          schema: definitions["app.Response"];
-        };
-        /** Forbidden */
-        403: {
-          schema: definitions["app.Response"];
-        };
-        /** Not Found */
-        404: {
-          schema: definitions["app.Response"];
-        };
-      };
-    };
-  };
-  "/api/teacher/subjects": {
-    /** Returns subjects (and groups) assigned to current teacher from schedule. */
-    get: {
-      responses: {
-        /** OK */
-        200: {
-          schema: definitions["app.Response"];
-        };
-        /** Unauthorized */
-        401: {
-          schema: definitions["app.Response"];
-        };
-        /** Forbidden */
-        403: {
-          schema: definitions["app.Response"];
-        };
-        /** Internal Server Error */
-        500: {
-          schema: definitions["app.Response"];
-        };
-      };
-    };
-  };
-  "/api/user/2fa/disable": {
-    /** Disables 2FA and removes the stored TOTP secret for the current user. */
-    post: {
-      responses: {
-        /** OK */
-        200: {
-          schema: definitions["app.Response"];
-        };
-        /** Bad Request */
-        400: {
-          schema: definitions["app.Response"];
-        };
-        /** Unauthorized */
-        401: {
-          schema: definitions["app.Response"];
-        };
-      };
-    };
-  };
-  "/api/user/2fa/generate": {
-    /** Generates a TOTP secret and QR code for the current user after validating email confirmation code. */
-    post: {
-      responses: {
-        /** OK */
-        200: {
-          schema: definitions["app.Response"];
-        };
-        /** Bad Request */
-        400: {
-          schema: definitions["app.Response"];
-        };
-        /** Unauthorized */
-        401: {
-          schema: definitions["app.Response"];
-        };
-      };
-    };
-  };
-  "/api/user/2fa/request-enable": {
-    /** Sends a confirmation code to user's bound email before allowing 2FA QR code generation. */
-    post: {
-      responses: {
-        /** OK */
-        200: {
-          schema: definitions["app.Response"];
-        };
-        /** Bad Request */
-        400: {
-          schema: definitions["app.Response"];
-        };
-        /** Unauthorized */
-        401: {
-          schema: definitions["app.Response"];
-        };
-      };
-    };
-  };
-  "/api/user/2fa/verify": {
-    /** Verifies a TOTP code and enables 2FA for the current user. */
-    post: {
-      parameters: {
-        body: {
-          /** TOTP code */
-          request: definitions["app.TwoFaCodeData"];
-        };
-      };
-      responses: {
-        /** OK */
-        200: {
-          schema: definitions["app.Response"];
-        };
-        /** Bad Request */
-        400: {
-          schema: definitions["app.Response"];
-        };
-        /** Unauthorized */
-        401: {
-          schema: definitions["app.Response"];
-        };
-      };
-    };
-  };
-  "/api/user/agreements/current": {
-    /** Returns the current agreement version and the latest user decision. */
-    get: {
-      responses: {
-        /** OK */
-        200: {
-          schema: definitions["app.Response"];
-        };
-        /** Unauthorized */
-        401: {
-          schema: definitions["app.Response"];
-        };
-      };
-    };
-  };
-  "/api/user/agreements/decision": {
-    /** Stores either acceptance or rejection of the current user agreement version. */
-    post: {
-      parameters: {
-        body: {
-          /** Agreement decision */
-          request: definitions["app.UserAgreementDecisionData"];
-        };
-      };
-      responses: {
-        /** OK */
-        200: {
-          schema: definitions["app.Response"];
-        };
-        /** Bad Request */
-        400: {
-          schema: definitions["app.Response"];
-        };
-        /** Unauthorized */
-        401: {
-          schema: definitions["app.Response"];
-        };
-      };
-    };
-  };
-  "/api/user/avatar/{user_id}": {
-    /** Returns the avatar image for the selected user. */
-    get: {
-      parameters: {
-        path: {
-          /** User ID */
-          user_id: number;
-        };
-      };
-      responses: {
-        /** OK */
-        200: {
-          schema: unknown;
-        };
-        /** Bad Request */
-        400: {
-          schema: definitions["app.Response"];
-        };
-        /** Not Found */
-        404: {
-          schema: definitions["app.Response"];
-        };
-        /** Internal Server Error */
-        500: {
-          schema: definitions["app.Response"];
-        };
-      };
-    };
-  };
-  "/api/user/email": {
-    /** Links/updates email for current user. */
-    post: {
-      parameters: {
-        body: {
-          /** Update email payload */
-          request: definitions["app.UpdateEmailData"];
-        };
-      };
-      responses: {
-        /** OK */
-        200: {
-          schema: definitions["app.Response"];
-        };
-        /** Bad Request */
-        400: {
-          schema: definitions["app.Response"];
-        };
-        /** Unauthorized */
-        401: {
-          schema: definitions["app.Response"];
-        };
-        /** Internal Server Error */
-        500: {
-          schema: definitions["app.Response"];
-        };
-      };
-    };
-  };
-  "/api/user/email/bind/confirm": {
-    /** Confirms the email address using the code sent to the user. */
-    post: {
-      parameters: {
-        body: {
-          /** Confirmation code */
-          request: definitions["app.ConfirmEmailData"];
-        };
-      };
-      responses: {
-        /** OK */
-        200: {
-          schema: definitions["app.Response"];
-        };
-        /** Bad Request */
-        400: {
-          schema: definitions["app.Response"];
-        };
-        /** Unauthorized */
-        401: {
-          schema: definitions["app.Response"];
-        };
-      };
-    };
-  };
-  "/api/user/email/bind/request": {
-    /** Sends a confirmation code to the requested email address. */
-    post: {
-      parameters: {
-        body: {
-          /** Email address */
-          request: definitions["app.RequestEmailData"];
-        };
-      };
-      responses: {
-        /** OK */
-        200: {
-          schema: definitions["app.Response"];
-        };
-        /** Bad Request */
-        400: {
-          schema: definitions["app.Response"];
-        };
-        /** Unauthorized */
-        401: {
-          schema: definitions["app.Response"];
-        };
-      };
-    };
-  };
-  "/api/user/notification-settings": {
-    get: {
-      responses: {
-        /** OK */
-        200: {
-          schema: definitions["app.Response"];
-        };
-      };
-    };
-    put: {
-      parameters: {
-        body: {
-          /** Notification settings */
-          request: definitions["app.NotificationSettingsData"];
-        };
-      };
-      responses: {
-        /** OK */
-        200: {
-          schema: definitions["app.Response"];
-        };
-      };
-    };
-  };
-  "/api/user/notifications": {
-    get: {
-      parameters: {
-        query: {
-          /** Page */
-          page?: number;
-          /** Page size */
-          page_size?: number;
-          /** grades, schedule, attendance or system */
-          category?: string;
-          /** Only unread notifications */
-          unread_only?: boolean;
-        };
-      };
-      responses: {
-        /** OK */
-        200: {
-          schema: definitions["app.Response"];
-        };
-      };
-    };
-  };
-  "/api/user/notifications/read-all": {
-    patch: {
-      responses: {
-        /** OK */
-        200: {
-          schema: definitions["app.Response"];
-        };
-      };
-    };
-  };
-  "/api/user/notifications/unread-count": {
-    get: {
-      responses: {
-        /** OK */
-        200: {
-          schema: definitions["app.Response"];
-        };
-      };
-    };
-  };
-  "/api/user/notifications/{notification_id}/read": {
-    patch: {
-      parameters: {
-        path: {
-          /** Notification ID */
-          notification_id: number;
-        };
-      };
-      responses: {
-        /** OK */
-        200: {
-          schema: definitions["app.Response"];
-        };
-      };
-    };
-  };
-  "/api/user/upload-avatar": {
-    /** Resizes avatar image to 256x256, stores in PostgreSQL BYTEA, and returns avatar URL. */
-    post: {
-      parameters: {
-        formData: {
-          /** Avatar image */
-          avatar: unknown;
-        };
-      };
-      responses: {
-        /** OK */
-        200: {
-          schema: definitions["app.Response"];
-        };
-        /** Bad Request */
-        400: {
-          schema: definitions["app.Response"];
-        };
-        /** Unauthorized */
-        401: {
-          schema: definitions["app.Response"];
-        };
-      };
-    };
-  };
-  "/lessons/create": {
-    /** Teacher creates an attendance lesson using subject/group names or IDs and current location. */
-    post: {
-      parameters: {
-        body: {
-          /** Android lesson payload */
-          request: definitions["app.AndroidLessonCreateData"];
-        };
-      };
-      responses: {
-        /** OK */
-        200: {
-          schema: definitions["app.Response"];
-        };
-        /** Bad Request */
-        400: {
-          schema: definitions["app.Response"];
-        };
-        /** Unauthorized */
-        401: {
-          schema: definitions["app.Response"];
-        };
-        /** Forbidden */
-        403: {
-          schema: definitions["app.Response"];
-        };
-      };
-    };
-  };
-  "/login": {
-    /** Authenticates a user and returns JWT token. */
-    post: {
-      parameters: {
-        body: {
-          /** Login payload */
-          request: definitions["app.LoginData"];
-        };
-      };
-      responses: {
-        /** OK */
-        200: {
-          schema: definitions["httpserver.loginResponse"];
-        };
-        /** Unauthorized */
-        401: {
-          schema: definitions["app.Response"];
-        };
-        /** Internal Server Error */
-        500: {
-          schema: definitions["app.Response"];
-        };
-      };
-    };
-  };
-  "/profile": {
-    /** Returns current user profile from Authorization token. */
-    get: {
-      responses: {
-        /** OK */
-        200: {
-          schema: definitions["httpserver.profileResponse"];
-        };
-        /** Unauthorized */
-        401: {
-          schema: definitions["app.Response"];
-        };
-        /** Internal Server Error */
-        500: {
-          schema: definitions["app.Response"];
-        };
-      };
-    };
-  };
-  "/register": {
-    /** Registers a user by one-time invite_code. Legacy role_hash registration remains supported for existing clients. */
-    post: {
-      parameters: {
-        body: {
-          /** Register payload */
-          request: definitions["app.RegisterData"];
-        };
-      };
-      responses: {
-        /** OK */
-        200: {
-          schema: definitions["httpserver.registerResponse"];
-        };
-        /** Bad Request */
-        400: {
-          schema: definitions["app.Response"];
-        };
-        /** Internal Server Error */
-        500: {
-          schema: definitions["app.Response"];
-        };
-      };
-    };
-  };
-  "/register/by-invite": {
-    /** Creates student, teacher, or admin account by one-time invite code from database. */
-    post: {
-      parameters: {
-        body: {
-          /** Register by invite payload */
-          request: definitions["app.RegisterByInviteData"];
-        };
-      };
-      responses: {
-        /** OK */
-        200: {
-          schema: definitions["httpserver.registerByInviteResponse"];
-        };
-        /** Bad Request */
-        400: {
-          schema: definitions["app.Response"];
-        };
-        /** Conflict */
-        409: {
-          schema: definitions["app.Response"];
-        };
-        /** Internal Server Error */
-        500: {
-          schema: definitions["app.Response"];
-        };
-      };
-    };
-  };
+    "/api/admin/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List notifications for admin */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** Create admin update notification */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Notification payload */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["app.AdminNotificationCreateData"];
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/notifications/{notification_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete admin notification */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Notification ID */
+                    notification_id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        /** Update admin notification */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Notification ID */
+                    notification_id: number;
+                };
+                cookie?: never;
+            };
+            /** @description Notification payload */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["app.AdminNotificationUpdateData"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/api/admin/semesters": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create semester
+         * @description Admin creates a planned semester or opens it immediately with status=open.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Semester payload */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["app.SemesterCreateData"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/semesters/{semester_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete semester
+         * @description Admin deletes a non-open semester.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Semester ID */
+                    semester_id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/semesters/{semester_id}/activate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Activate semester
+         * @description Admin opens a planned semester and closes the previously open semester.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Semester ID */
+                    semester_id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/api/admin/semesters/{semester_id}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Archive semester
+         * @description Admin archives a closed semester. Archived data remains available for historical reads.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Semester ID */
+                    semester_id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/api/admin/semesters/{semester_id}/close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Close semester
+         * @description Admin closes the open semester. Closed semester data becomes read-only.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Semester ID */
+                    semester_id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/api/admin/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List users for admin
+         * @description Returns users with pagination, search and filters. Admin only.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Page */
+                    page?: number;
+                    /** @description Page size */
+                    page_size?: number;
+                    /** @description Search by login or email */
+                    search?: string;
+                    /** @description Role */
+                    role?: string;
+                    /** @description Status */
+                    status?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Create user
+         * @description Creates a user and the required role profile in one transaction. Admin only.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description User payload */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["app.AdminUserCreateData"];
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/users/{user_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get user for admin
+         * @description Returns one user. Admin only.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description User ID */
+                    user_id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        /**
+         * Archive user
+         * @description Soft deletes a user by setting status=archived. Admin only.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description User ID */
+                    user_id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        /**
+         * Update user
+         * @description Updates user fields, status or role. Admin only.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description User ID */
+                    user_id: number;
+                };
+                cookie?: never;
+            };
+            /** @description User payload */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["app.AdminUserUpdateData"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/api/auth/forgot-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Forgot password
+         * @description Generates a password reset token and sends it to the user's email.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Forgot password payload */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["app.ForgotPasswordData"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/reset-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reset password
+         * @description Resets user password using the provided reset token.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Reset password payload */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["app.ResetPasswordData"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/semesters": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List semesters
+         * @description Returns all known semesters ordered by start date.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/semesters/current": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get current semester
+         * @description Returns the active semester used by grade and attendance calculations.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/staff/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Supervisory overview (teacher/head/dean/admin)
+         * @description Returns groups, teachers and students scoped to the caller's role: teacher -> own groups, head -> own lectern, dean -> own faculty, admin -> everything.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/staff/overview/students": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List students with pagination
+         * @description Returns a role-scoped, paginated student list for staff users.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Page number */
+                    page?: number;
+                    /** @description Rows per page */
+                    page_size?: number;
+                    /** @description Filter by group ID */
+                    group_id?: number;
+                    /** @description Search by student name or related fields */
+                    search?: string;
+                    /** @description Sort field */
+                    sort?: string;
+                    /** @description Sort order: asc or desc */
+                    order?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/staff/ratings/general": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get source data for the common student rating
+         * @description Returns semester metadata, role-scoped departments, subjects, groups, student consent status, attendance, laboratory/practice grades, and per-subject summaries in the standard response envelope.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Semester ID; defaults to the open semester */
+                    semester_id?: number;
+                    /** @description Group page; defaults to 1 */
+                    page?: number;
+                    /** @description Groups per page; defaults to 20, maximum 50 */
+                    page_size?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["httpserver.generalRatingResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/staff/reports/performance.pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download performance report as PDF
+         * @description Head, dean, or admin downloads a PDF performance rating report: one page (or more) for the whole scope plus one section per group, colour-coded by percent, matching the xlsx report.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Semester ID; defaults to the open semester */
+                    semester_id?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description PDF document */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/pdf": string;
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/pdf": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/pdf": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/pdf": components["schemas"]["app.Response"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/staff/reports/performance.xlsx": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download performance report as Excel
+         * @description Head, dean, or admin downloads an xlsx performance rating report: one sheet for the whole scope plus one sheet per group. Rows are students ranked by overall rating with per-subject percents and attendance.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Semester ID; defaults to the open semester */
+                    semester_id?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Excel workbook */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": string;
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": components["schemas"]["app.Response"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/student/attendance/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm attendance by invite token
+         * @description Student confirms attendance for active session.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Attendance confirm payload */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["app.AttendanceConfirmData"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["httpserver.studentAttendanceConfirmResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/student/attendance/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get current student attendance history
+         * @description Returns attendance marks grouped by date for current student and selected year.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description History year */
+                    year?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["httpserver.studentAttendanceHistoryResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/student/grades": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Get current student grades by subject
+         * @description Student gets own grade sheet for a subject.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: components["requestBodies"]["app.GradeSubjectData"];
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/student/grades/all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get all grades for the current student
+         * @description Returns every plan subject with its grade items and totals for the selected semester. Defaults to the open semester.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Semester ID; defaults to the open semester */
+                    semester_id?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/student/mark-attendance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark attendance for Android client
+         * @description Student marks attendance with lesson ID, device ID, and current location.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Android attendance payload */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["app.AndroidAttendanceMarkData"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/student/performance/radar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get student performance radar
+         * @description Returns one point per subject for the selected semester. Defaults to the open semester.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Semester ID; defaults to the open semester */
+                    semester_id?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/student/schedule/day": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get student's schedule for a day
+         * @description Returns the current student's lessons for a given date, restricted to the current or next calendar week. Defaults to today if date is omitted.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Date in YYYY-MM-DD format (defaults to today) */
+                    date?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/teacher/attendance-link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create attendance session link
+         * @description Teacher creates attendance session and gets invite/join URL. If subject_id/group_ids are omitted, they are taken from nearest scheduled lesson.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: components["requestBodies"]["httpserver.teacherAttendanceLinkRequest"];
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["httpserver.teacherAttendanceLinkResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/teacher/attendance/group": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Get attendance stats by group
+         * @description Returns per-student attendance stats for selected group and optional subject.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Group stats payload */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["app.AttendanceGroupStatsData"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["httpserver.teacherAttendanceGroupResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/teacher/attendance/mark": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Manually correct a student's attendance status
+         * @description Teacher sets a student's attendance status (present/absent/late/excused) for a session they own, overriding self/device check-in.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Lesson, student and new status */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["app.TeacherAttendanceMarkData"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/teacher/attendance/session": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create attendance session link
+         * @description Teacher creates attendance session and gets invite/join URL. If subject_id/group_ids are omitted, they are taken from nearest scheduled lesson.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: components["requestBodies"]["httpserver.teacherAttendanceLinkRequest"];
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["httpserver.teacherAttendanceLinkResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/teacher/attendance/session/active": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get active attendance session
+         * @description Returns current teacher attendance session that has not expired yet.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["httpserver.teacherActiveAttendanceSessionResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/teacher/attendance/session/marked-count": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get attendance marked count
+         * @description Returns how many students have marked attendance in a teacher-owned session.
+         */
+        get: {
+            parameters: {
+                query: {
+                    /** @description Attendance session ID */
+                    lesson_id: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["httpserver.teacherAttendanceMarkedCountResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/teacher/attendance/session/timer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get attendance session timer
+         * @description Returns remaining seconds for a teacher-owned attendance session.
+         */
+        get: {
+            parameters: {
+                query: {
+                    /** @description Attendance session ID */
+                    lesson_id: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["httpserver.teacherAttendanceSessionTimerResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/teacher/attendance/student/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Get a student's attendance history for a subject
+         * @description Teacher gets the detailed attendance history of a specific student for a specific subject.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Student and subject payload */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["app.TeacherAttendanceStudentHistoryData"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["httpserver.teacherAttendanceStudentHistoryResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/teacher/grades": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create or update student grade
+         * @description Teacher creates or updates a student's score for a grade item.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Grade payload */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["app.GradeUpsertData"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/teacher/grades/items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create grade item
+         * @description Teacher creates a subject grade item/control point.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Grade item payload */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["app.GradeItemCreateData"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/teacher/grades/items/list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * List grade items by subject
+         * @description Teacher lists grade items/control points for assigned subject.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: components["requestBodies"]["app.GradeSubjectData"];
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/teacher/grades/items/{item_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete grade item
+         * @description Soft-deletes a grade item in the open semester. Set cascade=true to also delete its active grades.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Grade item ID */
+                    item_id: number;
+                };
+                cookie?: never;
+            };
+            /** @description Deletion options; item_id from the path takes precedence */
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["app.GradeItemDeleteData"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/teacher/grades/items/{item_id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore grade item
+         * @description Restores a soft-deleted grade item and its cascade-deleted grades in the open semester.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Grade item ID */
+                    item_id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/teacher/grades/student": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Get student grades by subject
+         * @description Teacher gets a student's grade sheet for an assigned subject.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Student subject payload */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["app.TeacherStudentGradesData"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/teacher/grades/{grade_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete student grade
+         * @description Soft-deletes a grade in the open semester. An optional reason can be sent in the request body.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Grade ID */
+                    grade_id: number;
+                };
+                cookie?: never;
+            };
+            /** @description Optional deletion reason; grade_id from the path takes precedence */
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["app.GradeDeleteData"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/teacher/grades/{grade_id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore student grade
+         * @description Restores a soft-deleted grade in the open semester.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Grade ID */
+                    grade_id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/teacher/group/performance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Get a group performance overview for a subject
+         * @description Teacher gets a combined per-student overview (attendance and grade totals) for a group on a subject.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Group and subject payload */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["app.GroupPerformanceData"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["httpserver.teacherGroupPerformanceResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/teacher/student/performance/radar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Get a student's performance radar (teacher)
+         * @description Teacher gets the per-subject performance radar for a student they teach.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Student payload */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["app.TeacherStudentRadarData"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/teacher/subjects": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get teacher subjects
+         * @description Returns subjects (and groups) assigned to current teacher from schedule.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/user/2fa/disable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Disable 2FA
+         * @description Disables 2FA and removes the stored TOTP secret for the current user.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/user/2fa/generate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Generate 2FA setup
+         * @description Generates a TOTP secret and QR code for the current user after validating email confirmation code.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/user/2fa/request-enable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Request 2FA enablement code
+         * @description Sends a confirmation code to user's bound email before allowing 2FA QR code generation.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/user/2fa/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Verify and enable 2FA
+         * @description Verifies a TOTP code and enables 2FA for the current user.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description TOTP code */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["app.TwoFaCodeData"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/user/agreements/current": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get current user agreement status
+         * @description Returns the current agreement version and the latest user decision.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/user/agreements/decision": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record user agreement decision
+         * @description Stores either acceptance or rejection of the current user agreement version.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Agreement decision */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["app.UserAgreementDecisionData"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/user/avatar/{user_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get user avatar
+         * @description Returns the avatar image for the selected user.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description User ID */
+                    user_id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/octet-stream": string;
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/octet-stream": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/octet-stream": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/octet-stream": components["schemas"]["app.Response"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/user/email": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Update user email
+         * @description Links/updates email for current user.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Update email payload */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["app.UpdateEmailData"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/user/email/bind/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm email binding
+         * @description Confirms the email address using the code sent to the user.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Confirmation code */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["app.ConfirmEmailData"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/user/email/bind/request": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Request email binding
+         * @description Sends a confirmation code to the requested email address.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Email address */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["app.RequestEmailData"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/user/notification-settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get notification settings */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+            };
+        };
+        /** Update notification settings */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Notification settings */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["app.NotificationSettingsData"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/user/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List current user notifications */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Page */
+                    page?: number;
+                    /** @description Page size */
+                    page_size?: number;
+                    /** @description grades, schedule, attendance or system */
+                    category?: string;
+                    /** @description Only unread notifications */
+                    unread_only?: boolean;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/user/notifications/read-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Mark all notifications as read */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/api/user/notifications/unread-count": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get unread notifications count */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/user/notifications/{notification_id}/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Mark notification as read */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Notification ID */
+                    notification_id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/api/user/upload-avatar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upload current user avatar
+         * @description Resizes avatar image to 256x256, stores in PostgreSQL BYTEA, and returns avatar URL.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "multipart/form-data": {
+                        /**
+                         * Format: binary
+                         * @description Avatar image
+                         */
+                        avatar: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lessons/create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create lesson for Android client
+         * @description Teacher creates an attendance lesson using subject/group names or IDs and current location.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Android lesson payload */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["app.AndroidLessonCreateData"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Login user
+         * @description Authenticates a user and returns JWT token.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Login payload */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["app.LoginData"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["httpserver.loginResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get user profile
+         * @description Returns current user profile from Authorization token.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["httpserver.profileResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/register": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Register user
+         * @description Registers a user by one-time invite_code. Legacy role_hash registration remains supported for existing clients.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Register payload */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["app.RegisterData"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["httpserver.registerResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/register/by-invite": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Register user by invite code
+         * @description Creates student, teacher, or admin account by one-time invite code from database.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Register by invite payload */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["app.RegisterByInviteData"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["httpserver.registerByInviteResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
-
-export interface definitions {
-  "app.AdminNotificationCreateData": {
-    audience?: string;
-    category?: string;
-    event_type?: string;
-    expires_at?: string;
-    group_ids?: number[];
-    message?: string;
-    role?: string;
-    title?: string;
-    user_ids?: number[];
-  };
-  "app.AdminNotificationUpdateData": {
-    expires_at?: string;
-    message?: string;
-    notification_id?: number;
-    title?: string;
-  };
-  "app.AdminUserCreateData": {
-    email?: string;
-    faculty_id?: number;
-    full_name?: string;
-    group_id?: number;
-    job_title?: string;
-    lectern_id?: number;
-    login?: string;
-    password?: string;
-    role?: string;
-  };
-  "app.AdminUserUpdateData": {
-    email?: string;
-    faculty_id?: number;
-    lectern_id?: number;
-    login?: string;
-    password?: string;
-    role?: string;
-    status?: string;
-    student_id?: number;
-    teacher_id?: number;
-    user_id?: number;
-  };
-  "app.AndroidAttendanceMarkData": {
-    device_id?: string;
-    invite_token?: string;
-    lat?: number;
-    lesson_id?: number;
-    lon?: number;
-  };
-  "app.AndroidLessonCreateData": {
-    expires_minutes?: number;
-    group_ids?: number[];
-    groups?: string[];
-    lat?: number;
-    lesson_name?: string;
-    lon?: number;
-    subject?: string;
-    subject_id?: number;
-    teacher_id?: number;
-  };
-  "app.AttendanceConfirmData": {
-    invite_token?: string;
-  };
-  "app.AttendanceGroupStatsData": {
-    group_id?: number;
-    semester_id?: number;
-    subject_id?: number;
-  };
-  "app.ConfirmEmailData": {
-    code?: string;
-  };
-  "app.ForgotPasswordData": {
-    identity?: string;
-  };
-  "app.GeneralRatingAccessControl": {
-    allowed?: boolean;
-    role?: string;
-    user_id?: number;
-  };
-  "app.GeneralRatingActivities": {
-    laboratory_works?: definitions["app.GeneralRatingGradedActivity"][];
-    lectures?: definitions["app.GeneralRatingAttendanceActivity"][];
-    practices?: definitions["app.GeneralRatingGradedActivity"][];
-  };
-  "app.GeneralRatingAssessmentSummary": {
-    performance_percent?: number;
-  };
-  "app.GeneralRatingAttendanceActivity": {
-    attendance_code?: string;
-    attendance_status?: string;
-    date?: string;
-  };
-  "app.GeneralRatingAttendanceSummary": {
-    attendance_percent?: number;
-  };
-  "app.GeneralRatingConsent": {
-    accepted?: boolean;
-  };
-  "app.GeneralRatingDepartment": {
-    department_id?: number;
-    department_name?: string;
-  };
-  "app.GeneralRatingGradedActivity": {
-    date?: string;
-    max_score?: number;
-    score?: number;
-    title?: string;
-  };
-  "app.GeneralRatingGroup": {
-    group_id?: number;
-    group_name?: string;
-    students?: definitions["app.GeneralRatingStudent"][];
-  };
-  "app.GeneralRatingPayload": {
-    access_control?: definitions["app.GeneralRatingAccessControl"];
-    departments?: definitions["app.GeneralRatingDepartment"][];
-    groups?: definitions["app.GeneralRatingGroup"][];
-    schema_version?: string;
-    semester?: definitions["app.GeneralRatingSemester"];
-    subjects?: definitions["app.GeneralRatingSubject"][];
-  };
-  "app.GeneralRatingSemester": {
-    semester_id?: number;
-    title?: string;
-  };
-  "app.GeneralRatingStudent": {
-    personal_data_consent?: definitions["app.GeneralRatingConsent"];
-    student_label?: string;
-    student_ref?: string;
-    subjects?: definitions["app.GeneralRatingStudentSubject"][];
-  };
-  "app.GeneralRatingStudentSubject": {
-    activities?: definitions["app.GeneralRatingActivities"];
-    assessment_summary?: definitions["app.GeneralRatingAssessmentSummary"];
-    attendance_summary?: definitions["app.GeneralRatingAttendanceSummary"];
-    subject_id?: number;
-  };
-  "app.GeneralRatingSubject": {
-    department_id?: number;
-    department_name?: string;
-    name?: string;
-    short_name?: string;
-    subject_id?: number;
-    teacher?: string;
-    teacher_id?: number;
-  };
-  "app.GradeDeleteData": {
-    grade_id?: number;
-    reason?: string;
-  };
-  "app.GradeItemCreateData": {
-    deadline?: string;
-    item_type?: string;
-    max_score?: number;
-    semester_id?: number;
-    subject_id?: number;
-    title?: string;
-  };
-  "app.GradeItemDeleteData": {
-    cascade?: boolean;
-    item_id?: number;
-    reason?: string;
-  };
-  "app.GradeSubjectData": {
-    semester_id?: number;
-    subject_id?: number;
-  };
-  "app.GradeUpsertData": {
-    comment?: string;
-    item_id?: number;
-    score?: number;
-    session_id?: number;
-    student_id?: number;
-  };
-  "app.GroupPerformanceData": {
-    group_id?: number;
-    semester_id?: number;
-    subject_id?: number;
-  };
-  "app.LoginData": {
-    login?: string;
-    password?: string;
-    two_fa_code?: string;
-  };
-  "app.NotificationSettingsData": {
-    attendance?: boolean;
-    grades?: boolean;
-    schedule?: boolean;
-    system?: boolean;
-  };
-  "app.RegisterByInviteData": {
-    invite_code?: string;
-    login?: string;
-    password?: string;
-  };
-  "app.RegisterData": {
-    invite_code?: string;
-    login?: string;
-    password?: string;
-    role?: string;
-    role_hash?: string;
-  };
-  "app.RequestEmailData": {
-    email?: string;
-  };
-  "app.ResetPasswordData": {
-    new_password?: string;
-    token?: string;
-  };
-  "app.Response": {
-    error?: string;
-    id?: string;
-    ok?: boolean;
-    result?: unknown;
-  };
-  "app.SemesterCreateData": {
-    academic_year?: string;
-    ends_at?: string;
-    is_current?: boolean;
-    name?: string;
-    starts_at?: string;
-    status?: string;
-    term_num?: number;
-  };
-  "app.TeacherAttendanceMarkData": {
-    lesson_id?: number;
-    status?: string;
-    student_id?: number;
-  };
-  "app.TeacherAttendanceStudentHistoryData": {
-    semester_id?: number;
-    student_id?: number;
-    subject_id?: number;
-  };
-  "app.TeacherStudentGradesData": {
-    semester_id?: number;
-    student_id?: number;
-    subject_id?: number;
-  };
-  "app.TeacherStudentRadarData": {
-    semester_id?: number;
-    student_id?: number;
-  };
-  "app.TwoFaCodeData": {
-    code?: string;
-  };
-  "app.UpdateEmailData": {
-    email?: string;
-  };
-  "app.UserAgreementDecisionData": {
-    decision?: string;
-    version?: string;
-  };
-  "httpserver.generalRatingResponse": {
-    /** @example */
-    error?: string;
-    /** @example http-general-rating */
-    id?: string;
-    /** @example true */
-    ok?: boolean;
-    result?: definitions["app.GeneralRatingPayload"];
-  };
-  "httpserver.loginResponse": {
-    /** @example */
-    error?: string;
-    /** @example http-login */
-    id?: string;
-    /** @example true */
-    ok?: boolean;
-    result?: definitions["httpserver.loginResult"];
-  };
-  "httpserver.loginResult": {
-    /** @example teacher_test */
-    login?: string;
-    /** @example teacher */
-    role?: string;
-    /** @example <jwt_token> */
-    token?: string;
-    /** @example 3 */
-    user_ID?: string;
-  };
-  "httpserver.profileResponse": {
-    /** @example */
-    error?: string;
-    /** @example http-profile */
-    id?: string;
-    /** @example true */
-    ok?: boolean;
-    result?: definitions["httpserver.profileResult"];
-  };
-  "httpserver.profileResult": {
-    /** @example https://server.com/uploads/avatars/avatar.png */
-    avatar?: string;
-    /** @example ИКС-433 */
-    group?: string;
-    /** @example 237 */
-    group_id?: number;
-    /** @example ИКС-433 */
-    group_name?: string;
-    /** @example Преподаватель */
-    job_title?: string;
-    /** @example 1 */
-    lectern_id?: number;
-    /** @example student_iks_21 */
-    login?: string;
-    /** @example Демин Сергей А. */
-    name?: string;
-    /** @example 04:XX:YY:ZZ */
-    nfc_tag?: string;
-    /** @example student */
-    role?: string;
-    /** @example 56 */
-    student_id?: number;
-    /** @example Демин Сергей А. */
-    student_name?: string;
-    /** @example 3 */
-    teacher_id?: number;
-    /** @example Солодов Павел Сергеевич */
-    teacher_name?: string;
-    /** @example 0 */
-    total_cheat_attempts?: number;
-    /** @example 3 */
-    user_id?: string;
-  };
-  "httpserver.registerByInviteResponse": {
-    /** @example */
-    error?: string;
-    /** @example http-register-by-invite */
-    id?: string;
-    /** @example true */
-    ok?: boolean;
-    result?: definitions["httpserver.registerByInviteResult"];
-  };
-  "httpserver.registerByInviteResult": {
-    /** @example 237 */
-    group_id?: number;
-    /** @example ИКС-433 */
-    group_name?: string;
-    /** @example Преподаватель */
-    job_title?: string;
-    /** @example student_iks_21 */
-    login?: string;
-    /** @example student */
-    role?: string;
-    /** @example 56 */
-    student_id?: number;
-    /** @example Демин Сергей А. */
-    student_name?: string;
-    /** @example 3 */
-    teacher_id?: number;
-    /** @example Солодов Павел Сергеевич */
-    teacher_name?: string;
-    /** @example 12 */
-    user_id?: string;
-  };
-  "httpserver.registerResponse": {
-    /** @example */
-    error?: string;
-    /** @example http-register */
-    id?: string;
-    /** @example true */
-    ok?: boolean;
-    result?: definitions["httpserver.registerResult"];
-  };
-  "httpserver.registerResult": {
-    /** @example teacher1 */
-    login?: string;
-    /** @example teacher */
-    role?: string;
-    /** @example <jwt_token> */
-    token?: string;
-    /** @example 5 */
-    user_id?: string;
-  };
-  "httpserver.studentAttendanceConfirmResponse": {
-    /** @example */
-    error?: string;
-    /** @example http-attendance-confirm */
-    id?: string;
-    /** @example true */
-    ok?: boolean;
-    result?: definitions["httpserver.studentAttendanceConfirmResult"];
-  };
-  "httpserver.studentAttendanceConfirmResult": {
-    /** @example confirmed */
-    attendance?: string;
-    /** @example 5 */
-    lesson_id?: string;
-    /** @example 2026-04-20T20:13:07+07:00 */
-    marked_at?: string;
-    /** @example 4 */
-    student_id?: string;
-    /** @example 2 */
-    subject_id?: number;
-    /** @example 3 */
-    teacher_id?: string;
-  };
-  "httpserver.studentAttendanceHistoryItem": {
-    /** @example 1 */
-    count?: number;
-    /** @example 2026-04-20 */
-    date?: string;
-  };
-  "httpserver.studentAttendanceHistoryResponse": {
-    /** @example */
-    error?: string;
-    /** @example http-student-attendance-history */
-    id?: string;
-    /** @example true */
-    ok?: boolean;
-    result?: definitions["httpserver.studentAttendanceHistoryResult"];
-  };
-  "httpserver.studentAttendanceHistoryResult": {
-    items?: definitions["httpserver.studentAttendanceHistoryItem"][];
-    /** @example 2026 */
-    year?: number;
-  };
-  "httpserver.teacherActiveAttendanceSessionItem": {
-    /** @example 72 */
-    attendance_percent?: number;
-    /** @example 2026-04-21T21:05:37+07:00 */
-    created_at?: string;
-    /** @example 2026-04-21T21:25:37+07:00 */
-    expires_at?: string;
-    /** @example 5 */
-    id?: number;
-    /** @example true */
-    is_active?: boolean;
-    /** @example 5 */
-    lesson_id?: number;
-    /** @example Networks */
-    lesson_name?: string;
-    /** @example 18 */
-    marked_count?: number;
-    /** @example 900 */
-    remaining_seconds?: number;
-    /** @example 25 */
-    roster_size?: number;
-    /** @example 900 */
-    seconds_remaining?: number;
-    /** @example 2026-04-21T21:10:37+07:00 */
-    server_time?: string;
-    /** @example 2 */
-    subject_id?: number;
-    /** @example 3 */
-    teacher_id?: number;
-    /** @example Asia/Novosibirsk */
-    timezone?: string;
-  };
-  "httpserver.teacherActiveAttendanceSessionResponse": {
-    /** @example */
-    error?: string;
-    /** @example http-teacher-active-attendance-session */
-    id?: string;
-    /** @example true */
-    ok?: boolean;
-    result?: definitions["httpserver.teacherActiveAttendanceSessionResult"];
-  };
-  "httpserver.teacherActiveAttendanceSessionResult": {
-    /** @example true */
-    active?: boolean;
-    /** @example 900 */
-    remaining_seconds?: number;
-    /** @example 900 */
-    seconds_remaining?: number;
-    /** @example 2026-04-21T21:10:37+07:00 */
-    server_time?: string;
-    session?: definitions["httpserver.teacherActiveAttendanceSessionItem"];
-    /** @example Asia/Novosibirsk */
-    timezone?: string;
-  };
-  "httpserver.teacherAttendanceGroupResponse": {
-    /** @example */
-    error?: string;
-    /** @example http-teacher-attendance-group */
-    id?: string;
-    /** @example true */
-    ok?: boolean;
-    result?: definitions["httpserver.teacherAttendanceGroupResult"];
-  };
-  "httpserver.teacherAttendanceGroupResult": {
-    /** @example 1 */
-    group_id?: number;
-    students?: definitions["httpserver.teacherAttendanceGroupStudent"][];
-    /** @example 2 */
-    subject_id?: number;
-    summary?: definitions["httpserver.teacherAttendanceGroupSummary"];
-    /** @example Asia/Novosibirsk */
-    timezone?: string;
-  };
-  "httpserver.teacherAttendanceGroupStudent": {
-    /** @example 66.67 */
-    attendance_percent?: number;
-    /** @example 2 */
-    attended_sessions?: number;
-    /** @example 0 */
-    excused_sessions?: number;
-    /** @example 2026-04-20T20:13:07+07:00 */
-    last_marked_at?: string;
-    /** @example 4 */
-    student_id?: number;
-    /** @example Test Student */
-    student_name?: string;
-    /** @example 3 */
-    total_sessions?: number;
-  };
-  "httpserver.teacherAttendanceGroupSummary": {
-    /** @example 3 */
-    sessions_count?: number;
-    /** @example 1 */
-    students_count?: number;
-  };
-  "httpserver.teacherAttendanceLinkRequest": {
-    /** @example 20 */
-    expires_minutes?: number;
-    /**
-     * @example [
-     *   1
-     * ]
-     */
-    group_ids?: number[];
-    /** @example 5 */
-    lesson_id?: number;
-    /** @example Networks */
-    lesson_name?: string;
-    /** @example 2 */
-    subject_id?: number;
-  };
-  "httpserver.teacherAttendanceLinkResponse": {
-    /** @example */
-    error?: string;
-    /** @example http-attendance-link */
-    id?: string;
-    /** @example true */
-    ok?: boolean;
-    result?: definitions["httpserver.teacherAttendanceLinkResult"];
-  };
-  "httpserver.teacherAttendanceLinkResult": {
-    /** @example 2026-04-21T21:25:37+07:00 */
-    expires_at?: string;
-    /** @example 20 */
-    expires_minutes?: number;
-    group_ids?: number[];
-    /** @example <attendance_invite_jwt> */
-    invite_token?: string;
-    /** @example http://localhost:3000/#/attendance/join?token=<attendance_invite_jwt> */
-    join_url?: string;
-    /** @example 5 */
-    lesson_id?: string;
-    /** @example Networks */
-    lesson_name?: string;
-    /** @example http://localhost:3000/#/attendance/join?token=<attendance_invite_jwt> */
-    qr_payload?: string;
-    /** @example 25 */
-    roster_size?: number;
-    /** @example 2026-04-21T22:25:24+07:00 */
-    schedule_end?: string;
-    /** @example 2026-04-21T21:15:24+07:00 */
-    schedule_start?: string;
-    /** @example 2 */
-    subject_id?: number;
-    /** @example 3 */
-    teacher_id?: string;
-    /** @example Asia/Novosibirsk */
-    timezone?: string;
-    /** @example http://localhost:3000/#/attendance/join?token=<attendance_invite_jwt> */
-    url?: string;
-  };
-  "httpserver.teacherAttendanceMarkedCountResponse": {
-    /** @example */
-    error?: string;
-    /** @example http-teacher-attendance-marked-count */
-    id?: string;
-    /** @example true */
-    ok?: boolean;
-    result?: definitions["httpserver.teacherAttendanceMarkedCountResult"];
-  };
-  "httpserver.teacherAttendanceMarkedCountResult": {
-    /** @example 72 */
-    attendance_percent?: number;
-    /** @example 5 */
-    lesson_id?: number;
-    /** @example 18 */
-    marked_count?: number;
-    /** @example 25 */
-    roster_size?: number;
-  };
-  "httpserver.teacherAttendanceSessionTimerResponse": {
-    /** @example */
-    error?: string;
-    /** @example http-teacher-attendance-session-timer */
-    id?: string;
-    /** @example true */
-    ok?: boolean;
-    result?: definitions["httpserver.teacherAttendanceSessionTimerResult"];
-  };
-  "httpserver.teacherAttendanceSessionTimerResult": {
-    /** @example 2026-04-21T21:25:37+07:00 */
-    expires_at?: string;
-    /** @example true */
-    is_active?: boolean;
-    /** @example 5 */
-    lesson_id?: number;
-    /** @example 900 */
-    remaining_seconds?: number;
-    /** @example 900 */
-    seconds_remaining?: number;
-    /** @example 2026-04-21T21:10:37+07:00 */
-    server_time?: string;
-    /** @example Asia/Novosibirsk */
-    timezone?: string;
-  };
-  "httpserver.teacherAttendanceStudentHistoryItem": {
-    /** @example 2026-04-20 */
-    date?: string;
-    /** @example Math */
-    lesson_name?: string;
-    /** @example attended */
-    status?: string;
-  };
-  "httpserver.teacherAttendanceStudentHistoryResponse": {
-    /** @example */
-    error?: string;
-    /** @example http-teacher-attendance-student-history */
-    id?: string;
-    /** @example true */
-    ok?: boolean;
-    result?: definitions["httpserver.teacherAttendanceStudentHistoryResult"];
-  };
-  "httpserver.teacherAttendanceStudentHistoryResult": {
-    items?: definitions["httpserver.teacherAttendanceStudentHistoryItem"][];
-  };
-  "httpserver.teacherGroupPerformanceResponse": {
-    /** @example */
-    error?: string;
-    /** @example http-teacher-group-performance */
-    id?: string;
-    /** @example true */
-    ok?: boolean;
-    result?: definitions["httpserver.teacherGroupPerformanceResult"];
-  };
-  "httpserver.teacherGroupPerformanceResult": {
-    /** @example 2 */
-    group_id?: number;
-    /** @example ИКС-433 */
-    group_name?: string;
-    students?: definitions["httpserver.teacherGroupPerformanceStudent"][];
-    /** @example 1 */
-    subject_id?: number;
-    /** @example Networks */
-    subject_name?: string;
-    summary?: definitions["httpserver.teacherGroupPerformanceSummary"];
-    /** @example Asia/Novosibirsk */
-    timezone?: string;
-  };
-  "httpserver.teacherGroupPerformanceStudent": {
-    /** @example 75 */
-    attendance_percent?: number;
-    /** @example 3 */
-    attended_sessions?: number;
-    /** @example 13 */
-    current_score?: number;
-    /** @example 0 */
-    excused_sessions?: number;
-    /** @example 65 */
-    grade_percent?: number;
-    /** @example 10 */
-    passed_max?: number;
-    /** @example 4 */
-    student_id?: number;
-    /** @example Test Student */
-    student_name?: string;
-    /** @example 20 */
-    total_max?: number;
-    /** @example 4 */
-    total_sessions?: number;
-  };
-  "httpserver.teacherGroupPerformanceSummary": {
-    /** @example 75 */
-    avg_attendance_percent?: number;
-    /** @example 65 */
-    avg_grade_percent?: number;
-    /** @example 4 */
-    sessions_count?: number;
-    /** @example 1 */
-    students_count?: number;
-  };
+export type webhooks = Record<string, never>;
+export interface components {
+    schemas: {
+        "app.AdminNotificationCreateData": {
+            audience?: string;
+            category?: string;
+            event_type?: string;
+            expires_at?: string;
+            group_ids?: number[];
+            message?: string;
+            role?: string;
+            title?: string;
+            user_ids?: number[];
+        };
+        "app.AdminNotificationUpdateData": {
+            expires_at?: string;
+            message?: string;
+            notification_id?: number;
+            title?: string;
+        };
+        "app.AdminUserCreateData": {
+            email?: string;
+            faculty_id?: number;
+            full_name?: string;
+            group_id?: number;
+            job_title?: string;
+            lectern_id?: number;
+            login?: string;
+            password?: string;
+            role?: string;
+        };
+        "app.AdminUserUpdateData": {
+            email?: string;
+            faculty_id?: number;
+            lectern_id?: number;
+            login?: string;
+            password?: string;
+            role?: string;
+            status?: string;
+            student_id?: number;
+            teacher_id?: number;
+            user_id?: number;
+        };
+        "app.AndroidAttendanceMarkData": {
+            device_id?: string;
+            invite_token?: string;
+            lat?: number;
+            lesson_id?: number;
+            lon?: number;
+        };
+        "app.AndroidLessonCreateData": {
+            expires_minutes?: number;
+            group_ids?: number[];
+            groups?: string[];
+            lat?: number;
+            lesson_name?: string;
+            lon?: number;
+            subject?: string;
+            subject_id?: number;
+            teacher_id?: number;
+        };
+        "app.AttendanceConfirmData": {
+            invite_token?: string;
+        };
+        "app.AttendanceGroupStatsData": {
+            group_id?: number;
+            semester_id?: number;
+            subject_id?: number;
+        };
+        "app.ConfirmEmailData": {
+            code?: string;
+        };
+        "app.ForgotPasswordData": {
+            identity?: string;
+        };
+        "app.GeneralRatingAccessControl": {
+            allowed?: boolean;
+            role?: string;
+            user_id?: number;
+        };
+        "app.GeneralRatingActivities": {
+            laboratory_works?: components["schemas"]["app.GeneralRatingGradedActivity"][];
+            lectures?: components["schemas"]["app.GeneralRatingAttendanceActivity"][];
+            practices?: components["schemas"]["app.GeneralRatingGradedActivity"][];
+        };
+        "app.GeneralRatingAssessmentSummary": {
+            performance_percent?: number;
+        };
+        "app.GeneralRatingAttendanceActivity": {
+            attendance_code?: string;
+            attendance_status?: string;
+            date?: string;
+        };
+        "app.GeneralRatingAttendanceSummary": {
+            attendance_percent?: number;
+        };
+        "app.GeneralRatingConsent": {
+            accepted?: boolean;
+        };
+        "app.GeneralRatingDepartment": {
+            department_id?: number;
+            department_name?: string;
+        };
+        "app.GeneralRatingGradedActivity": {
+            date?: string;
+            max_score?: number;
+            score?: number | null;
+            title?: string;
+        };
+        "app.GeneralRatingGroup": {
+            group_id?: number;
+            group_name?: string;
+            students?: components["schemas"]["app.GeneralRatingStudent"][];
+        };
+        "app.GeneralRatingPagination": {
+            page?: number;
+            page_size?: number;
+            total?: number;
+            total_pages?: number;
+        };
+        "app.GeneralRatingPayload": {
+            access_control?: components["schemas"]["app.GeneralRatingAccessControl"];
+            departments?: components["schemas"]["app.GeneralRatingDepartment"][];
+            groups?: components["schemas"]["app.GeneralRatingGroup"][];
+            pagination?: components["schemas"]["app.GeneralRatingPagination"];
+            schema_version?: string;
+            semester?: components["schemas"]["app.GeneralRatingSemester"];
+            subjects?: components["schemas"]["app.GeneralRatingSubject"][];
+        };
+        "app.GeneralRatingSemester": {
+            semester_id?: number;
+            title?: string;
+        };
+        "app.GeneralRatingStudent": {
+            personal_data_consent?: components["schemas"]["app.GeneralRatingConsent"];
+            student_label?: string;
+            student_ref?: string;
+            subjects?: components["schemas"]["app.GeneralRatingStudentSubject"][];
+        };
+        "app.GeneralRatingStudentSubject": {
+            activities?: components["schemas"]["app.GeneralRatingActivities"];
+            assessment_summary?: components["schemas"]["app.GeneralRatingAssessmentSummary"];
+            attendance_summary?: components["schemas"]["app.GeneralRatingAttendanceSummary"];
+            subject_id?: number;
+        };
+        "app.GeneralRatingSubject": {
+            department_id?: number;
+            department_name?: string;
+            name?: string;
+            short_name?: string;
+            subject_id?: number;
+            teacher?: string;
+            teacher_id?: number;
+        };
+        "app.GradeDeleteData": {
+            grade_id?: number;
+            reason?: string;
+        };
+        "app.GradeItemCreateData": {
+            deadline?: string;
+            item_type?: string;
+            max_score?: number;
+            semester_id?: number;
+            subject_id?: number;
+            title?: string;
+        };
+        "app.GradeItemDeleteData": {
+            cascade?: boolean;
+            item_id?: number;
+            reason?: string;
+        };
+        "app.GradeSubjectData": {
+            semester_id?: number;
+            subject_id?: number;
+        };
+        "app.GradeUpsertData": {
+            comment?: string;
+            item_id?: number;
+            score?: number;
+            session_id?: number;
+            student_id?: number;
+        };
+        "app.GroupPerformanceData": {
+            group_id?: number;
+            semester_id?: number;
+            subject_id?: number;
+        };
+        "app.LoginData": {
+            login?: string;
+            password?: string;
+            two_fa_code?: string;
+        };
+        "app.NotificationSettingsData": {
+            attendance?: boolean;
+            grades?: boolean;
+            schedule?: boolean;
+            system?: boolean;
+        };
+        "app.RegisterByInviteData": {
+            invite_code?: string;
+            login?: string;
+            password?: string;
+        };
+        "app.RegisterData": {
+            invite_code?: string;
+            login?: string;
+            password?: string;
+            role?: string;
+            role_hash?: string;
+        };
+        "app.RequestEmailData": {
+            email?: string;
+        };
+        "app.ResetPasswordData": {
+            new_password?: string;
+            token?: string;
+        };
+        "app.Response": {
+            error?: string;
+            id?: string;
+            ok?: boolean;
+            result?: unknown;
+        };
+        "app.SemesterCreateData": {
+            academic_year?: string;
+            ends_at?: string;
+            is_current?: boolean;
+            name?: string;
+            starts_at?: string;
+            status?: string;
+            term_num?: number;
+        };
+        "app.TeacherAttendanceMarkData": {
+            lesson_id?: number;
+            status?: string;
+            student_id?: number;
+        };
+        "app.TeacherAttendanceStudentHistoryData": {
+            semester_id?: number;
+            student_id?: number;
+            subject_id?: number;
+        };
+        "app.TeacherStudentGradesData": {
+            semester_id?: number;
+            student_id?: number;
+            subject_id?: number;
+        };
+        "app.TeacherStudentRadarData": {
+            semester_id?: number;
+            student_id?: number;
+        };
+        "app.TwoFaCodeData": {
+            code?: string;
+        };
+        "app.UpdateEmailData": {
+            email?: string;
+        };
+        "app.UserAgreementDecisionData": {
+            decision?: string;
+            version?: string;
+        };
+        "httpserver.generalRatingResponse": {
+            /** @example  */
+            error?: string;
+            /** @example http-general-rating */
+            id?: string;
+            /** @example true */
+            ok?: boolean;
+            result?: components["schemas"]["app.GeneralRatingPayload"];
+        };
+        "httpserver.loginResponse": {
+            /** @example  */
+            error?: string;
+            /** @example http-login */
+            id?: string;
+            /** @example true */
+            ok?: boolean;
+            result?: components["schemas"]["httpserver.loginResult"];
+        };
+        "httpserver.loginResult": {
+            /** @example teacher_test */
+            login?: string;
+            /** @example teacher */
+            role?: string;
+            /** @example <jwt_token> */
+            token?: string;
+            /** @example 3 */
+            user_ID?: string;
+        };
+        "httpserver.profileResponse": {
+            /** @example  */
+            error?: string;
+            /** @example http-profile */
+            id?: string;
+            /** @example true */
+            ok?: boolean;
+            result?: components["schemas"]["httpserver.profileResult"];
+        };
+        "httpserver.profileResult": {
+            /** @example https://server.com/uploads/avatars/avatar.png */
+            avatar?: string;
+            /** @example ИКС-433 */
+            group?: string;
+            /** @example 237 */
+            group_id?: number;
+            /** @example ИКС-433 */
+            group_name?: string;
+            /** @example Преподаватель */
+            job_title?: string;
+            /** @example 1 */
+            lectern_id?: number;
+            /** @example student_iks_21 */
+            login?: string;
+            /** @example Демин Сергей А. */
+            name?: string;
+            /** @example 04:XX:YY:ZZ */
+            nfc_tag?: string;
+            /** @example student */
+            role?: string;
+            /** @example 56 */
+            student_id?: number;
+            /** @example Демин Сергей А. */
+            student_name?: string;
+            /** @example 3 */
+            teacher_id?: number;
+            /** @example Солодов Павел Сергеевич */
+            teacher_name?: string;
+            /** @example 0 */
+            total_cheat_attempts?: number;
+            /** @example 3 */
+            user_id?: string;
+        };
+        "httpserver.registerByInviteResponse": {
+            /** @example  */
+            error?: string;
+            /** @example http-register-by-invite */
+            id?: string;
+            /** @example true */
+            ok?: boolean;
+            result?: components["schemas"]["httpserver.registerByInviteResult"];
+        };
+        "httpserver.registerByInviteResult": {
+            /** @example 237 */
+            group_id?: number;
+            /** @example ИКС-433 */
+            group_name?: string;
+            /** @example Преподаватель */
+            job_title?: string;
+            /** @example student_iks_21 */
+            login?: string;
+            /** @example student */
+            role?: string;
+            /** @example 56 */
+            student_id?: number;
+            /** @example Демин Сергей А. */
+            student_name?: string;
+            /** @example 3 */
+            teacher_id?: number;
+            /** @example Солодов Павел Сергеевич */
+            teacher_name?: string;
+            /** @example 12 */
+            user_id?: string;
+        };
+        "httpserver.registerResponse": {
+            /** @example  */
+            error?: string;
+            /** @example http-register */
+            id?: string;
+            /** @example true */
+            ok?: boolean;
+            result?: components["schemas"]["httpserver.registerResult"];
+        };
+        "httpserver.registerResult": {
+            /** @example teacher1 */
+            login?: string;
+            /** @example teacher */
+            role?: string;
+            /** @example <jwt_token> */
+            token?: string;
+            /** @example 5 */
+            user_id?: string;
+        };
+        "httpserver.studentAttendanceConfirmResponse": {
+            /** @example  */
+            error?: string;
+            /** @example http-attendance-confirm */
+            id?: string;
+            /** @example true */
+            ok?: boolean;
+            result?: components["schemas"]["httpserver.studentAttendanceConfirmResult"];
+        };
+        "httpserver.studentAttendanceConfirmResult": {
+            /** @example confirmed */
+            attendance?: string;
+            /** @example 5 */
+            lesson_id?: string;
+            /** @example 2026-04-20T20:13:07+07:00 */
+            marked_at?: string;
+            /** @example 4 */
+            student_id?: string;
+            /** @example 2 */
+            subject_id?: number;
+            /** @example 3 */
+            teacher_id?: string;
+        };
+        "httpserver.studentAttendanceHistoryItem": {
+            /** @example 1 */
+            count?: number;
+            /** @example 2026-04-20 */
+            date?: string;
+        };
+        "httpserver.studentAttendanceHistoryResponse": {
+            /** @example  */
+            error?: string;
+            /** @example http-student-attendance-history */
+            id?: string;
+            /** @example true */
+            ok?: boolean;
+            result?: components["schemas"]["httpserver.studentAttendanceHistoryResult"];
+        };
+        "httpserver.studentAttendanceHistoryResult": {
+            items?: components["schemas"]["httpserver.studentAttendanceHistoryItem"][];
+            /** @example 2026 */
+            year?: number;
+        };
+        "httpserver.teacherActiveAttendanceSessionItem": {
+            /** @example 72 */
+            attendance_percent?: number;
+            /** @example 2026-04-21T21:05:37+07:00 */
+            created_at?: string;
+            /** @example 2026-04-21T21:25:37+07:00 */
+            expires_at?: string;
+            /** @example 5 */
+            id?: number;
+            /** @example true */
+            is_active?: boolean;
+            /** @example 5 */
+            lesson_id?: number;
+            /** @example Networks */
+            lesson_name?: string;
+            /** @example 18 */
+            marked_count?: number;
+            /** @example 900 */
+            remaining_seconds?: number;
+            /** @example 25 */
+            roster_size?: number;
+            /** @example 900 */
+            seconds_remaining?: number;
+            /** @example 2026-04-21T21:10:37+07:00 */
+            server_time?: string;
+            /** @example 2 */
+            subject_id?: number;
+            /** @example 3 */
+            teacher_id?: number;
+            /** @example Asia/Novosibirsk */
+            timezone?: string;
+        };
+        "httpserver.teacherActiveAttendanceSessionResponse": {
+            /** @example  */
+            error?: string;
+            /** @example http-teacher-active-attendance-session */
+            id?: string;
+            /** @example true */
+            ok?: boolean;
+            result?: components["schemas"]["httpserver.teacherActiveAttendanceSessionResult"];
+        };
+        "httpserver.teacherActiveAttendanceSessionResult": {
+            /** @example true */
+            active?: boolean;
+            /** @example 900 */
+            remaining_seconds?: number;
+            /** @example 900 */
+            seconds_remaining?: number;
+            /** @example 2026-04-21T21:10:37+07:00 */
+            server_time?: string;
+            session?: components["schemas"]["httpserver.teacherActiveAttendanceSessionItem"];
+            /** @example Asia/Novosibirsk */
+            timezone?: string;
+        };
+        "httpserver.teacherAttendanceGroupResponse": {
+            /** @example  */
+            error?: string;
+            /** @example http-teacher-attendance-group */
+            id?: string;
+            /** @example true */
+            ok?: boolean;
+            result?: components["schemas"]["httpserver.teacherAttendanceGroupResult"];
+        };
+        "httpserver.teacherAttendanceGroupResult": {
+            /** @example 1 */
+            group_id?: number;
+            students?: components["schemas"]["httpserver.teacherAttendanceGroupStudent"][];
+            /** @example 2 */
+            subject_id?: number;
+            summary?: components["schemas"]["httpserver.teacherAttendanceGroupSummary"];
+            /** @example Asia/Novosibirsk */
+            timezone?: string;
+        };
+        "httpserver.teacherAttendanceGroupStudent": {
+            /** @example 66.67 */
+            attendance_percent?: number;
+            /** @example 2 */
+            attended_sessions?: number;
+            /** @example 0 */
+            excused_sessions?: number;
+            /** @example 2026-04-20T20:13:07+07:00 */
+            last_marked_at?: string;
+            /** @example 4 */
+            student_id?: number;
+            /** @example Test Student */
+            student_name?: string;
+            /** @example 3 */
+            total_sessions?: number;
+        };
+        "httpserver.teacherAttendanceGroupSummary": {
+            /** @example 3 */
+            sessions_count?: number;
+            /** @example 1 */
+            students_count?: number;
+        };
+        "httpserver.teacherAttendanceLinkRequest": {
+            /** @example 20 */
+            expires_minutes?: number;
+            /**
+             * @example [
+             *       1
+             *     ]
+             */
+            group_ids?: number[];
+            /** @example 5 */
+            lesson_id?: number;
+            /** @example Networks */
+            lesson_name?: string;
+            /** @example 2 */
+            subject_id?: number;
+        };
+        "httpserver.teacherAttendanceLinkResponse": {
+            /** @example  */
+            error?: string;
+            /** @example http-attendance-link */
+            id?: string;
+            /** @example true */
+            ok?: boolean;
+            result?: components["schemas"]["httpserver.teacherAttendanceLinkResult"];
+        };
+        "httpserver.teacherAttendanceLinkResult": {
+            /** @example 2026-04-21T21:25:37+07:00 */
+            expires_at?: string;
+            /** @example 20 */
+            expires_minutes?: number;
+            group_ids?: number[];
+            /** @example <attendance_invite_jwt> */
+            invite_token?: string;
+            /** @example http://localhost:3000/#/attendance/join?token=<attendance_invite_jwt> */
+            join_url?: string;
+            /** @example 5 */
+            lesson_id?: string;
+            /** @example Networks */
+            lesson_name?: string;
+            /** @example http://localhost:3000/#/attendance/join?token=<attendance_invite_jwt> */
+            qr_payload?: string;
+            /** @example 25 */
+            roster_size?: number;
+            /** @example 2026-04-21T22:25:24+07:00 */
+            schedule_end?: string;
+            /** @example 2026-04-21T21:15:24+07:00 */
+            schedule_start?: string;
+            /** @example 2 */
+            subject_id?: number;
+            /** @example 3 */
+            teacher_id?: string;
+            /** @example Asia/Novosibirsk */
+            timezone?: string;
+            /** @example http://localhost:3000/#/attendance/join?token=<attendance_invite_jwt> */
+            url?: string;
+        };
+        "httpserver.teacherAttendanceMarkedCountResponse": {
+            /** @example  */
+            error?: string;
+            /** @example http-teacher-attendance-marked-count */
+            id?: string;
+            /** @example true */
+            ok?: boolean;
+            result?: components["schemas"]["httpserver.teacherAttendanceMarkedCountResult"];
+        };
+        "httpserver.teacherAttendanceMarkedCountResult": {
+            /** @example 72 */
+            attendance_percent?: number;
+            /** @example 5 */
+            lesson_id?: number;
+            /** @example 18 */
+            marked_count?: number;
+            /** @example 25 */
+            roster_size?: number;
+        };
+        "httpserver.teacherAttendanceSessionTimerResponse": {
+            /** @example  */
+            error?: string;
+            /** @example http-teacher-attendance-session-timer */
+            id?: string;
+            /** @example true */
+            ok?: boolean;
+            result?: components["schemas"]["httpserver.teacherAttendanceSessionTimerResult"];
+        };
+        "httpserver.teacherAttendanceSessionTimerResult": {
+            /** @example 2026-04-21T21:25:37+07:00 */
+            expires_at?: string;
+            /** @example true */
+            is_active?: boolean;
+            /** @example 5 */
+            lesson_id?: number;
+            /** @example 900 */
+            remaining_seconds?: number;
+            /** @example 900 */
+            seconds_remaining?: number;
+            /** @example 2026-04-21T21:10:37+07:00 */
+            server_time?: string;
+            /** @example Asia/Novosibirsk */
+            timezone?: string;
+        };
+        "httpserver.teacherAttendanceStudentHistoryItem": {
+            /** @example 2026-04-20 */
+            date?: string;
+            /** @example Math */
+            lesson_name?: string;
+            /** @example attended */
+            status?: string;
+        };
+        "httpserver.teacherAttendanceStudentHistoryResponse": {
+            /** @example  */
+            error?: string;
+            /** @example http-teacher-attendance-student-history */
+            id?: string;
+            /** @example true */
+            ok?: boolean;
+            result?: components["schemas"]["httpserver.teacherAttendanceStudentHistoryResult"];
+        };
+        "httpserver.teacherAttendanceStudentHistoryResult": {
+            items?: components["schemas"]["httpserver.teacherAttendanceStudentHistoryItem"][];
+        };
+        "httpserver.teacherGroupPerformanceResponse": {
+            /** @example  */
+            error?: string;
+            /** @example http-teacher-group-performance */
+            id?: string;
+            /** @example true */
+            ok?: boolean;
+            result?: components["schemas"]["httpserver.teacherGroupPerformanceResult"];
+        };
+        "httpserver.teacherGroupPerformanceResult": {
+            /** @example 2 */
+            group_id?: number;
+            /** @example ИКС-433 */
+            group_name?: string;
+            students?: components["schemas"]["httpserver.teacherGroupPerformanceStudent"][];
+            /** @example 1 */
+            subject_id?: number;
+            /** @example Networks */
+            subject_name?: string;
+            summary?: components["schemas"]["httpserver.teacherGroupPerformanceSummary"];
+            /** @example Asia/Novosibirsk */
+            timezone?: string;
+        };
+        "httpserver.teacherGroupPerformanceStudent": {
+            /** @example 75 */
+            attendance_percent?: number;
+            /** @example 3 */
+            attended_sessions?: number;
+            /** @example 13 */
+            current_score?: number;
+            /** @example 0 */
+            excused_sessions?: number;
+            /** @example 65 */
+            grade_percent?: number;
+            /** @example 10 */
+            passed_max?: number;
+            /** @example 4 */
+            student_id?: number;
+            /** @example Test Student */
+            student_name?: string;
+            /** @example 20 */
+            total_max?: number;
+            /** @example 4 */
+            total_sessions?: number;
+        };
+        "httpserver.teacherGroupPerformanceSummary": {
+            /** @example 75 */
+            avg_attendance_percent?: number;
+            /** @example 65 */
+            avg_grade_percent?: number;
+            /** @example 4 */
+            sessions_count?: number;
+            /** @example 1 */
+            students_count?: number;
+        };
+    };
+    responses: never;
+    parameters: never;
+    requestBodies: {
+        /** @description Attendance session payload (subject_id/group_ids are optional) */
+        "httpserver.teacherAttendanceLinkRequest": {
+            content: {
+                "application/json": components["schemas"]["httpserver.teacherAttendanceLinkRequest"];
+            };
+        };
+        /** @description Subject payload */
+        "app.GradeSubjectData": {
+            content: {
+                "application/json": components["schemas"]["app.GradeSubjectData"];
+            };
+        };
+    };
+    headers: never;
+    pathItems: never;
 }
-
-export interface operations {}
-
-export interface external {}
+export type $defs = Record<string, never>;
+export type operations = Record<string, never>;

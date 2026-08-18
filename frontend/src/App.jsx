@@ -6,18 +6,18 @@ import useHashRoute from './hooks/useHashRoute';
 import { getJoinInviteToken } from './utils/attendanceJoin';
 
 function App() {
-  const [token, setToken] = useState(() => localStorage.getItem('ejournal_token') || '');
+  const [token, setToken] = useState(() => sessionStorage.getItem('ejournal_token') || '');
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [pendingInvite, setPendingInvite] = useState(
-    () => getJoinInviteToken() || localStorage.getItem('ejournal_pending_invite') || ''
+    () => getJoinInviteToken() || sessionStorage.getItem('ejournal_pending_invite') || ''
   );
   const [attendanceNotice, setAttendanceNotice] = useState(null);
   const { route, navigate } = useHashRoute();
 
   const handleLogout = () => {
-    localStorage.removeItem('ejournal_token');
+    sessionStorage.removeItem('ejournal_token');
     setToken('');
     setUserData(null);
     setError('');
@@ -61,7 +61,7 @@ function App() {
   useEffect(() => {
     const invite = getJoinInviteToken();
     if (invite) {
-      localStorage.setItem('ejournal_pending_invite', invite);
+      sessionStorage.setItem('ejournal_pending_invite', invite);
       setPendingInvite(invite);
     }
   }, [route]);
@@ -90,7 +90,7 @@ function App() {
         if (cancelled) {
           return;
         }
-        localStorage.removeItem('ejournal_pending_invite');
+        sessionStorage.removeItem('ejournal_pending_invite');
         setPendingInvite('');
         navigate(userData.role === 'teacher' ? '/teacher/attendance' : '/attendance');
       });
@@ -105,7 +105,7 @@ function App() {
     setError('');
     try {
       const result = await api.login(login, password, twoFaCode);
-      localStorage.setItem('ejournal_token', result.token);
+      sessionStorage.setItem('ejournal_token', result.token);
       setToken(result.token);
     } catch (err) {
       setError(api.getErrorMessage(err, 'Не удалось войти'));
@@ -114,13 +114,20 @@ function App() {
     }
   };
 
-  const handleRegister = async (login, password, registrationCode) => {
+  const handleRegister = async (login, password, registrationCode, personalDataConsent) => {
     setLoading(true);
     setError('');
     try {
       const result = await api.register(login, password, registrationCode);
-      localStorage.setItem('ejournal_token', result.token);
+      sessionStorage.setItem('ejournal_token', result.token);
       setToken(result.token);
+      api.recordAgreementDecision(
+        result.token,
+        personalDataConsent ? 'accepted' : 'declined',
+        '2026-08-01'
+      ).catch(() => {
+        // Consent logging is best-effort and must not block registration.
+      });
     } catch (err) {
       setError(api.getErrorMessage(err, 'Не удалось зарегистрироваться'));
     } finally {

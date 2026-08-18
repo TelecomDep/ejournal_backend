@@ -103,7 +103,7 @@ func (s *Server) verify2faHandler(c *fiber.Ctx) error {
 // @Failure 401 {object} app.Response
 // @Router /api/user/2fa/disable [post]
 func (s *Server) disable2faHandler(c *fiber.Ctx) error {
-	var body any
+	var body app.TwoFaCodeData
 	return s.androidJSONActionHandler(c, "http-disable-2fa", "disable_2fa", &body)
 }
 

@@ -3,7 +3,7 @@ import React from 'react';
 const SibLogo = ({ size = 40, withWordmark = false, className = '' }) => {
   const mark = (
     <img
-      src={`${process.env.PUBLIC_URL}/sibguti-logo.png`}
+	  src="/sibguti-logo.png"
       width={size}
       height={size}
       alt="СибГУТИ"

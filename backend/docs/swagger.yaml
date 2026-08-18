@@ -220,6 +220,17 @@ definitions:
           $ref: '#/definitions/app.GeneralRatingStudent'
         type: array
     type: object
+  app.GeneralRatingPagination:
+    properties:
+      page:
+        type: integer
+      page_size:
+        type: integer
+      total:
+        type: integer
+      total_pages:
+        type: integer
+    type: object
   app.GeneralRatingPayload:
     properties:
       access_control:
@@ -232,6 +243,8 @@ definitions:
         items:
           $ref: '#/definitions/app.GeneralRatingGroup'
         type: array
+      pagination:
+        $ref: '#/definitions/app.GeneralRatingPagination'
       schema_version:
         type: string
       semester:
@@ -1835,6 +1848,14 @@ paths:
       - description: Semester ID; defaults to the open semester
         in: query
         name: semester_id
+        type: integer
+      - description: Group page; defaults to 1
+        in: query
+        name: page
+        type: integer
+      - description: Groups per page; defaults to 20, maximum 50
+        in: query
+        name: page_size
         type: integer
       produces:
       - application/json

@@ -1,6 +1,8 @@
 package app
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"strings"
 	"time"
 )
@@ -8,7 +10,13 @@ import (
 const (
 	userAgreementKey        = "user_agreement"
 	currentAgreementVersion = "2026-08-01"
+	currentAgreementText    = "Я даю согласие на обработку персональных данных"
 )
+
+func currentAgreementDocumentHash() string {
+	sum := sha256.Sum256([]byte(userAgreementKey + "\n" + currentAgreementVersion + "\n" + currentAgreementText))
+	return hex.EncodeToString(sum[:])
+}
 
 type UserAgreementDecisionData struct {
 	Version  string `json:"version"`
@@ -55,7 +63,9 @@ func (s *Service) recordUserAgreementDecision(
 		userAgreementKey,
 		version,
 		decision,
-		"",
+		currentAgreementDocumentHash(),
+		user.Login,
+		user.Role,
 		meta.IP,
 		meta.UserAgent,
 	)

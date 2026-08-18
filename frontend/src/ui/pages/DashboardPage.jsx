@@ -208,10 +208,17 @@ const DashboardPage = ({ user, token, navigate }) => {
         </div>
       </div>
 
-      <div className="dashboard-quick-grid">
-        {quickCards.map((card) => (
-          <QuickCard key={card.to} {...card} navigate={navigate} />
-        ))}
+	  <div className="dashboard-quick-grid">
+		{quickCards.map((card) => (
+		  <QuickCard
+			key={card.to}
+			icon={card.icon}
+			title={card.title}
+			text={card.text}
+			to={card.to}
+			navigate={navigate}
+		  />
+		))}
       </div>
 
       {isStaff ? (

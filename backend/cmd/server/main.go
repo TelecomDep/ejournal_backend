@@ -52,6 +52,8 @@ func main() {
 		cfg.SMTPPassword,
 		cfg.SMTPFrom,
 		cfg.SiteBaseURL,
+		cfg.SMTPTLSServerName,
+		cfg.SMTPCAFile,
 	)
 
 	svc := app.NewService(
