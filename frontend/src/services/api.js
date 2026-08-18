@@ -626,6 +626,88 @@ const api = {
     }
   },
 
+  async getNotifications(token, filters = {}) {
+    try {
+      const params = Object.fromEntries(
+        Object.entries(filters).filter(([, value]) => value !== '' && value !== undefined && value !== null)
+      );
+      const response = await axios.get(`${BACKEND_URL}/api/user/notifications`, {
+        headers: authHeaders(token),
+        params
+      });
+      return unwrapApiResponse(response.data);
+    } catch (error) {
+      console.error('Ошибка загрузки уведомлений:', error);
+      throw error;
+    }
+  },
+
+  async getUnreadNotificationsCount(token) {
+    try {
+      const response = await axios.get(`${BACKEND_URL}/api/user/notifications/unread-count`, {
+        headers: authHeaders(token)
+      });
+      return unwrapApiResponse(response.data);
+    } catch (error) {
+      console.error('Ошибка загрузки количества уведомлений:', error);
+      throw error;
+    }
+  },
+
+  async markNotificationRead(token, notificationId) {
+    try {
+      const response = await axios.patch(
+        `${BACKEND_URL}/api/user/notifications/${notificationId}/read`,
+        {},
+        { headers: authHeaders(token) }
+      );
+      return unwrapApiResponse(response.data);
+    } catch (error) {
+      console.error('Ошибка отметки уведомления прочитанным:', error);
+      throw error;
+    }
+  },
+
+  async markAllNotificationsRead(token) {
+    try {
+      const response = await axios.patch(
+        `${BACKEND_URL}/api/user/notifications/read-all`,
+        {},
+        { headers: authHeaders(token) }
+      );
+      return unwrapApiResponse(response.data);
+    } catch (error) {
+      console.error('Ошибка отметки всех уведомлений прочитанными:', error);
+      throw error;
+    }
+  },
+
+  async getNotificationSettings(token) {
+    try {
+      const response = await axios.get(`${BACKEND_URL}/api/user/notification-settings`, {
+        headers: authHeaders(token)
+      });
+      return unwrapApiResponse(response.data);
+    } catch (error) {
+      console.error('Ошибка загрузки настроек уведомлений:', error);
+      throw error;
+    }
+  },
+
+  async updateNotificationSettings(token, settings) {
+    try {
+      const response = await axios.put(
+        `${BACKEND_URL}/api/user/notification-settings`,
+        settings,
+        { headers: authHeaders(token) }
+      );
+      return unwrapApiResponse(response.data);
+    } catch (error) {
+      console.error('Ошибка сохранения настроек уведомлений:', error);
+      throw error;
+    }
+  },
+
   getErrorMessage(error, fallback) {
     return extractError(error) || fallback;
   }

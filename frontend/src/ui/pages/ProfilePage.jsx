@@ -595,8 +595,78 @@ const SecurityPanel = ({ user, token }) => {
   );
 };
 
-const NotificationToggle = ({ title, description, checked, onChange }) => (
-  <label className="notification-toggle">
+const DEFAULT_NOTIFICATION_SETTINGS = {
+  grades: true,
+  schedule: true,
+  attendance: true,
+  system: false
+};
+
+const NOTIFICATION_PAGE_SIZE = 8;
+
+const notificationCategoryLabels = {
+  grades: 'Оценки',
+  schedule: 'Расписание',
+  attendance: 'Посещаемость',
+  system: 'Система'
+};
+
+const normalizeNotificationSettings = (payload = {}) => ({
+  grades: Boolean(payload.grades),
+  schedule: Boolean(payload.schedule),
+  attendance: Boolean(payload.attendance),
+  system: Boolean(payload.system)
+});
+
+const formatNotificationDate = (value) => {
+  if (!value) return 'Дата не указана';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'Дата не указана';
+  return new Intl.DateTimeFormat('ru-RU', {
+    day: '2-digit',
+    month: 'long',
+    hour: '2-digit',
+    minute: '2-digit'
+  }).format(date);
+};
+
+const NotificationIcon = ({ category }) => {
+  const paths = {
+    grades: (
+      <>
+        <path d="M4 8.5 12 5l8 3.5-8 3.5-8-3.5Z" />
+        <path d="M7 10v4.2c1.5 1.5 3.2 2.2 5 2.2s3.5-.7 5-2.2V10" />
+      </>
+    ),
+    schedule: (
+      <>
+        <rect x="4.5" y="6" width="15" height="13" rx="2" />
+        <path d="M8 4v4M16 4v4M4.5 10h15" />
+      </>
+    ),
+    attendance: (
+      <>
+        <circle cx="12" cy="12" r="8" />
+        <path d="m8.5 12 2.3 2.4 4.8-5" />
+      </>
+    ),
+    system: (
+      <>
+        <path d="M6.5 10.5a5.5 5.5 0 0 1 11 0c0 5 2 5.5 2 5.5h-15s2-.5 2-5.5Z" />
+        <path d="M10 19h4" />
+      </>
+    )
+  };
+
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      {paths[category] || paths.system}
+    </svg>
+  );
+};
+
+const NotificationToggle = ({ title, description, checked, disabled, onChange }) => (
+  <label className={`notification-toggle ${disabled ? 'is-disabled' : ''}`}>
     <span>
       <strong>{title}</strong>
       <small>{description}</small>
@@ -604,22 +674,161 @@ const NotificationToggle = ({ title, description, checked, onChange }) => (
     <input
       type="checkbox"
       checked={checked}
+      disabled={disabled}
       onChange={(event) => onChange(event.target.checked)}
     />
     <span className="notification-switch" aria-hidden="true" />
   </label>
 );
 
-const NotificationsPanel = () => {
-  const [settings, setSettings] = useState({
-    grades: true,
-    schedule: true,
-    attendance: true,
-    system: false
-  });
+const NotificationsPanel = ({ token }) => {
+  const [settings, setSettings] = useState(DEFAULT_NOTIFICATION_SETTINGS);
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [pagination, setPagination] = useState({ page: 1, pages: 0, total: 0 });
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [savingSetting, setSavingSetting] = useState('');
+  const [readingNotification, setReadingNotification] = useState(0);
+  const [markingAllRead, setMarkingAllRead] = useState(false);
+  const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
+  const [reloadKey, setReloadKey] = useState(0);
 
-  const updateSetting = (key, value) => {
-    setSettings((current) => ({ ...current, [key]: value }));
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadNotifications = async () => {
+      setLoading(true);
+      setError('');
+
+      const [settingsResult, notificationsResult] = await Promise.allSettled([
+        api.getNotificationSettings(token),
+        api.getNotifications(token, { page: 1, page_size: NOTIFICATION_PAGE_SIZE })
+      ]);
+
+      if (cancelled) return;
+
+      const requestErrors = [];
+
+      if (settingsResult.status === 'fulfilled') {
+        setSettings(normalizeNotificationSettings(settingsResult.value));
+      } else {
+        requestErrors.push(api.getErrorMessage(settingsResult.reason, 'Не удалось загрузить настройки'));
+      }
+
+      if (notificationsResult.status === 'fulfilled') {
+        const payload = notificationsResult.value || {};
+        setNotifications(Array.isArray(payload.items) ? payload.items : []);
+        setUnreadCount(Number(payload.unread_count) || 0);
+        setPagination({
+          page: Number(payload.pagination?.page) || 1,
+          pages: Number(payload.pagination?.pages) || 0,
+          total: Number(payload.pagination?.total) || 0
+        });
+      } else {
+        requestErrors.push(api.getErrorMessage(notificationsResult.reason, 'Не удалось загрузить историю'));
+      }
+
+      setError(requestErrors.join('. '));
+      setLoading(false);
+    };
+
+    loadNotifications();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [token, reloadKey]);
+
+  const updateSetting = async (key, value) => {
+    if (savingSetting) return;
+
+    const previousSettings = settings;
+    const nextSettings = { ...settings, [key]: value };
+    setSettings(nextSettings);
+    setSavingSetting(key);
+    setError('');
+    setMessage('');
+
+    try {
+      const saved = await api.updateNotificationSettings(token, nextSettings);
+      setSettings(normalizeNotificationSettings(saved));
+      setMessage('Настройки уведомлений сохранены.');
+    } catch (requestError) {
+      setSettings(previousSettings);
+      setError(api.getErrorMessage(requestError, 'Не удалось сохранить настройки уведомлений'));
+    } finally {
+      setSavingSetting('');
+    }
+  };
+
+  const markAsRead = async (notificationId) => {
+    if (readingNotification) return;
+    setReadingNotification(notificationId);
+    setError('');
+    setMessage('');
+
+    try {
+      await api.markNotificationRead(token, notificationId);
+      setNotifications((current) => current.map((item) => (
+        item.notification_id === notificationId
+          ? { ...item, is_read: true, read_at: new Date().toISOString() }
+          : item
+      )));
+      setUnreadCount((current) => Math.max(0, current - 1));
+    } catch (requestError) {
+      setError(api.getErrorMessage(requestError, 'Не удалось отметить уведомление прочитанным'));
+    } finally {
+      setReadingNotification(0);
+    }
+  };
+
+  const markAllAsRead = async () => {
+    if (markingAllRead || unreadCount === 0) return;
+    setMarkingAllRead(true);
+    setError('');
+    setMessage('');
+
+    try {
+      await api.markAllNotificationsRead(token);
+      const readAt = new Date().toISOString();
+      setNotifications((current) => current.map((item) => ({ ...item, is_read: true, read_at: item.read_at || readAt })));
+      setUnreadCount(0);
+      setMessage('Все уведомления отмечены прочитанными.');
+    } catch (requestError) {
+      setError(api.getErrorMessage(requestError, 'Не удалось отметить все уведомления прочитанными'));
+    } finally {
+      setMarkingAllRead(false);
+    }
+  };
+
+  const loadMore = async () => {
+    if (loadingMore || pagination.page >= pagination.pages) return;
+    setLoadingMore(true);
+    setError('');
+
+    try {
+      const payload = await api.getNotifications(token, {
+        page: pagination.page + 1,
+        page_size: NOTIFICATION_PAGE_SIZE
+      });
+      const nextItems = Array.isArray(payload.items) ? payload.items : [];
+      setNotifications((current) => {
+        const knownIds = new Set(current.map((item) => item.notification_id));
+        return [...current, ...nextItems.filter((item) => !knownIds.has(item.notification_id))];
+      });
+      setUnreadCount(Number(payload.unread_count) || 0);
+      setPagination({
+        page: Number(payload.pagination?.page) || pagination.page + 1,
+        pages: Number(payload.pagination?.pages) || pagination.pages,
+        total: Number(payload.pagination?.total) || pagination.total
+      });
+    } catch (requestError) {
+      setError(api.getErrorMessage(requestError, 'Не удалось загрузить следующие уведомления'));
+    } finally {
+      setLoadingMore(false);
+    }
   };
 
   return (
@@ -628,47 +837,121 @@ const NotificationsPanel = () => {
         <div>
           <span>Уведомления</span>
           <h2>Настройки оповещений</h2>
-          <p>Пока настройки сохраняются только на экране. Позже подключим их к backend.</p>
+          <p>Выберите события, о которых хотите получать сообщения в личном кабинете.</p>
         </div>
       </div>
 
-      <div className="notification-list">
+      {(error || message) && (
+        <div className={`notification-feedback ${error ? 'is-error' : 'is-success'}`} role={error ? 'alert' : 'status'}>
+          <span>{error || message}</span>
+          {error && (
+            <button type="button" onClick={() => setReloadKey((current) => current + 1)}>
+              Повторить
+            </button>
+          )}
+        </div>
+      )}
+
+      <div className="notification-list" aria-busy={loading}>
         <NotificationToggle
           title="Новые оценки"
           description="Показывать уведомления, когда преподаватель выставил или обновил оценку."
           checked={settings.grades}
+          disabled={loading || Boolean(savingSetting)}
           onChange={(value) => updateSetting('grades', value)}
         />
         <NotificationToggle
           title="Изменения расписания"
           description="Сообщать о переносах, заменах и новых парах."
           checked={settings.schedule}
+          disabled={loading || Boolean(savingSetting)}
           onChange={(value) => updateSetting('schedule', value)}
         />
         <NotificationToggle
           title="Посещаемость"
           description="Напоминать об отметке по QR и показывать результат отметки."
           checked={settings.attendance}
+          disabled={loading || Boolean(savingSetting)}
           onChange={(value) => updateSetting('attendance', value)}
         />
         <NotificationToggle
           title="Системные сообщения"
           description="Получать редкие служебные уведомления от системы."
           checked={settings.system}
+          disabled={loading || Boolean(savingSetting)}
           onChange={(value) => updateSetting('system', value)}
         />
       </div>
 
       <div className="notification-history">
         <div className="notification-history-header">
-          <h3>Последние уведомления</h3>
-          <span>0 новых</span>
+          <div>
+            <h3>Последние уведомления</h3>
+            <span>Непрочитанных: {unreadCount}</span>
+          </div>
+          {unreadCount > 0 && (
+            <button type="button" onClick={markAllAsRead} disabled={markingAllRead}>
+              {markingAllRead ? 'Сохраняем...' : 'Прочитать все'}
+            </button>
+          )}
         </div>
 
-        <div className="notification-empty">
-          <strong>Пока нет уведомлений</strong>
-          <p>Здесь появятся новые оценки, изменения расписания и результаты отметки посещаемости.</p>
-        </div>
+        {loading && (
+          <div className="notification-empty" role="status">
+            <strong>Загружаем уведомления...</strong>
+          </div>
+        )}
+
+        {!loading && notifications.length === 0 && (
+          <div className="notification-empty">
+            <strong>Пока нет уведомлений</strong>
+            <p>Здесь появятся новые оценки, изменения расписания и результаты отметки посещаемости.</p>
+          </div>
+        )}
+
+        {!loading && notifications.length > 0 && (
+          <div className="notification-history-items">
+            {notifications.map((item) => (
+              <article
+                key={item.notification_id}
+                className={`notification-entry ${item.is_read ? '' : 'is-unread'}`}
+              >
+                <span className={`notification-entry-icon is-${item.category || 'system'}`}>
+                  <NotificationIcon category={item.category} />
+                </span>
+                <div className="notification-entry-content">
+                  <div className="notification-entry-heading">
+                    <strong>{item.title || 'Уведомление'}</strong>
+                    <time dateTime={item.created_at || undefined}>{formatNotificationDate(item.created_at)}</time>
+                  </div>
+                  <p>{item.message || 'Нет дополнительного описания.'}</p>
+                  <small>{notificationCategoryLabels[item.category] || 'Система'}</small>
+                </div>
+                {!item.is_read && (
+                  <button
+                    type="button"
+                    className="notification-read-button"
+                    disabled={readingNotification === item.notification_id}
+                    onClick={() => markAsRead(item.notification_id)}
+                  >
+                    {readingNotification === item.notification_id ? 'Сохраняем...' : 'Прочитать'}
+                  </button>
+                )}
+              </article>
+            ))}
+          </div>
+        )}
+
+        {!loading && pagination.page < pagination.pages && (
+          <button
+            type="button"
+            className="notification-load-more"
+            disabled={loadingMore}
+            onClick={loadMore}
+          >
+            {loadingMore ? 'Загружаем...' : 'Показать ещё'}
+          </button>
+        )}
       </div>
     </section>
   );
@@ -913,7 +1196,7 @@ const ProfilePage = ({ user, token, onUserUpdate }) => {
 
         {activeTab === 'security' && <SecurityPanel user={user} token={token} />}
 
-        {activeTab === 'notifications' && <NotificationsPanel />}
+        {activeTab === 'notifications' && <NotificationsPanel token={token} />}
       </ProfileTabPanel>
     </section>
   );
