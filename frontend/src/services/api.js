@@ -732,6 +732,60 @@ const api = {
     }
   },
 
+  async getAdminNotifications(token, filters = {}) {
+    try {
+      const params = Object.fromEntries(
+        Object.entries(filters).filter(([, value]) => value !== '' && value !== undefined && value !== null)
+      );
+      const response = await axios.get(`${BACKEND_URL}/api/admin/notifications`, {
+        headers: authHeaders(token),
+        params
+      });
+      return unwrapApiResponse(response.data);
+    } catch (error) {
+      console.error('Ошибка загрузки административных уведомлений:', error);
+      throw error;
+    }
+  },
+
+  async createAdminNotification(token, payload) {
+    try {
+      const response = await axios.post(`${BACKEND_URL}/api/admin/notifications`, payload, {
+        headers: authHeaders(token)
+      });
+      return unwrapApiResponse(response.data);
+    } catch (error) {
+      console.error('Ошибка создания уведомления:', error);
+      throw error;
+    }
+  },
+
+  async updateAdminNotification(token, notificationId, payload) {
+    try {
+      const response = await axios.patch(
+        `${BACKEND_URL}/api/admin/notifications/${notificationId}`,
+        payload,
+        { headers: authHeaders(token) }
+      );
+      return unwrapApiResponse(response.data);
+    } catch (error) {
+      console.error('Ошибка обновления уведомления:', error);
+      throw error;
+    }
+  },
+
+  async deleteAdminNotification(token, notificationId) {
+    try {
+      const response = await axios.delete(`${BACKEND_URL}/api/admin/notifications/${notificationId}`, {
+        headers: authHeaders(token)
+      });
+      return unwrapApiResponse(response.data);
+    } catch (error) {
+      console.error('Ошибка удаления уведомления:', error);
+      throw error;
+    }
+  },
+
   getErrorMessage(error, fallback) {
     return extractError(error) || fallback;
   }
