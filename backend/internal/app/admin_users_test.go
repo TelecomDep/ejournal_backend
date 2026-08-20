@@ -119,8 +119,8 @@ func TestGenerateInviteCode(t *testing.T) {
 	t.Parallel()
 
 	code1 := generate_invite_code("TCHR")
-	if len(code1) < 5 || code1[:5] != "TCHR-" {
-		t.Fatalf("unexpected code prefix or format: %s", code1)
+	if len(code1) != 16 {
+		t.Fatalf("expected 16-char hex code, got %s (len %d)", code1, len(code1))
 	}
 
 	code2 := generate_invite_code("TCHR")

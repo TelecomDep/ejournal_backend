@@ -129,7 +129,7 @@ const TeacherPage = ({ token, section = 'attendance' }) => {
     itemId: '',
     score: 0,
     comment: '',
-    sessionId: ''
+    sessionDate: ''
   });
 
   const clearFeedback = () => {
@@ -556,7 +556,7 @@ const TeacherPage = ({ token, section = 'attendance' }) => {
                 <span>Ссылка для студентов</span>
                 <strong>{sessionResult.join_url || 'не получена'}</strong>
               </div>
-              <StatCard label="ID занятия" value={sessionResult.lesson_id || '—'} />
+              <StatCard label="Дата занятия" value={formatDateTime(sessionResult.created_at || new Date())} />
               <StatCard label="Истекает" value={formatDateTime(sessionResult.expires_at)} />
             </div>
           )}
@@ -760,8 +760,8 @@ const TeacherPage = ({ token, section = 'attendance' }) => {
                 <input type="number" min="0" value={gradeForm.score} onChange={(event) => setGradeForm((current) => ({ ...current, score: asNumber(event.target.value) }))} required />
               </label>
               <label>
-                ID занятия
-                <input type="number" min="1" value={gradeForm.sessionId} onChange={(event) => setGradeForm((current) => ({ ...current, sessionId: event.target.value }))} placeholder="необязательно" />
+                Дата занятия
+                <input type="date" value={gradeForm.sessionDate} onChange={(event) => setGradeForm((current) => ({ ...current, sessionDate: event.target.value }))} />
               </label>
               <label>
                 Комментарий

@@ -2057,6 +2057,18 @@ func (s *Service) handleRequest(raw string) Response {
 		resp := s.admin_generate_teacher_invite(req.Token, data)
 		resp.ID = req.ID
 		return resp
+	case "admin_generate_student_invite":
+		var data AdminGenerateStudentInviteData
+		if err := json.Unmarshal(req.Data, &data); err != nil {
+			return Response{ID: req.ID, OK: false, Error: "invalid admin_generate_student_invite payload"}
+		}
+		resp := s.admin_generate_student_invite(req.Token, data)
+		resp.ID = req.ID
+		return resp
+	case "admin_list_catalogs":
+		resp := s.adminListCatalogs(req.Token)
+		resp.ID = req.ID
+		return resp
 	case "admin_list_invites":
 		var data AdminInvitesListData
 		if err := json.Unmarshal(req.Data, &data); err != nil {

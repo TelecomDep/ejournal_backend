@@ -5351,6 +5351,11 @@
   width: min(480px, 100%);
 }
 
+.admin-modal.is-print-preview {
+  width: min(980px, 96vw);
+  max-height: min(90vh, 900px);
+}
+
 .admin-modal > header {
   display: flex;
   align-items: flex-start;
@@ -5606,9 +5611,420 @@
     padding: 18px;
   }
 
-  .admin-modal form > footer,
   .admin-confirm-body footer {
     align-items: stretch;
     flex-direction: column-reverse;
   }
 }
+
+/* Print cutout cards layout */
+.printable-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  padding: 8px;
+  box-sizing: border-box;
+  background: #ffffff;
+}
+
+.invite-cutout-card {
+  position: relative;
+  border: 1.5px dashed #64748b;
+  border-radius: 6px;
+  padding: 10px 12px;
+  background: #ffffff;
+  color: #0f172a;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 120px;
+  page-break-inside: avoid;
+  break-inside: avoid;
+  font-family: Inter, system-ui, -apple-system, sans-serif;
+}
+
+.invite-card-cut-icon {
+  position: absolute;
+  top: -9px;
+  right: 12px;
+  background: #ffffff;
+  padding: 0 4px;
+  font-size: 11px;
+  color: #64748b;
+  line-height: 1;
+}
+
+.invite-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 4px;
+  margin-bottom: 6px;
+}
+
+.invite-card-logo {
+  font-size: 11px;
+  font-weight: 800;
+  color: #1e3fae;
+  letter-spacing: 0.5px;
+}
+
+.invite-card-type {
+  font-size: 9px;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+}
+
+.invite-card-body {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.invite-card-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.invite-card-name {
+  font-size: 12px;
+  font-weight: 700;
+  color: #0f172a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.2;
+}
+
+.invite-card-sub {
+  font-size: 10px;
+  color: #475569;
+  margin-top: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.invite-card-code-box {
+  margin-top: 5px;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  padding: 3px 6px;
+  display: flex;
+  flex-direction: column;
+}
+
+.invite-card-code-label {
+  font-size: 8px;
+  font-weight: 700;
+  color: #64748b;
+  letter-spacing: 0.5px;
+}
+
+.invite-card-code-value {
+  font-family: monospace;
+  font-size: 13px;
+  font-weight: 800;
+  color: #1e3fae;
+  letter-spacing: 0.8px;
+}
+
+.invite-card-instructions {
+  font-size: 8.5px;
+  color: #64748b;
+  margin-top: 4px;
+  line-height: 1.1;
+}
+
+.invite-card-qr {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.invite-card-qr-label {
+  font-size: 7.5px;
+  color: #94a3b8;
+  margin-top: 2px;
+  text-transform: uppercase;
+}
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 5mm;
+  }
+
+  /* Hide everything by default */
+  body * {
+    visibility: hidden !important;
+  }
+
+  /* Make root wrappers clean and transparent */
+  html, body, #root, .ui-shell, .admin-users-page, .admin-modal-backdrop, .admin-modal {
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    position: static !important;
+    overflow: visible !important;
+  }
+
+  /* Make printable cards grid visible and positioned statically in A4 page */
+  #printable-invite-cards,
+  #printable-invite-cards * {
+    visibility: visible !important;
+  }
+
+  #printable-invite-cards {
+    position: static !important;
+    left: auto !important;
+    top: auto !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 2mm 2.5mm !important;
+    box-sizing: border-box !important;
+  }
+
+  .invite-cutout-card {
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: space-between !important;
+    border: 1.5px dashed #334155 !important;
+    border-radius: 4px !important;
+    padding: 5px 7px !important;
+    box-sizing: border-box !important;
+    width: 100% !important;
+    min-height: 100px !important;
+    overflow: hidden !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  .invite-card-cut-icon {
+    top: -8px !important;
+    right: 8px !important;
+    font-size: 10px !important;
+  }
+
+  .invite-card-header {
+    margin-bottom: 3px !important;
+    padding-bottom: 2px !important;
+  }
+
+  .invite-card-logo {
+    font-size: 9.5px !important;
+    color: #1e3a8a !important;
+  }
+
+  .invite-card-type {
+    font-size: 8px !important;
+    color: #475569 !important;
+  }
+
+  .invite-card-name {
+    font-size: 10.5px !important;
+    line-height: 1.15 !important;
+    color: #0f172a !important;
+  }
+
+  .invite-card-sub {
+    font-size: 9px !important;
+  }
+
+  .invite-card-code-box {
+    padding: 1px 3px !important;
+    margin: 2px 0 !important;
+  }
+
+  .invite-card-code-label {
+    font-size: 7.5px !important;
+  }
+
+  .invite-card-code-value {
+    font-size: 0.85em !important;
+    letter-spacing: 0px !important;
+    color: #1e40af !important;
+  }
+
+  .invite-card-instructions {
+    font-size: 7px !important;
+  }
+
+  .invite-card-qr-label {
+    font-size: 6.5px !important;
+  }
+}
+
+/* --- SearchableSelect Component Styles --- */
+.searchable-select {
+  position: relative;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.searchable-select-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 42px;
+  padding: 8px 12px;
+  background: #ffffff;
+  border: 1px solid var(--border-color, #cbd5e1);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  user-select: none;
+}
+
+.searchable-select.is-open .searchable-select-trigger,
+.searchable-select-trigger:focus-within {
+  border-color: var(--primary-color, #2563eb);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+.searchable-select-label {
+  font-size: 14px;
+  color: #0f172a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.searchable-select-label.is-placeholder {
+  color: #94a3b8;
+}
+
+.searchable-select-input {
+  width: 100%;
+  border: none !important;
+  outline: none !important;
+  background: transparent !important;
+  font-size: 14px;
+  color: #0f172a;
+  padding: 0 !important;
+  box-shadow: none !important;
+}
+
+.searchable-select-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 8px;
+}
+
+.searchable-select-clear {
+  border: none;
+  background: none;
+  color: #94a3b8;
+  font-size: 12px;
+  padding: 2px 4px;
+  cursor: pointer;
+  border-radius: 50%;
+  line-height: 1;
+}
+
+.searchable-select-clear:hover {
+  color: #ef4444;
+  background: #fee2e2;
+}
+
+.searchable-select-arrow {
+  font-size: 12px;
+  color: #64748b;
+  transition: transform 0.2s ease;
+}
+
+.searchable-select.is-open .searchable-select-arrow {
+  transform: rotate(180deg);
+}
+
+.searchable-select-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  max-height: 220px;
+  overflow-y: auto;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  z-index: 1100;
+  list-style: none;
+  padding: 4px;
+  margin: 0;
+}
+
+.searchable-select-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  color: #334155;
+  transition: background-color 0.1s ease;
+}
+
+.searchable-select-option.is-highlighted {
+  background-color: #f1f5f9;
+  color: #0f172a;
+}
+
+.searchable-select-option.is-selected {
+  background-color: #eff6ff;
+  color: #1d4ed8;
+  font-weight: 600;
+}
+
+.searchable-select-option-main {
+  display: flex;
+  flex-direction: column;
+}
+
+.searchable-select-option-name {
+  font-size: 13.5px;
+}
+
+.searchable-select-option-sub {
+  font-size: 11.5px;
+  color: #64748b;
+  margin-top: 1px;
+}
+
+.searchable-select-check {
+  font-size: 14px;
+  color: #2563eb;
+  font-weight: bold;
+}
+
+.searchable-select-no-results {
+  padding: 12px;
+  text-align: center;
+  font-size: 13px;
+  color: #94a3b8;
+}
+

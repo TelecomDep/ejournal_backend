@@ -194,6 +194,14 @@ func (s *Server) adminGenerateTeacherInviteHandler(c *fiber.Ctx) error {
 	return s.adminUserActionHandler(c, "http-admin-generate-teacher-invite", "admin_generate_teacher_invite", data, fiber.StatusCreated)
 }
 
+func (s *Server) adminGenerateStudentInviteHandler(c *fiber.Ctx) error {
+	var data app.AdminGenerateStudentInviteData
+	if err := c.BodyParser(&data); err != nil && len(c.Body()) > 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(app.Response{OK: false, Error: "invalid request body"})
+	}
+	return s.adminUserActionHandler(c, "http-admin-generate-student-invite", "admin_generate_student_invite", data, fiber.StatusCreated)
+}
+
 func (s *Server) adminInvitesListHandler(c *fiber.Ctx) error {
 	data := app.AdminInvitesListData{
 		Role:   strings.TrimSpace(c.Query("role")),

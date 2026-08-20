@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { QRCodeSVG } from 'qrcode.react';
 import api from '../../services/api';
+import { SearchableSelect } from '../components/SearchableSelect';
 
 const ROLE_OPTIONS = [
   { value: 'student', label: 'Студент' },
@@ -95,15 +97,20 @@ const Field = ({ label, children, required = false, wide = false }) => (
   </label>
 );
 
-const RoleSpecificCreateFields = ({ form, onChange }) => {
+const RoleSpecificCreateFields = ({ form, onChange, onSelectChange, catalogs = {} }) => {
   if (form.role === 'student') {
     return (
       <>
         <Field label="ФИО" required wide>
-          <input name="full_name" value={form.full_name} onChange={onChange} autoComplete="name" />
+          <input name="full_name" value={form.full_name} onChange={onChange} autoComplete="name" placeholder="Иванов Иван Иванович" />
         </Field>
-        <Field label="ID группы">
-          <input name="group_id" value={form.group_id} onChange={onChange} inputMode="numeric" />
+        <Field label="Группа" required wide>
+          <SearchableSelect
+            options={(catalogs.groups || []).map((g) => ({ id: g.id, name: g.name, sub: g.lectern_name ? `Кафедра: ${g.lectern_name}` : '' }))}
+            value={form.group_id}
+            onChange={(id) => onSelectChange('group_id', id)}
+            placeholder="Выберите академическую группу..."
+          />
         </Field>
       </>
     );
@@ -112,51 +119,103 @@ const RoleSpecificCreateFields = ({ form, onChange }) => {
     return (
       <>
         <Field label="ФИО" required wide>
-          <input name="full_name" value={form.full_name} onChange={onChange} autoComplete="name" />
+          <input name="full_name" value={form.full_name} onChange={onChange} autoComplete="name" placeholder="Петров Петр Петрович" />
         </Field>
-        <Field label="ID кафедры">
-          <input name="lectern_id" value={form.lectern_id} onChange={onChange} inputMode="numeric" />
+        <Field label="Кафедра" required wide>
+          <SearchableSelect
+            options={(catalogs.lecterns || []).map((l) => ({ id: l.id, name: l.name, sub: l.faculty_name ? `Факультет: ${l.faculty_name}` : '' }))}
+            value={form.lectern_id}
+            onChange={(id) => onSelectChange('lectern_id', id)}
+            placeholder="Выберите кафедру..."
+          />
         </Field>
         <Field label="Должность">
-          <input name="job_title" value={form.job_title} onChange={onChange} />
+          <input name="job_title" value={form.job_title} onChange={onChange} placeholder="Старший преподаватель" />
         </Field>
       </>
     );
   }
   if (form.role === 'head') {
     return (
-      <Field label="ID кафедры" required>
-        <input name="lectern_id" value={form.lectern_id} onChange={onChange} inputMode="numeric" />
+      <Field label="Кафедра" required wide>
+        <SearchableSelect
+          options={(catalogs.lecterns || []).map((l) => ({ id: l.id, name: l.name, sub: l.faculty_name ? `Факультет: ${l.faculty_name}` : '' }))}
+          value={form.lectern_id}
+          onChange={(id) => onSelectChange('lectern_id', id)}
+          placeholder="Выберите кафедру..."
+        />
       </Field>
     );
   }
   if (form.role === 'dean') {
     return (
-      <Field label="ID факультета" required>
-        <input name="faculty_id" value={form.faculty_id} onChange={onChange} inputMode="numeric" />
+      <Field label="Факультет" required wide>
+        <SearchableSelect
+          options={(catalogs.faculties || []).map((f) => ({ id: f.id, name: f.name }))}
+          value={form.faculty_id}
+          onChange={(id) => onSelectChange('faculty_id', id)}
+          placeholder="Выберите факультет..."
+        />
       </Field>
     );
   }
   return null;
 };
 
-const RoleTargetField = ({ role, value, onChange }) => {
-  const config = {
-    student: ['ID профиля студента', 'student_id'],
-    teacher: ['ID профиля преподавателя', 'teacher_id'],
-    head: ['ID кафедры', 'lectern_id'],
-    dean: ['ID факультета', 'faculty_id']
-  }[role];
-  if (!config) return null;
-  return (
-    <Field label={config[0]} required wide>
-      <input name="target_id" value={value} onChange={onChange} inputMode="numeric" />
-    </Field>
-  );
+const RoleTargetField = ({ role, value, onSelectChange, catalogs = {} }) => {
+  if (role === 'student') {
+    return (
+      <Field label="Привязка студента" required wide>
+        <SearchableSelect
+          options={(catalogs.students || []).map((s) => ({ id: s.id, name: s.name, sub: s.group_name ? `Группа: ${s.group_name}` : '' }))}
+          value={value}
+          onChange={(id) => onSelectChange('target_id', id)}
+          placeholder="Поиск студента по ФИО или группе..."
+        />
+      </Field>
+    );
+  }
+  if (role === 'teacher') {
+    return (
+      <Field label="Привязка преподавателя" required wide>
+        <SearchableSelect
+          options={(catalogs.teachers || []).map((t) => ({ id: t.id, name: t.name, sub: t.job_title || t.lectern_name }))}
+          value={value}
+          onChange={(id) => onSelectChange('target_id', id)}
+          placeholder="Поиск преподавателя по ФИО или кафедре..."
+        />
+      </Field>
+    );
+  }
+  if (role === 'head') {
+    return (
+      <Field label="Кафедра" required wide>
+        <SearchableSelect
+          options={(catalogs.lecterns || []).map((l) => ({ id: l.id, name: l.name, sub: l.faculty_name ? `Факультет: ${l.faculty_name}` : '' }))}
+          value={value}
+          onChange={(id) => onSelectChange('target_id', id)}
+          placeholder="Выберите кафедру..."
+        />
+      </Field>
+    );
+  }
+  if (role === 'dean') {
+    return (
+      <Field label="Факультет" required wide>
+        <SearchableSelect
+          options={(catalogs.faculties || []).map((f) => ({ id: f.id, name: f.name }))}
+          value={value}
+          onChange={(id) => onSelectChange('target_id', id)}
+          placeholder="Выберите факультет..."
+        />
+      </Field>
+    );
+  }
+  return null;
 };
 
 const AdminUsersPage = ({ token, currentUser }) => {
-  const [activeTab, setActiveTab] = useState('users'); // 'users' | 'invites'
+  const [activeTab, setActiveTab] = useState('users'); // 'users' | 'teacher_invites' | 'student_invites'
   
   // Users state
   const [items, setItems] = useState([]);
@@ -168,7 +227,12 @@ const AdminUsersPage = ({ token, currentUser }) => {
   
   // Invites state
   const [invites, setInvites] = useState([]);
+  const [inviteRoleFilter, setInviteRoleFilter] = useState(''); // '' (all) | 'teacher' | 'student'
   const [inviteStatusFilter, setInviteStatusFilter] = useState(''); // '' (all) | 'pending' | 'used'
+  const [inviteLecternFilter, setInviteLecternFilter] = useState('');
+  const [inviteGroupFilter, setInviteGroupFilter] = useState('');
+  const [inviteSearch, setInviteSearch] = useState('');
+  const [selectedInviteIds, setSelectedInviteIds] = useState(new Set());
   const [invitesLoading, setInvitesLoading] = useState(false);
 
   const [loading, setLoading] = useState(true);
@@ -176,6 +240,103 @@ const AdminUsersPage = ({ token, currentUser }) => {
   const [notice, setNotice] = useState('');
   const [reloadKey, setReloadKey] = useState(0);
   const [modal, setModal] = useState(null);
+
+  const [catalogs, setCatalogs] = useState({ groups: [], lecterns: [], faculties: [], teachers: [], students: [] });
+
+  const loadCatalogs = useCallback(async () => {
+    try {
+      const data = await api.getAdminCatalogs(token);
+      if (data) {
+        setCatalogs({
+          groups: Array.isArray(data.groups) ? data.groups : [],
+          lecterns: Array.isArray(data.lecterns) ? data.lecterns : [],
+          faculties: Array.isArray(data.faculties) ? data.faculties : [],
+          teachers: Array.isArray(data.teachers) ? data.teachers : [],
+          students: Array.isArray(data.students) ? data.students : []
+        });
+      }
+    } catch (err) {
+      console.error('Failed to load admin catalogs:', err);
+    }
+  }, [token]);
+
+  useEffect(() => {
+    loadCatalogs();
+  }, [loadCatalogs]);
+
+  const lecternOptions = useMemo(() => {
+    const set = new Set();
+    invites.forEach((inv) => {
+      if (inv.lectern_name) set.add(inv.lectern_name);
+    });
+    return Array.from(set).sort();
+  }, [invites]);
+
+  const groupOptions = useMemo(() => {
+    const set = new Set();
+    invites.forEach((inv) => {
+      if (inv.group_name) set.add(inv.group_name);
+    });
+    return Array.from(set).sort();
+  }, [invites]);
+
+  const filteredInvites = useMemo(() => {
+    return invites.filter((inv) => {
+      if (inviteRoleFilter && inv.role !== inviteRoleFilter) return false;
+      if (inviteLecternFilter && inv.lectern_name !== inviteLecternFilter) return false;
+      if (inviteGroupFilter && inv.group_name !== inviteGroupFilter) return false;
+      if (inviteSearch.trim()) {
+        const q = inviteSearch.trim().toLowerCase();
+        const name = (inv.student_name || inv.teacher_name || '').toLowerCase();
+        const lectern = (inv.lectern_name || '').toLowerCase();
+        const group = (inv.group_name || '').toLowerCase();
+        const code = (inv.invite_code || '').toLowerCase();
+        const reg = (inv.registered_as || '').toLowerCase();
+        if (!name.includes(q) && !lectern.includes(q) && !group.includes(q) && !code.includes(q) && !reg.includes(q)) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [invites, inviteRoleFilter, inviteLecternFilter, inviteGroupFilter, inviteSearch]);
+
+  const selectedInvitesList = useMemo(() => {
+    return invites.filter((inv) => selectedInviteIds.has(inv.invite_id));
+  }, [invites, selectedInviteIds]);
+
+  const toggleSelectInvite = (id) => {
+    setSelectedInviteIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAllInvites = () => {
+    const visibleIds = filteredInvites.map((inv) => inv.invite_id);
+    const allSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedInviteIds.has(id));
+    setSelectedInviteIds((prev) => {
+      const next = new Set(prev);
+      if (allSelected) {
+        visibleIds.forEach((id) => next.delete(id));
+      } else {
+        visibleIds.forEach((id) => next.add(id));
+      }
+      return next;
+    });
+  };
+
+  const selectAllFilteredInvites = () => {
+    const visibleIds = filteredInvites.map((inv) => inv.invite_id);
+    setSelectedInviteIds((prev) => {
+      const next = new Set(prev);
+      visibleIds.forEach((id) => next.add(id));
+      return next;
+    });
+  };
+
+  const clearInviteSelection = () => setSelectedInviteIds(new Set());
 
   const loadUsers = useCallback(async () => {
     setLoading(true);
@@ -205,11 +366,13 @@ const AdminUsersPage = ({ token, currentUser }) => {
   }, [filters.role, filters.search, filters.status, page, pageSize, token]);
 
   const loadInvites = useCallback(async () => {
+    if (activeTab !== 'teacher_invites' && activeTab !== 'student_invites') return;
     setInvitesLoading(true);
     setError('');
     try {
+      const roleToFetch = activeTab === 'teacher_invites' ? 'teacher' : 'student';
       const list = await api.getAdminInvites(token, {
-        role: 'teacher',
+        role: roleToFetch,
         status: inviteStatusFilter
       });
       setInvites(Array.isArray(list) ? list : []);
@@ -219,7 +382,7 @@ const AdminUsersPage = ({ token, currentUser }) => {
     } finally {
       setInvitesLoading(false);
     }
-  }, [inviteStatusFilter, token]);
+  }, [activeTab, inviteStatusFilter, token]);
 
   useEffect(() => {
     if (activeTab === 'users') {
@@ -276,8 +439,9 @@ const AdminUsersPage = ({ token, currentUser }) => {
     setModal({ type: 'create', form: { ...EMPTY_CREATE_FORM }, error: '', saving: false });
   };
 
-  const openCreateInvite = () => {
-    setModal({ type: 'create_invite', form: { ...EMPTY_INVITE_FORM }, error: '', saving: false });
+  const openCreateInvite = (roleOverride) => {
+    const role = roleOverride || (activeTab === 'student_invites' ? 'student' : 'teacher');
+    setModal({ type: 'create_invite', form: { ...EMPTY_INVITE_FORM, role }, error: '', saving: false });
   };
 
   const openEdit = async (item) => {
@@ -318,6 +482,17 @@ const AdminUsersPage = ({ token, currentUser }) => {
       error: '',
       form: { ...current.form, [name]: value }
     }));
+  };
+
+  const updateModalFormField = (fieldName, fieldValue) => {
+    setModal((current) => {
+      if (!current || !current.form) return current;
+      return {
+        ...current,
+        error: '',
+        form: { ...current.form, [fieldName]: fieldValue }
+      };
+    });
   };
 
   const validateCreate = (form) => {
@@ -365,23 +540,34 @@ const AdminUsersPage = ({ token, currentUser }) => {
       }));
     }
   };
+  const handleCreate = createUser;
 
-  const createTeacherInvite = async (event) => {
+  const handleCreateInvite = async (event) => {
     event.preventDefault();
     const form = modal.form;
-    if (!form.full_name.trim()) {
-      setModal((current) => ({ ...current, error: 'Укажите ФИО преподавателя' }));
+    if (!form.full_name?.trim()) {
+      setModal((current) => ({ ...current, error: 'Укажите ФИО' }));
       return;
     }
-    const payload = {
-      full_name: form.full_name.trim(),
-      lectern_id: numberOrUndefined(form.lectern_id) || 0,
-      job_title: form.job_title.trim(),
-      custom_code: form.custom_code.trim()
-    };
     setModal((current) => ({ ...current, saving: true, error: '' }));
     try {
-      const res = await api.createTeacherInvite(token, payload);
+      let res;
+      if (form.role === 'student') {
+        const payload = {
+          full_name: form.full_name.trim(),
+          group_id: numberOrUndefined(form.group_id) || 0,
+          custom_code: (form.custom_code || '').trim()
+        };
+        res = await api.createStudentInvite(token, payload);
+      } else {
+        const payload = {
+          full_name: form.full_name.trim(),
+          lectern_id: numberOrUndefined(form.lectern_id) || 0,
+          job_title: (form.job_title || '').trim(),
+          custom_code: (form.custom_code || '').trim()
+        };
+        res = await api.createTeacherInvite(token, payload);
+      }
       setModal(null);
       const code = res.invite_code;
       copyInviteLink(code);
@@ -484,18 +670,29 @@ const AdminUsersPage = ({ token, currentUser }) => {
       <header className="admin-users-header">
         <div>
           <span>Администрирование</span>
-          <h1>{activeTab === 'users' ? 'Пользователи' : 'Инвайт-коды преподавателей'}</h1>
+          <h1>
+            {activeTab === 'users' && 'Учетные записи пользователей'}
+            {activeTab === 'teacher_invites' && 'Инвайт-коды преподавателей'}
+            {activeTab === 'student_invites' && 'Инвайт-коды студентов'}
+          </h1>
           <p>Управление доступом и приглашениями</p>
         </div>
-        {activeTab === 'users' ? (
+        {activeTab === 'users' && (
           <button type="button" className="admin-primary-button" onClick={openCreate}>
             <AdminIcon name="add" />
             <span>Создать пользователя</span>
           </button>
-        ) : (
-          <button type="button" className="admin-primary-button" onClick={openCreateInvite}>
+        )}
+        {activeTab === 'teacher_invites' && (
+          <button type="button" className="admin-primary-button" onClick={() => openCreateInvite('teacher')}>
             <AdminIcon name="key" />
-            <span>Создать инвайт</span>
+            <span>Создать инвайт преподавателя</span>
+          </button>
+        )}
+        {activeTab === 'student_invites' && (
+          <button type="button" className="admin-primary-button" onClick={() => openCreateInvite('student')}>
+            <AdminIcon name="key" />
+            <span>Создать инвайт студента</span>
           </button>
         )}
       </header>
@@ -513,12 +710,31 @@ const AdminUsersPage = ({ token, currentUser }) => {
         </button>
         <button
           type="button"
-          className={`admin-secondary-button ${activeTab === 'invites' ? 'is-active' : ''}`}
-          style={{ background: activeTab === 'invites' ? 'var(--primary-color, #2563eb)' : 'transparent', color: activeTab === 'invites' ? '#fff' : 'inherit' }}
-          onClick={() => setActiveTab('invites')}
+          className={`admin-secondary-button ${activeTab === 'teacher_invites' ? 'is-active' : ''}`}
+          style={{ background: activeTab === 'teacher_invites' ? 'var(--primary-color, #2563eb)' : 'transparent', color: activeTab === 'teacher_invites' ? '#fff' : 'inherit' }}
+          onClick={() => {
+            setActiveTab('teacher_invites');
+            setInviteSearch('');
+            setInviteLecternFilter('');
+            setInviteGroupFilter('');
+          }}
         >
           <AdminIcon name="key" />
-          <span> Инвайт-коды преподавателей</span>
+          <span> Инвайты преподавателей</span>
+        </button>
+        <button
+          type="button"
+          className={`admin-secondary-button ${activeTab === 'student_invites' ? 'is-active' : ''}`}
+          style={{ background: activeTab === 'student_invites' ? 'var(--primary-color, #2563eb)' : 'transparent', color: activeTab === 'student_invites' ? '#fff' : 'inherit' }}
+          onClick={() => {
+            setActiveTab('student_invites');
+            setInviteSearch('');
+            setInviteLecternFilter('');
+            setInviteGroupFilter('');
+          }}
+        >
+          <AdminIcon name="key" />
+          <span> Инвайты студентов</span>
         </button>
       </div>
 
@@ -660,21 +876,42 @@ const AdminUsersPage = ({ token, currentUser }) => {
       )}
 
       {/* TAB 2: TEACHER INVITES */}
-      {activeTab === 'invites' && (
+            {/* TAB 2: TEACHER INVITES */}
+      {activeTab === 'teacher_invites' && (
         <>
-          <div className="admin-users-strip" aria-label="Сводка инвайтов">
-            <span><strong>{inviteStats.total}</strong> всего инвайтов</span>
+          <div className="admin-users-strip" aria-label="Сводка инвайтов преподавателей">
+            <span><strong>{inviteStats.total}</strong> инвайтов преподавателей</span>
             <span><strong style={{ color: '#d97706' }}>{inviteStats.pending}</strong> ожидают регистрации</span>
             <span><strong style={{ color: '#16a34a' }}>{inviteStats.registered}</strong> зарегистрировано</span>
           </div>
 
           <div className="admin-users-toolbar">
+            <label className="admin-search-field" style={{ flex: '1 1 200px' }}>
+              <AdminIcon name="search" />
+              <input
+                type="search"
+                value={inviteSearch}
+                onChange={(event) => setInviteSearch(event.target.value)}
+                placeholder="Поиск по ФИО преподавателя, кафедре или коду..."
+              />
+            </label>
+            {lecternOptions.length > 0 && (
+              <label className="admin-filter-field">
+                <span>Кафедра</span>
+                <select value={inviteLecternFilter} onChange={(event) => setInviteLecternFilter(event.target.value)}>
+                  <option value="">Все кафедры ({lecternOptions.length})</option>
+                  {lecternOptions.map((lName) => (
+                    <option key={lName} value={lName}>{lName}</option>
+                  ))}
+                </select>
+              </label>
+            )}
             <label className="admin-filter-field">
-              <span>Статус регистрации</span>
+              <span>Статус</span>
               <select value={inviteStatusFilter} onChange={(event) => setInviteStatusFilter(event.target.value)}>
-                <option value="">Все статусы (Все)</option>
-                <option value="pending">Ожидают регистрации (Не зареган)</option>
-                <option value="used">Зарегистрированы (Зареган)</option>
+                <option value="">Все статусы</option>
+                <option value="pending">Ожидают регистрации</option>
+                <option value="used">Зарегистрированы</option>
               </select>
             </label>
             <button
@@ -688,24 +925,62 @@ const AdminUsersPage = ({ token, currentUser }) => {
             </button>
           </div>
 
+          <div className="no-print" style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '10px', background: '#eff6ff', border: '1px solid #bfdbfe', padding: '10px 16px', borderRadius: '8px', marginBottom: '16px' }}>
+            <span style={{ color: '#1e40af', fontSize: '0.95em' }}>Выбрано карт для печати: <strong>{selectedInviteIds.size}</strong> шт.</span>
+            <button type="button" className="admin-secondary-button" style={{ padding: '4px 10px', fontSize: '0.85em' }} onClick={selectAllFilteredInvites}>
+              Выбрать все по фильтру ({filteredInvites.length})
+            </button>
+            {selectedInviteIds.size > 0 && (
+              <button type="button" className="admin-secondary-button" style={{ padding: '4px 10px', fontSize: '0.85em' }} onClick={clearInviteSelection}>
+                Снять выбор
+              </button>
+            )}
+            {selectedInviteIds.size > 0 && (
+              <button
+                type="button"
+                className="admin-primary-button"
+                style={{ padding: '6px 14px', marginLeft: 'auto', background: '#16a34a', borderColor: '#16a34a' }}
+                onClick={() => setModal({ type: 'print_invites' })}
+              >
+                🖨️ Печать выбранных ({selectedInviteIds.size})
+              </button>
+            )}
+          </div>
+
           <div className={`admin-users-table-wrap ${invitesLoading ? 'is-loading' : ''}`}>
             <table className="admin-users-table">
               <thead>
                 <tr>
+                  <th style={{ width: '40px', textAlign: 'center' }}>
+                    <input
+                      type="checkbox"
+                      checked={filteredInvites.length > 0 && filteredInvites.every((inv) => selectedInviteIds.has(inv.invite_id))}
+                      onChange={toggleSelectAllInvites}
+                      title="Выбрать все в текущей таблице"
+                    />
+                  </th>
                   <th>Инвайт-код</th>
-                  <th>Преподаватель</th>
+                  <th>Преподаватель (ФИО)</th>
+                  <th>Кафедра</th>
                   <th>Статус</th>
-                  <th>Дата создания</th>
-                  <th>Дата регистрации</th>
+                  <th>Создан / Зарегистрирован</th>
                   <th>Учетная запись</th>
                   <th><span className="sr-only">Действия</span></th>
                 </tr>
               </thead>
               <tbody>
-                {!invitesLoading && invites.map((item) => {
+                {!invitesLoading && filteredInvites.map((item) => {
                   const isUsed = !!item.used_at;
+                  const isSelected = selectedInviteIds.has(item.invite_id);
                   return (
-                    <tr key={item.invite_id}>
+                    <tr key={item.invite_id} style={{ background: isSelected ? '#f0f9ff' : undefined }}>
+                      <td style={{ textAlign: 'center' }}>
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleSelectInvite(item.invite_id)}
+                        />
+                      </td>
                       <td data-label="Инвайт-код">
                         <strong style={{ fontFamily: 'monospace', fontSize: '1.05em', color: 'var(--primary-color, #2563eb)' }}>
                           {item.invite_code}
@@ -713,21 +988,23 @@ const AdminUsersPage = ({ token, currentUser }) => {
                       </td>
                       <td data-label="Преподаватель">
                         <strong>{item.teacher_name || '—'}</strong>
-                        {item.lectern_name && <small>Кафедра: {item.lectern_name}</small>}
+                      </td>
+                      <td data-label="Кафедра">
+                        <span style={{ fontSize: '0.9em', color: '#475569' }}>
+                          {item.lectern_name ? `Каф.: ${item.lectern_name}` : '—'}
+                        </span>
                       </td>
                       <td data-label="Статус">
                         <span className={`admin-status-badge ${isUsed ? 'is-active' : 'is-blocked'}`}>
                           {isUsed ? 'Зарегистрирован' : 'Ожидает входа'}
                         </span>
                       </td>
-                      <td data-label="Создан">{formatDateTime(item.created_at)}</td>
-                      <td data-label="Зарегистрирован">{formatDateTime(item.used_at)}</td>
+                      <td data-label="Даты">
+                        <div><small>Создан: {formatDateTime(item.created_at)}</small></div>
+                        {isUsed && <div><small style={{ color: '#16a34a' }}>Зарег.: {formatDateTime(item.used_at)}</small></div>}
+                      </td>
                       <td data-label="Логин">
-                        {item.registered_as ? (
-                          <strong>{item.registered_as}</strong>
-                        ) : (
-                          <span style={{ color: '#94a3b8' }}>—</span>
-                        )}
+                        {item.registered_as ? <strong>{item.registered_as}</strong> : <span style={{ color: '#94a3b8' }}>—</span>}
                       </td>
                       <td data-label="Действия">
                         <div className="admin-row-actions">
@@ -735,7 +1012,6 @@ const AdminUsersPage = ({ token, currentUser }) => {
                             type="button"
                             onClick={() => copyInviteLink(item.invite_code)}
                             title="Скопировать ссылку регистрации"
-                            aria-label={`Скопировать ссылку для ${item.invite_code}`}
                           >
                             <AdminIcon name="copy" />
                           </button>
@@ -745,7 +1021,6 @@ const AdminUsersPage = ({ token, currentUser }) => {
                               className="is-danger"
                               onClick={() => revokeInvite(item.invite_id, item.invite_code)}
                               title="Отозвать инвайт"
-                              aria-label={`Отозвать инвайт ${item.invite_code}`}
                             >
                               <AdminIcon name="trash" />
                             </button>
@@ -755,11 +1030,11 @@ const AdminUsersPage = ({ token, currentUser }) => {
                     </tr>
                   );
                 })}
-                {!invitesLoading && !invites.length && (
-                  <tr className="admin-empty-row"><td colSpan={7}>Инвайт-коды не найдены</td></tr>
+                {!invitesLoading && !filteredInvites.length && (
+                  <tr className="admin-empty-row"><td colSpan={8}>Инвайт-коды преподавателей не найдены</td></tr>
                 )}
                 {invitesLoading && (
-                  <tr className="admin-empty-row"><td colSpan={7}>Загрузка инвайт-кодов...</td></tr>
+                  <tr className="admin-empty-row"><td colSpan={8}>Загрузка...</td></tr>
                 )}
               </tbody>
             </table>
@@ -767,22 +1042,189 @@ const AdminUsersPage = ({ token, currentUser }) => {
         </>
       )}
 
-      {/* MODALS */}
+      {/* TAB 3: STUDENT INVITES */}
+      {activeTab === 'student_invites' && (
+        <>
+          <div className="admin-users-strip" aria-label="Сводка инвайтов студентов">
+            <span><strong>{inviteStats.total}</strong> инвайтов студентов</span>
+            <span><strong style={{ color: '#d97706' }}>{inviteStats.pending}</strong> ожидают регистрации</span>
+            <span><strong style={{ color: '#16a34a' }}>{inviteStats.registered}</strong> зарегистрировано</span>
+          </div>
+
+          <div className="admin-users-toolbar">
+            <label className="admin-search-field" style={{ flex: '1 1 200px' }}>
+              <AdminIcon name="search" />
+              <input
+                type="search"
+                value={inviteSearch}
+                onChange={(event) => setInviteSearch(event.target.value)}
+                placeholder="Поиск по ФИО студента, группе или коду..."
+              />
+            </label>
+            {groupOptions.length > 0 && (
+              <label className="admin-filter-field">
+                <span>Группа</span>
+                <select value={inviteGroupFilter} onChange={(event) => setInviteGroupFilter(event.target.value)}>
+                  <option value="">Все группы ({groupOptions.length})</option>
+                  {groupOptions.map((gName) => (
+                    <option key={gName} value={gName}>{gName}</option>
+                  ))}
+                </select>
+              </label>
+            )}
+            <label className="admin-filter-field">
+              <span>Статус</span>
+              <select value={inviteStatusFilter} onChange={(event) => setInviteStatusFilter(event.target.value)}>
+                <option value="">Все статусы</option>
+                <option value="pending">Ожидают регистрации</option>
+                <option value="used">Зарегистрированы</option>
+              </select>
+            </label>
+            <button
+              type="button"
+              className="admin-icon-button"
+              onClick={() => setReloadKey((value) => value + 1)}
+              title="Обновить список"
+              aria-label="Обновить список"
+            >
+              <AdminIcon name="refresh" />
+            </button>
+          </div>
+
+          <div className="no-print" style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '10px', background: '#eff6ff', border: '1px solid #bfdbfe', padding: '10px 16px', borderRadius: '8px', marginBottom: '16px' }}>
+            <span style={{ color: '#1e40af', fontSize: '0.95em' }}>Выбрано карт для печати: <strong>{selectedInviteIds.size}</strong> шт.</span>
+            <button type="button" className="admin-secondary-button" style={{ padding: '4px 10px', fontSize: '0.85em' }} onClick={selectAllFilteredInvites}>
+              Выбрать все {inviteGroupFilter ? `в гр. ${inviteGroupFilter}` : 'по фильтру'} ({filteredInvites.length})
+            </button>
+            {selectedInviteIds.size > 0 && (
+              <button type="button" className="admin-secondary-button" style={{ padding: '4px 10px', fontSize: '0.85em' }} onClick={clearInviteSelection}>
+                Снять выбор
+              </button>
+            )}
+            {selectedInviteIds.size > 0 && (
+              <button
+                type="button"
+                className="admin-primary-button"
+                style={{ padding: '6px 14px', marginLeft: 'auto', background: '#16a34a', borderColor: '#16a34a' }}
+                onClick={() => setModal({ type: 'print_invites' })}
+              >
+                🖨️ Печать выбранных ({selectedInviteIds.size})
+              </button>
+            )}
+          </div>
+
+          <div className={`admin-users-table-wrap ${invitesLoading ? 'is-loading' : ''}`}>
+            <table className="admin-users-table">
+              <thead>
+                <tr>
+                  <th style={{ width: '40px', textAlign: 'center' }}>
+                    <input
+                      type="checkbox"
+                      checked={filteredInvites.length > 0 && filteredInvites.every((inv) => selectedInviteIds.has(inv.invite_id))}
+                      onChange={toggleSelectAllInvites}
+                      title="Выбрать все в текущей таблице"
+                    />
+                  </th>
+                  <th>Инвайт-код</th>
+                  <th>Студент (ФИО)</th>
+                  <th>Группа</th>
+                  <th>Статус</th>
+                  <th>Создан / Зарегистрирован</th>
+                  <th>Учетная запись</th>
+                  <th><span className="sr-only">Действия</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                {!invitesLoading && filteredInvites.map((item) => {
+                  const isUsed = !!item.used_at;
+                  const isSelected = selectedInviteIds.has(item.invite_id);
+                  return (
+                    <tr key={item.invite_id} style={{ background: isSelected ? '#f0f9ff' : undefined }}>
+                      <td style={{ textAlign: 'center' }}>
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleSelectInvite(item.invite_id)}
+                        />
+                      </td>
+                      <td data-label="Инвайт-код">
+                        <strong style={{ fontFamily: 'monospace', fontSize: '1.05em', color: 'var(--primary-color, #2563eb)' }}>
+                          {item.invite_code}
+                        </strong>
+                      </td>
+                      <td data-label="Студент">
+                        <strong>{item.student_name || '—'}</strong>
+                      </td>
+                      <td data-label="Группа">
+                        <span style={{ fontSize: '0.9em', color: '#1e40af', fontWeight: 600 }}>
+                          {item.group_name ? `ГР. ${item.group_name}` : '—'}
+                        </span>
+                      </td>
+                      <td data-label="Статус">
+                        <span className={`admin-status-badge ${isUsed ? 'is-active' : 'is-blocked'}`}>
+                          {isUsed ? 'Зарегистрирован' : 'Ожидает входа'}
+                        </span>
+                      </td>
+                      <td data-label="Даты">
+                        <div><small>Создан: {formatDateTime(item.created_at)}</small></div>
+                        {isUsed && <div><small style={{ color: '#16a34a' }}>Зарег.: {formatDateTime(item.used_at)}</small></div>}
+                      </td>
+                      <td data-label="Логин">
+                        {item.registered_as ? <strong>{item.registered_as}</strong> : <span style={{ color: '#94a3b8' }}>—</span>}
+                      </td>
+                      <td data-label="Действия">
+                        <div className="admin-row-actions">
+                          <button
+                            type="button"
+                            onClick={() => copyInviteLink(item.invite_code)}
+                            title="Скопировать ссылку регистрации"
+                          >
+                            <AdminIcon name="copy" />
+                          </button>
+                          {!isUsed && (
+                            <button
+                              type="button"
+                              className="is-danger"
+                              onClick={() => revokeInvite(item.invite_id, item.invite_code)}
+                              title="Отозвать инвайт"
+                            >
+                              <AdminIcon name="trash" />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {!invitesLoading && !filteredInvites.length && (
+                  <tr className="admin-empty-row"><td colSpan={8}>Инвайт-коды студентов не найдены</td></tr>
+                )}
+                {invitesLoading && (
+                  <tr className="admin-empty-row"><td colSpan={8}>Загрузка...</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+
       {modal && (
-        <div className="admin-modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && !modal.saving && setModal(null)}>
-          <section className={`admin-modal ${modal.type === 'archive' ? 'is-confirm' : ''}`} role="dialog" aria-modal="true">
-            <header>
+        <div className={`admin-modal-backdrop ${modal.type === 'print_invites' ? 'is-print-backdrop' : ''}`} onMouseDown={(event) => event.target === event.currentTarget && !modal.saving && setModal(null)}>
+          <section className={`admin-modal ${modal.type === 'archive' ? 'is-confirm' : modal.type === 'print_invites' ? 'is-print-preview' : ''}`} role="dialog" aria-modal="true">
+            <header className="no-print">
               <div>
-                <span>
+                <h2>
                   {modal.type === 'create' ? 'Новая учетная запись' :
                    modal.type === 'create_invite' ? 'Генерация инвайта' :
-                   modal.type === 'edit' ? 'Настройки пользователя' : 'Подтверждение'}
-                </span>
-                <h2>
-                  {modal.type === 'create' ? 'Создать пользователя' :
-                   modal.type === 'create_invite' ? 'Новый инвайт преподавателя' :
-                   modal.type === 'edit' ? 'Редактировать пользователя' : 'Архивировать пользователя?'}
+                   modal.type === 'edit' ? 'Настройки пользователя' :
+                   modal.type === 'print_invites' ? 'Печать инвайт-карт' : 'Подтверждение'}
                 </h2>
+                <p>
+                  {modal.type === 'create' ? 'Создать пользователя' :
+                   modal.type === 'create_invite' ? `Новый инвайт (${modal.form?.role === 'student' ? 'Студент' : 'Преподаватель'})` :
+                   modal.type === 'edit' ? 'Редактировать пользователя' :
+                   modal.type === 'print_invites' ? `Готово к печати: ${selectedInvitesList.length} карт` : 'Архивировать пользователя?'}
+                </p>
               </div>
               <button type="button" onClick={() => setModal(null)} disabled={modal.saving} aria-label="Закрыть" title="Закрыть">
                 <AdminIcon name="close" />
@@ -790,20 +1232,47 @@ const AdminUsersPage = ({ token, currentUser }) => {
             </header>
 
             {modal.type === 'create_invite' && (
-              <form onSubmit={createTeacherInvite}>
+              <form onSubmit={handleCreateInvite}>
                 <div className="admin-form-grid">
-                  <Field label="ФИО Преподавателя" required wide>
-                    <input name="full_name" value={modal.form.full_name} onChange={updateModalForm} placeholder="Иванов Иван Иванович" autoComplete="name" />
-                  </Field>
-                  <Field label="ID кафедры">
-                    <input name="lectern_id" value={modal.form.lectern_id} onChange={updateModalForm} inputMode="numeric" placeholder="Например: 1" />
-                  </Field>
-                  <Field label="Должность">
-                    <input name="job_title" value={modal.form.job_title} onChange={updateModalForm} placeholder="Старший преподаватель" />
-                  </Field>
-                  <Field label="Кастомный код (опционально)" wide>
-                    <input name="custom_code" value={modal.form.custom_code} onChange={updateModalForm} placeholder="Оставьте пустым для автокода (TCHR-XXXX)" />
-                  </Field>
+                  {modal.form.role === 'teacher' ? (
+                    <>
+                      <label className="admin-form-field admin-form-field--full">
+                        <span>ФИО Преподавателя *</span>
+                        <input name="full_name" value={modal.form.full_name} onChange={updateModalForm} placeholder="Иванов Иван Иванович" autoComplete="name" />
+                      </label>
+                      <Field label="Кафедра" required wide>
+                        <SearchableSelect
+                          options={(catalogs.lecterns || []).map((l) => ({ id: l.id, name: l.name, sub: l.faculty_name ? `Факультет: ${l.faculty_name}` : '' }))}
+                          value={modal.form.lectern_id}
+                          onChange={(id) => updateModalFormField('lectern_id', id)}
+                          placeholder="Выберите кафедру из списка..."
+                        />
+                      </Field>
+                      <label className="admin-form-field admin-form-field--full">
+                        <span>Должность</span>
+                        <input name="job_title" value={modal.form.job_title} onChange={updateModalForm} placeholder="Старший преподаватель" />
+                      </label>
+                    </>
+                  ) : (
+                    <>
+                      <label className="admin-form-field admin-form-field--full">
+                        <span>ФИО Студента *</span>
+                        <input name="full_name" value={modal.form.full_name} onChange={updateModalForm} placeholder="Петров Петр Петрович" autoComplete="name" />
+                      </label>
+                      <Field label="Группа" required wide>
+                        <SearchableSelect
+                          options={(catalogs.groups || []).map((g) => ({ id: g.id, name: g.name, sub: g.lectern_name ? `Кафедра: ${g.lectern_name}` : '' }))}
+                          value={modal.form.group_id}
+                          onChange={(id) => updateModalFormField('group_id', id)}
+                          placeholder="Выберите группу из списка..."
+                        />
+                      </Field>
+                    </>
+                  )}
+                  <label className="admin-form-field admin-form-field--full">
+                    <span>Собственный инвайт-код (необязательно)</span>
+                    <input name="custom_code" value={modal.form.custom_code} onChange={updateModalForm} placeholder="Оставьте пустым для генерации 16-значного кода" />
+                  </label>
                 </div>
                 {modal.error && <div className="admin-form-error" role="alert">{modal.error}</div>}
                 <footer>
@@ -814,23 +1283,29 @@ const AdminUsersPage = ({ token, currentUser }) => {
             )}
 
             {modal.type === 'create' && (
-              <form onSubmit={createUser}>
+              <form onSubmit={handleCreate}>
                 <div className="admin-form-grid">
-                  <Field label="Логин" required>
+                  <label className="admin-form-field">
+                    <span>Логин *</span>
                     <input name="login" value={modal.form.login} onChange={updateModalForm} autoComplete="off" />
-                  </Field>
-                  <Field label="Email">
+                  </label>
+                  <label className="admin-form-field">
+                    <span>Email *</span>
                     <input name="email" type="email" value={modal.form.email} onChange={updateModalForm} autoComplete="off" />
-                  </Field>
-                  <Field label="Пароль" required>
+                  </label>
+                  <label className="admin-form-field">
+                    <span>Пароль *</span>
                     <input name="password" type="password" value={modal.form.password} onChange={updateModalForm} autoComplete="new-password" />
-                  </Field>
-                  <Field label="Роль" required>
+                  </label>
+                  <label className="admin-form-field">
+                    <span>Роль *</span>
                     <select name="role" value={modal.form.role} onChange={updateModalForm}>
-                      {ROLE_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                      <option value="student">Студент</option>
+                      <option value="teacher">Преподаватель</option>
+                      <option value="admin">Администратор</option>
                     </select>
-                  </Field>
-                  <RoleSpecificCreateFields form={modal.form} onChange={updateModalForm} />
+                  </label>
+                  <RoleSpecificCreateFields form={modal.form} onChange={updateModalForm} onSelectChange={updateModalFormField} catalogs={catalogs} />
                 </div>
                 {modal.error && <div className="admin-form-error" role="alert">{modal.error}</div>}
                 <footer>
@@ -843,29 +1318,37 @@ const AdminUsersPage = ({ token, currentUser }) => {
             {modal.type === 'edit' && modal.loading && <div className="admin-modal-state">Загрузка...</div>}
             {modal.type === 'edit' && !modal.loading && !modal.form && <div className="admin-modal-state is-error">{modal.error}</div>}
             {modal.type === 'edit' && modal.form && (
-              <form onSubmit={updateUser}>
+              <form onSubmit={handleSaveEdit}>
                 <div className="admin-form-grid">
-                  <Field label="Логин" required>
+                  <label className="admin-form-field">
+                    <span>Логин *</span>
                     <input name="login" value={modal.form.login} onChange={updateModalForm} />
-                  </Field>
-                  <Field label="Email">
+                  </label>
+                  <label className="admin-form-field">
+                    <span>Email *</span>
                     <input name="email" type="email" value={modal.form.email} onChange={updateModalForm} />
-                  </Field>
-                  <Field label="Новый пароль">
+                  </label>
+                  <label className="admin-form-field">
+                    <span>Новый пароль</span>
                     <input name="password" type="password" value={modal.form.password} onChange={updateModalForm} autoComplete="new-password" />
-                  </Field>
-                  <Field label="Статус">
+                  </label>
+                  <label className="admin-form-field">
+                    <span>Статус</span>
                     <select name="status" value={modal.form.status} onChange={updateModalForm} disabled={isEditingSelf}>
-                      {STATUS_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                      <option value="active">Активен</option>
+                      <option value="archived">В архиве</option>
                     </select>
-                  </Field>
-                  <Field label="Роль" wide>
+                  </label>
+                  <label className="admin-form-field">
+                    <span>Роль</span>
                     <select name="role" value={modal.form.role} onChange={updateModalForm} disabled={isEditingSelf}>
-                      {ROLE_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                      <option value="student">Студент</option>
+                      <option value="teacher">Преподаватель</option>
+                      <option value="admin">Администратор</option>
                     </select>
-                  </Field>
+                  </label>
                   {modal.form.role !== modal.original.role && (
-                    <RoleTargetField role={modal.form.role} value={modal.form.target_id} onChange={updateModalForm} />
+                    <RoleTargetField role={modal.form.role} value={modal.form.target_id} onSelectChange={updateModalFormField} catalogs={catalogs} />
                   )}
                 </div>
                 {modal.error && <div className="admin-form-error" role="alert">{modal.error}</div>}
@@ -884,6 +1367,69 @@ const AdminUsersPage = ({ token, currentUser }) => {
                   <button type="button" className="admin-secondary-button" onClick={() => setModal(null)} disabled={modal.saving}>Отмена</button>
                   <button type="button" className="admin-danger-button" onClick={archiveUser} disabled={modal.saving}>{modal.saving ? 'Архивирование...' : 'Архивировать'}</button>
                 </footer>
+              </div>
+            )}
+
+            {modal.type === 'print_invites' && (
+              <div className="admin-modal--print-preview" style={{ padding: '4px' }}>
+                <header className="no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', paddingBottom: '12px', borderBottom: '1px solid #e2e8f0' }}>
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: '1.2em' }}>Печать карточек инвайтов ({selectedInvitesList.length} шт.)</h3>
+                    <p style={{ margin: '2px 0 0', fontSize: '0.85em', color: '#64748b' }}>Форматирование адаптировано для листа A4 (3 колонки, пунктирная рамочка ✂️ для резки).</p>
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button type="button" className="admin-secondary-button" onClick={() => setModal(null)}>Отмена</button>
+                    <button
+                      type="button"
+                      className="admin-primary-button"
+                      style={{ background: '#16a34a', borderColor: '#16a34a' }}
+                      onClick={() => window.print()}
+                    >
+                      🖨️ Распечатать
+                    </button>
+                  </div>
+                </header>
+
+                <div id="printable-invite-cards" className="printable-cards-grid">
+                  {selectedInvitesList.map((inv) => {
+                    const regUrl = `${window.location.origin}/#/register?code=${encodeURIComponent(inv.invite_code)}`;
+                    const isStudent = inv.role === 'student' || !!inv.student_name || !!inv.group_name;
+                    const displayName = isStudent ? (inv.student_name || inv.teacher_name || 'Студент') : (inv.teacher_name || 'Преподаватель');
+                    const subtitle = isStudent
+                      ? `ГРУППА: ${inv.group_name || '—'}`
+                      : `Каф.: ${inv.lectern_name || '—'}`;
+                    const badgeText = isStudent ? 'Студент' : 'Преподаватель';
+
+                    return (
+                      <div key={inv.invite_id} className="invite-cutout-card">
+                        <div className="invite-card-cut-icon">✂️</div>
+                        <div className="invite-card-header">
+                          <span className="invite-card-logo">СибГУТИ</span>
+                          <span className="invite-card-type">{badgeText}</span>
+                        </div>
+                        <div className="invite-card-body">
+                          <div className="invite-card-info">
+                            <div className="invite-card-name" title={displayName}>{displayName}</div>
+                            <div className="invite-card-sub" title={subtitle} style={{ fontWeight: isStudent ? 700 : 500, color: isStudent ? '#1e40af' : '#475569' }}>
+                              {subtitle}
+                            </div>
+                            <div className="invite-card-code-box">
+                              <span className="invite-card-code-label">КОД ДОСТУПА:</span>
+                              <span className="invite-card-code-value">{inv.invite_code}</span>
+                            </div>
+                            <div className="invite-card-instructions">
+                              Вход: <strong>{window.location.host}/#/register</strong>
+                            </div>
+                          </div>
+                          <div className="invite-card-qr">
+                            <QRCodeSVG value={regUrl} size={40} level="M" />
+                            <span className="invite-card-qr-label">Регистрация</span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             )}
           </section>

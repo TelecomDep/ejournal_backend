@@ -869,17 +869,19 @@ type AdminInviteItem struct {
 	LecternName  string     `json:"lectern_name,omitempty"`
 	StudentID    *int32     `json:"student_id,omitempty"`
 	StudentName  string     `json:"student_name,omitempty"`
+	GroupID      *int32     `json:"group_id,omitempty"`
+	GroupName    string     `json:"group_name,omitempty"`
 	UsedAt       *time.Time `json:"used_at"`
 	CreatedAt    time.Time  `json:"created_at"`
 	RegisteredAs string     `json:"registered_as,omitempty"`
 }
 
 func generate_invite_code(prefix string) string {
-	b := make([]byte, 4)
+	b := make([]byte, 8)
 	if _, err := rand.Read(b); err != nil {
-		return fmt.Sprintf("%s-%d", prefix, time.Now().UnixNano()%1000000)
+		return fmt.Sprintf("%016X", time.Now().UnixNano())
 	}
-	return fmt.Sprintf("%s-%X", prefix, b)
+	return fmt.Sprintf("%X", b)
 }
 
 func (s *Service) admin_generate_teacher_invite(token string, data AdminGenerateTeacherInviteData) Response {
@@ -977,6 +979,104 @@ func (s *Service) admin_generate_teacher_invite(token string, data AdminGenerate
 	}
 }
 
+type AdminGenerateStudentInviteData struct {
+	StudentID  int32  `json:"student_id"`
+	FullName   string `json:"full_name"`
+	GroupID    int32  `json:"group_id"`
+	CustomCode string `json:"custom_code"`
+}
+
+func (s *Service) admin_generate_student_invite(token string, data AdminGenerateStudentInviteData) Response {
+	if _, auth := s.require_admin(token); !auth.OK {
+		return auth
+	}
+
+	ctx, cancel := s.dbContext()
+	defer cancel()
+
+	var studentID int32 = data.StudentID
+	var studentName string
+
+	if studentID > 0 {
+		var existingUserID *int64
+		err := s.store.Pool().QueryRow(
+			ctx,
+			`SELECT student_name, user_id FROM students WHERE student_id = $1`,
+			studentID,
+		).Scan(&studentName, &existingUserID)
+		if err != nil {
+			return Response{OK: false, Error: "student not found"}
+		}
+		if existingUserID != nil {
+			return Response{OK: false, Error: "student already has an active user account"}
+		}
+
+		var existingInviteCode string
+		err = s.store.Pool().QueryRow(
+			ctx,
+			`SELECT invite_code FROM registration_invites WHERE student_id = $1 AND used_at IS NULL LIMIT 1`,
+			studentID,
+		).Scan(&existingInviteCode)
+		if err == nil && existingInviteCode != "" {
+			return Response{
+				OK: true,
+				Result: map[string]any{
+					"invite_code":  existingInviteCode,
+					"student_id":   studentID,
+					"student_name": studentName,
+					"is_existing":  true,
+				},
+			}
+		}
+	} else {
+		fullName := strings.TrimSpace(data.FullName)
+		if fullName == "" {
+			return Response{OK: false, Error: "full_name is required when creating a new student invite"}
+		}
+
+		err := s.store.Pool().QueryRow(
+			ctx,
+			`INSERT INTO students (student_name, group_id)
+			 VALUES ($1, $2)
+			 RETURNING student_id, student_name`,
+			fullName,
+			nullable_id(data.GroupID),
+		).Scan(&studentID, &studentName)
+		if err != nil {
+			return Response{OK: false, Error: admin_user_db_error(err)}
+		}
+	}
+
+	inviteCode := strings.TrimSpace(strings.ToUpper(data.CustomCode))
+	if inviteCode == "" {
+		inviteCode = generate_invite_code("STDNT")
+	}
+
+	var inviteID int32
+	var createdAt time.Time
+	if err := s.store.Pool().QueryRow(
+		ctx,
+		`INSERT INTO registration_invites (invite_code, role, student_id)
+		 VALUES ($1, 'student', $2)
+		 RETURNING invite_id, created_at`,
+		inviteCode,
+		studentID,
+	).Scan(&inviteID, &createdAt); err != nil {
+		return Response{OK: false, Error: "failed to generate invite code (code may already exist)"}
+	}
+
+	return Response{
+		OK: true,
+		Result: map[string]any{
+			"invite_id":    inviteID,
+			"invite_code":  inviteCode,
+			"student_id":   studentID,
+			"student_name": studentName,
+			"created_at":   createdAt,
+		},
+	}
+}
+
 func (s *Service) admin_list_invites(token string, data AdminInvitesListData) Response {
 	if _, auth := s.require_admin(token); !auth.OK {
 		return auth
@@ -984,6 +1084,16 @@ func (s *Service) admin_list_invites(token string, data AdminInvitesListData) Re
 
 	ctx, cancel := s.dbContext()
 	defer cancel()
+
+	_, _ = s.store.Pool().Exec(ctx, `
+		INSERT INTO registration_invites (invite_code, role, student_id, used_at, created_at)
+		SELECT UPPER(encode(gen_random_bytes(8), 'hex')), 'student'::user_role, st.student_id, CASE WHEN st.user_id IS NOT NULL THEN NOW() ELSE NULL END, NOW()
+		FROM students st WHERE NOT EXISTS (SELECT 1 FROM registration_invites ri WHERE ri.student_id = st.student_id);
+
+		INSERT INTO registration_invites (invite_code, role, teacher_id, used_at, created_at)
+		SELECT UPPER(encode(gen_random_bytes(8), 'hex')), 'teacher'::user_role, t.teacher_id, CASE WHEN t.user_id IS NOT NULL THEN NOW() ELSE NULL END, NOW()
+		FROM teachers t WHERE NOT EXISTS (SELECT 1 FROM registration_invites ri WHERE ri.teacher_id = t.teacher_id);
+	`)
 
 	query := `
 		SELECT 
@@ -996,6 +1106,8 @@ func (s *Service) admin_list_invites(token string, data AdminInvitesListData) Re
 			COALESCE(l.name, ''),
 			ri.student_id,
 			COALESCE(st.student_name, ''),
+			st.group_id,
+			COALESCE(g.group_name, ''),
 			ri.used_at,
 			ri.created_at,
 			COALESCE(u.login, '')
@@ -1003,6 +1115,7 @@ func (s *Service) admin_list_invites(token string, data AdminInvitesListData) Re
 		LEFT JOIN teachers t ON ri.teacher_id = t.teacher_id
 		LEFT JOIN lecterns l ON t.lectern_id = l.lectern_id
 		LEFT JOIN students st ON ri.student_id = st.student_id
+		LEFT JOIN groups g ON st.group_id = g.group_id
 		LEFT JOIN users u ON u.id = COALESCE(t.user_id, st.user_id)
 		WHERE 1=1
 	`
@@ -1035,8 +1148,8 @@ func (s *Service) admin_list_invites(token string, data AdminInvitesListData) Re
 	for rows.Next() {
 		var item AdminInviteItem
 		var roleStr string
-		var teacherID, lecternID, studentID *int32
-		var teacherName, lecternName, studentName, registeredAs string
+		var teacherID, lecternID, studentID, groupID *int32
+		var teacherName, lecternName, studentName, groupName, registeredAs string
 
 		err := rows.Scan(
 			&item.InviteID,
@@ -1048,6 +1161,8 @@ func (s *Service) admin_list_invites(token string, data AdminInvitesListData) Re
 			&lecternName,
 			&studentID,
 			&studentName,
+			&groupID,
+			&groupName,
 			&item.UsedAt,
 			&item.CreatedAt,
 			&registeredAs,
@@ -1063,6 +1178,8 @@ func (s *Service) admin_list_invites(token string, data AdminInvitesListData) Re
 		item.LecternName = lecternName
 		item.StudentID = studentID
 		item.StudentName = studentName
+		item.GroupID = groupID
+		item.GroupName = groupName
 		item.RegisteredAs = registeredAs
 
 		items = append(items, item)

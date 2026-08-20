@@ -601,6 +601,18 @@ const api = {
     }
   },
 
+  async createStudentInvite(token, payload) {
+    try {
+      const response = await axios.post(`${BACKEND_URL}/api/admin/invites/student`, payload, {
+        headers: authHeaders(token)
+      });
+      return unwrapApiResponse(response.data);
+    } catch (error) {
+      console.error('Ошибка генерации инвайта студента:', error);
+      throw error;
+    }
+  },
+
   async revokeAdminInvite(token, inviteId) {
     try {
       const response = await axios.delete(`${BACKEND_URL}/api/admin/invites/${inviteId}`, {
@@ -610,6 +622,18 @@ const api = {
     } catch (error) {
       console.error('Ошибка отзыва инвайта:', error);
       throw error;
+    }
+  },
+
+  async getAdminCatalogs(token) {
+    try {
+      const response = await axios.get(`${BACKEND_URL}/api/admin/catalogs`, {
+        headers: authHeaders(token)
+      });
+      return unwrapApiResponse(response.data);
+    } catch (error) {
+      console.error('Ошибка загрузки справочников:', error);
+      return { groups: [], lecterns: [], faculties: [], teachers: [], students: [] };
     }
   },
 
