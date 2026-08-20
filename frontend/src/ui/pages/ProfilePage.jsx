@@ -681,7 +681,7 @@ const NotificationToggle = ({ title, description, checked, disabled, onChange })
   </label>
 );
 
-const NotificationsPanel = ({ token }) => {
+const NotificationsPanel = ({ token, onUnreadCountChange }) => {
   const [settings, setSettings] = useState(DEFAULT_NOTIFICATION_SETTINGS);
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -719,8 +719,10 @@ const NotificationsPanel = ({ token }) => {
 
       if (notificationsResult.status === 'fulfilled') {
         const payload = notificationsResult.value || {};
+        const nextUnreadCount = Number(payload.unread_count) || 0;
         setNotifications(Array.isArray(payload.items) ? payload.items : []);
-        setUnreadCount(Number(payload.unread_count) || 0);
+        setUnreadCount(nextUnreadCount);
+        onUnreadCountChange?.(nextUnreadCount);
         setPagination({
           page: Number(payload.pagination?.page) || 1,
           pages: Number(payload.pagination?.pages) || 0,
@@ -739,7 +741,7 @@ const NotificationsPanel = ({ token }) => {
     return () => {
       cancelled = true;
     };
-  }, [token, reloadKey]);
+  }, [token, reloadKey, onUnreadCountChange]);
 
   const updateSetting = async (key, value) => {
     if (savingSetting) return;
@@ -776,7 +778,9 @@ const NotificationsPanel = ({ token }) => {
           ? { ...item, is_read: true, read_at: new Date().toISOString() }
           : item
       )));
-      setUnreadCount((current) => Math.max(0, current - 1));
+      const nextUnreadCount = Math.max(0, unreadCount - 1);
+      setUnreadCount(nextUnreadCount);
+      onUnreadCountChange?.(nextUnreadCount);
     } catch (requestError) {
       setError(api.getErrorMessage(requestError, 'Не удалось отметить уведомление прочитанным'));
     } finally {
@@ -795,6 +799,7 @@ const NotificationsPanel = ({ token }) => {
       const readAt = new Date().toISOString();
       setNotifications((current) => current.map((item) => ({ ...item, is_read: true, read_at: item.read_at || readAt })));
       setUnreadCount(0);
+      onUnreadCountChange?.(0);
       setMessage('Все уведомления отмечены прочитанными.');
     } catch (requestError) {
       setError(api.getErrorMessage(requestError, 'Не удалось отметить все уведомления прочитанными'));
@@ -818,7 +823,9 @@ const NotificationsPanel = ({ token }) => {
         const knownIds = new Set(current.map((item) => item.notification_id));
         return [...current, ...nextItems.filter((item) => !knownIds.has(item.notification_id))];
       });
-      setUnreadCount(Number(payload.unread_count) || 0);
+      const nextUnreadCount = Number(payload.unread_count) || 0;
+      setUnreadCount(nextUnreadCount);
+      onUnreadCountChange?.(nextUnreadCount);
       setPagination({
         page: Number(payload.pagination?.page) || pagination.page + 1,
         pages: Number(payload.pagination?.pages) || pagination.pages,
@@ -1146,11 +1153,20 @@ const ProfileTabPanel = ({ tab, children }) => (
   </div>
 );
 
-const ProfilePage = ({ user, token, onUserUpdate }) => {
-  const [activeTab, setActiveTab] = useState('profile');
+const ProfilePage = ({ user, token, initialTab = 'profile', onTabChange, onUserUpdate, onUnreadCountChange }) => {
+  const [activeTab, setActiveTab] = useState(initialTab);
   const displayName = pickDisplayName(user);
   const rows = profileRows(user);
   const metrics = metricCards(user);
+
+  useEffect(() => {
+    setActiveTab(initialTab);
+  }, [initialTab]);
+
+  const selectTab = (tab) => {
+    setActiveTab(tab);
+    onTabChange?.(tab);
+  };
 
   return (
     <section className="profile-page">
@@ -1162,21 +1178,21 @@ const ProfilePage = ({ user, token, onUserUpdate }) => {
         <button
           type="button"
           className={activeTab === 'profile' ? 'is-active' : ''}
-          onClick={() => setActiveTab('profile')}
+          onClick={() => selectTab('profile')}
         >
           Мой профиль
         </button>
         <button
           type="button"
           className={activeTab === 'security' ? 'is-active' : ''}
-          onClick={() => setActiveTab('security')}
+          onClick={() => selectTab('security')}
         >
           Безопасность
         </button>
         <button
           type="button"
           className={activeTab === 'notifications' ? 'is-active' : ''}
-          onClick={() => setActiveTab('notifications')}
+          onClick={() => selectTab('notifications')}
         >
           Уведомления
         </button>
@@ -1196,7 +1212,9 @@ const ProfilePage = ({ user, token, onUserUpdate }) => {
 
         {activeTab === 'security' && <SecurityPanel user={user} token={token} />}
 
-        {activeTab === 'notifications' && <NotificationsPanel token={token} />}
+        {activeTab === 'notifications' && (
+          <NotificationsPanel token={token} onUnreadCountChange={onUnreadCountChange} />
+        )}
       </ProfileTabPanel>
     </section>
   );

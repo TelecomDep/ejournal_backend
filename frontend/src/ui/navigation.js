@@ -27,6 +27,7 @@ const TEACHER_NAV = [
 const ADMIN_NAV = [
   { key: 'dashboard', label: 'Главная', title: 'Главная', route: '/dashboard', icon: '⌂' },
   { key: 'users', label: 'Пользователи', title: 'Управление пользователями', route: '/admin/users', icon: '○' },
+  { key: 'notifications', label: 'Уведомления', title: 'Управление уведомлениями', route: '/admin/notifications', icon: '○' },
   { key: 'overview', label: 'Сводка', title: 'Сводка по охвату', route: '/staff/overview', icon: '▥' },
   { key: 'analytics', label: 'Аналитика', title: 'Аналитика', route: '/staff/analytics', icon: '▥' },
   { key: 'profile', label: 'Профиль', title: 'Профиль администратора', route: '/profile', icon: '○' }

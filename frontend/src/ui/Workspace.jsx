@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
+import api from '../services/api';
 import SibLogo from '../components/SibLogo';
 import { getNavigationForRole, getRoleLabel } from './navigation';
 import ProfilePage from './pages/ProfilePage';
@@ -10,6 +11,7 @@ import DashboardPage from './pages/DashboardPage';
 import StaffOverviewPage from './pages/StaffOverviewPage';
 import TeacherPage from './pages/TeacherPage';
 import AdminUsersPage from './pages/AdminUsersPage';
+import AdminNotificationsPage from './pages/AdminNotificationsPage';
 import './ui.css';
 
 const getDisplayName = (user) => (
@@ -85,6 +87,12 @@ const iconPaths = {
       <path d="M16 14c2.6.4 4 2.1 4.5 5" />
     </>
   ),
+  notifications: (
+    <>
+      <path d="M6.5 10.5a5.5 5.5 0 0 1 11 0c0 5 2 5.5 2 5.5h-15s2-.5 2-5.5Z" />
+      <path d="M10 19h4" />
+    </>
+  ),
   profile: (
     <>
       <circle cx="12" cy="8" r="3.4" />
@@ -106,7 +114,16 @@ const NavIcon = ({ name }) => (
   </svg>
 );
 
-const renderPage = (activeItem, user, token, navigate, onUserUpdate) => {
+const renderPage = (
+  activeItem,
+  user,
+  token,
+  route,
+  navigate,
+  onUserUpdate,
+  onUnreadCountChange,
+  onNotificationCreated
+) => {
   if (activeItem.key === 'dashboard') {
     return <DashboardPage user={user} token={token} navigate={navigate} />;
   }
@@ -116,8 +133,25 @@ const renderPage = (activeItem, user, token, navigate, onUserUpdate) => {
   if (activeItem.key === 'users' && user?.role === 'admin') {
     return <AdminUsersPage token={token} currentUser={user} />;
   }
+  if (activeItem.key === 'notifications' && user?.role === 'admin') {
+    return <AdminNotificationsPage token={token} onNotificationCreated={onNotificationCreated} />;
+  }
   if (activeItem.key === 'profile') {
-    return <ProfilePage user={user} token={token} onUserUpdate={onUserUpdate} />;
+    const initialTab = route === '/profile/notifications'
+      ? 'notifications'
+      : route === '/profile/security'
+        ? 'security'
+        : 'profile';
+    return (
+      <ProfilePage
+        user={user}
+        token={token}
+        initialTab={initialTab}
+        onTabChange={(tab) => navigate(tab === 'profile' ? '/profile' : `/profile/${tab}`)}
+        onUserUpdate={onUserUpdate}
+        onUnreadCountChange={onUnreadCountChange}
+      />
+    );
   }
   if (activeItem.key === 'schedule') {
     return <SchedulePage user={user} token={token} />;
@@ -146,9 +180,32 @@ const renderPage = (activeItem, user, token, navigate, onUserUpdate) => {
 
 const Workspace = ({ user, token, route, navigate, onLogout, onUserUpdate }) => {
   const [isNavOpen, setIsNavOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
   const navItems = getNavigationForRole(user?.role);
-  const activeItem = navItems.find((item) => item.route === route) || navItems[0];
+  const activeItem = navItems.find((item) => (
+    item.route === route || (item.key === 'profile' && route.startsWith('/profile/'))
+  )) || navItems[0];
   const displayName = getDisplayName(user);
+
+  const refreshUnreadCount = useCallback(async () => {
+    try {
+      const payload = await api.getUnreadNotificationsCount(token);
+      setUnreadCount(Math.max(0, Number(payload?.unread_count) || 0));
+    } catch {
+      // Notification availability must not block the rest of the workspace.
+    }
+  }, [token]);
+
+  useEffect(() => {
+    refreshUnreadCount();
+    const interval = window.setInterval(refreshUnreadCount, 60000);
+    const handleFocus = () => refreshUnreadCount();
+    window.addEventListener('focus', handleFocus);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [refreshUnreadCount]);
 
   const handleNavigate = (to) => {
     navigate(to);
@@ -219,13 +276,35 @@ const Workspace = ({ user, token, route, navigate, onLogout, onUserUpdate }) => 
             </div>
           </div>
 
-          <div className="ui-topbar-actions" aria-hidden="true">
-            <span className="ui-status-dot" />
+          <div className="ui-topbar-actions">
+            <button
+              type="button"
+              className="ui-notification-button"
+              aria-label={unreadCount > 0 ? `Уведомления: ${unreadCount} непрочитанных` : 'Уведомления'}
+              title="Уведомления"
+              onClick={() => handleNavigate('/profile/notifications')}
+            >
+              <NavIcon name="notifications" />
+              {unreadCount > 0 && (
+                <span className="ui-notification-badge" aria-hidden="true">
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </span>
+              )}
+            </button>
           </div>
         </header>
 
         <main className="ui-main">
-          {renderPage(activeItem, user, token, navigate, onUserUpdate)}
+          {renderPage(
+            activeItem,
+            user,
+            token,
+            route,
+            navigate,
+            onUserUpdate,
+            setUnreadCount,
+            refreshUnreadCount
+          )}
         </main>
       </div>
     </div>
