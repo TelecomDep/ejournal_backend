@@ -97,6 +97,14 @@ const Field = ({ label, children, required = false, wide = false }) => (
   </label>
 );
 
+/**
+ * @param {{
+ *   form: any,
+ *   onChange: (event: any) => void,
+ *   onSelectChange: (fieldName: string, fieldValue: any) => void,
+ *   catalogs?: Record<string, any[]>
+ * }} props
+ */
 const RoleSpecificCreateFields = ({ form, onChange, onSelectChange, catalogs = {} }) => {
   if (form.role === 'student') {
     return (
@@ -162,6 +170,14 @@ const RoleSpecificCreateFields = ({ form, onChange, onSelectChange, catalogs = {
   return null;
 };
 
+/**
+ * @param {{
+ *   role: string,
+ *   value: any,
+ *   onSelectChange: (fieldName: string, fieldValue: any) => void,
+ *   catalogs?: Record<string, any[]>
+ * }} props
+ */
 const RoleTargetField = ({ role, value, onSelectChange, catalogs = {} }) => {
   if (role === 'student') {
     return (
@@ -645,6 +661,8 @@ const AdminUsersPage = ({ token, currentUser }) => {
       }));
     }
   };
+
+  const handleSaveEdit = updateUser;
 
   const archiveUser = async () => {
     setModal((current) => ({ ...current, saving: true, error: '' }));

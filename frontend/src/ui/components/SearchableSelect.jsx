@@ -5,7 +5,7 @@ export const SearchableSelect = ({
   value,
   onChange,
   placeholder = 'Выберите из списка...',
-  name,
+  name = '',
   required = false,
   disabled = false
 }) => {
