@@ -140,6 +140,9 @@ func (s *Server) Start() {
 	fiberApp.Post("/api/student/attendance/confirm", s.studentAttendanceConfirmHandler)
 	fiberApp.Post("/api/student/mark-attendance", s.androidStudentAttendanceMarkHandler)
 	fiberApp.Get("/api/student/attendance/history", s.studentAttendanceHistoryHandler)
+	fiberApp.Get("/api/student/attendance/summary", s.studentAttendanceSummaryHandler)
+	fiberApp.Get("/api/student/schedule/day", s.studentScheduleDayHandler)
+	fiberApp.Get("/api/teacher/schedule/day", s.teacherScheduleDayHandler)
 	fiberApp.Get("/api/staff/overview", s.staffOverviewHandler)
 	fiberApp.Get("/api/staff/overview/students", s.staffStudentsPageHandler)
 	fiberApp.Get("/api/staff/ratings/general", s.generalRatingHandler)
@@ -1388,6 +1391,45 @@ func (s *Server) studentAttendanceHistoryHandler(c *fiber.Ctx) error {
 	return c.JSON(resp)
 }
 
+// studentAttendanceSummaryHandler godoc
+// @Summary Get student attendance summary
+// @Description Returns the current student's overall and per-subject attendance percentage for the selected semester. Excused sessions are excluded from the percentage denominator.
+// @Tags attendance
+// @Produce json
+// @Security BearerAuth
+// @Param semester_id query int false "Semester ID; defaults to the open semester"
+// @Success 200 {object} app.Response
+// @Failure 400 {object} app.Response
+// @Failure 401 {object} app.Response
+// @Failure 403 {object} app.Response
+// @Failure 404 {object} app.Response
+// @Failure 500 {object} app.Response
+// @Router /api/student/attendance/summary [get]
+func (s *Server) studentAttendanceSummaryHandler(c *fiber.Ctx) error {
+	token := c.Get("Authorization")
+	if token == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(app.Response{OK: false, Error: "missing Authorization header"})
+	}
+
+	req, err := semesterSelectionRequest(c, "http-student-attendance-summary", "student_attendance_summary", token)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(app.Response{OK: false, Error: err.Error()})
+	}
+	raw, err := json.Marshal(req)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(app.Response{OK: false, Error: "Error marshalling envelope"})
+	}
+
+	resp, err := s.svc.DispatchRequest(string(raw), s.requestTimeout)
+	if err != nil {
+		return c.Status(fiber.StatusServiceUnavailable).JSON(app.Response{OK: false, Error: err.Error()})
+	}
+	if !resp.OK {
+		return c.Status(studentAcademicReadHTTPStatus(resp)).JSON(resp)
+	}
+	return c.JSON(resp)
+}
+
 // studentScheduleDayHandler godoc
 // @Summary Get student's schedule for a day
 // @Description Returns the current student's lessons for a given date, restricted to the current or next calendar week. Defaults to today if date is omitted.
@@ -1399,8 +1441,30 @@ func (s *Server) studentAttendanceHistoryHandler(c *fiber.Ctx) error {
 // @Failure 400 {object} app.Response
 // @Failure 401 {object} app.Response
 // @Failure 403 {object} app.Response
+// @Failure 500 {object} app.Response
 // @Router /api/student/schedule/day [get]
 func (s *Server) studentScheduleDayHandler(c *fiber.Ctx) error {
+	return s.scheduleDayHandler(c, "http-student-schedule-day", "student_schedule_day")
+}
+
+// teacherScheduleDayHandler godoc
+// @Summary Get teacher's schedule for a day
+// @Description Returns the current teacher's lessons and groups for a given date, restricted to the current or next calendar week. Defaults to today if date is omitted.
+// @Tags schedule
+// @Produce json
+// @Security BearerAuth
+// @Param date query string false "Date in YYYY-MM-DD format (defaults to today)"
+// @Success 200 {object} app.Response
+// @Failure 400 {object} app.Response
+// @Failure 401 {object} app.Response
+// @Failure 403 {object} app.Response
+// @Failure 500 {object} app.Response
+// @Router /api/teacher/schedule/day [get]
+func (s *Server) teacherScheduleDayHandler(c *fiber.Ctx) error {
+	return s.scheduleDayHandler(c, "http-teacher-schedule-day", "teacher_schedule_day")
+}
+
+func (s *Server) scheduleDayHandler(c *fiber.Ctx, requestID, action string) error {
 	token := c.Get("Authorization")
 	if token == "" {
 		return c.Status(fiber.StatusUnauthorized).JSON(app.Response{OK: false, Error: "missing Authorization header"})
@@ -1412,7 +1476,7 @@ func (s *Server) studentScheduleDayHandler(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(app.Response{OK: false, Error: "Error marshalling request"})
 	}
 
-	req := app.Request{ID: "http-student-schedule-day", Action: "student_schedule_day", Token: token, Data: data}
+	req := app.Request{ID: requestID, Action: action, Token: token, Data: data}
 	raw, err := json.Marshal(req)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(app.Response{OK: false, Error: "Error marshalling envelope"})
@@ -1423,10 +1487,28 @@ func (s *Server) studentScheduleDayHandler(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusServiceUnavailable).JSON(app.Response{OK: false, Error: err.Error()})
 	}
 	if !resp.OK {
-		return c.Status(app.GradeHTTPStatus(resp)).JSON(resp)
+		return c.Status(studentAcademicReadHTTPStatus(resp)).JSON(resp)
 	}
 
 	return c.JSON(resp)
+}
+
+func studentAcademicReadHTTPStatus(resp app.Response) int {
+	if resp.OK {
+		return fiber.StatusOK
+	}
+	switch resp.Error {
+	case "invalid token", "session not found", "session revoked", "missing token", "account is not active":
+		return fiber.StatusUnauthorized
+	case "forbidden: student role required", "forbidden: teacher role required":
+		return fiber.StatusForbidden
+	case "semester not found", "open semester not found":
+		return fiber.StatusNotFound
+	case "failed to load attendance summary", "failed to load subjects", "failed to load schedule", "failed to read schedule row", "failed to iterate schedule rows":
+		return fiber.StatusInternalServerError
+	default:
+		return fiber.StatusBadRequest
+	}
 }
 
 // teacherCreateGradeItemHandler godoc
@@ -1652,7 +1734,7 @@ func (s *Server) studentPerformanceRadarHandler(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusServiceUnavailable).JSON(app.Response{OK: false, Error: err.Error()})
 	}
 	if !resp.OK {
-		return c.Status(app.GradeHTTPStatus(resp)).JSON(resp)
+		return c.Status(studentAcademicReadHTTPStatus(resp)).JSON(resp)
 	}
 
 	return c.JSON(resp)
@@ -1660,14 +1742,17 @@ func (s *Server) studentPerformanceRadarHandler(c *fiber.Ctx) error {
 
 // studentAllGradesHandler godoc
 // @Summary Get all grades for the current student
-// @Description Returns every plan subject with its grade items and totals for the selected semester. Defaults to the open semester.
+// @Description Returns every plan subject with its grade items, totals, and attendance percentage for the selected semester. Defaults to the open semester.
 // @Tags grades
 // @Produce json
 // @Security BearerAuth
 // @Param semester_id query int false "Semester ID; defaults to the open semester"
 // @Success 200 {object} app.Response
+// @Failure 400 {object} app.Response
 // @Failure 401 {object} app.Response
 // @Failure 403 {object} app.Response
+// @Failure 404 {object} app.Response
+// @Failure 500 {object} app.Response
 // @Router /api/student/grades/all [get]
 func (s *Server) studentAllGradesHandler(c *fiber.Ctx) error {
 	token := c.Get("Authorization")
@@ -1689,7 +1774,7 @@ func (s *Server) studentAllGradesHandler(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusServiceUnavailable).JSON(app.Response{OK: false, Error: err.Error()})
 	}
 	if !resp.OK {
-		return c.Status(app.GradeHTTPStatus(resp)).JSON(resp)
+		return c.Status(studentAcademicReadHTTPStatus(resp)).JSON(resp)
 	}
 
 	return c.JSON(resp)

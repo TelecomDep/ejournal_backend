@@ -412,7 +412,6 @@ const TeacherPage = ({ token, section = 'attendance' }) => {
         score: asNumber(gradeForm.score)
       };
       if (gradeForm.comment.trim()) payload.comment = gradeForm.comment.trim();
-      if (gradeForm.sessionId) payload.session_id = asNumber(gradeForm.sessionId);
       await api.saveStudentGrade(token, payload);
       setMessage('Оценка сохранена.');
       if (studentSheet && Number(studentSheet.student_id) === payload.student_id) {

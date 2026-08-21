@@ -159,6 +159,17 @@ type AttendanceHistoryItem struct {
 	Status     string    `json:"status"`
 }
 
+// StudentSubjectAttendanceStat contains the attendance totals for one subject
+// in a semester. Excused sessions are kept separate so callers can exclude
+// them from the attendance percentage denominator.
+type StudentSubjectAttendanceStat struct {
+	SubjectID        int32  `json:"subject_id"`
+	SubjectName      string `json:"subject_name"`
+	TotalSessions    int32  `json:"total_sessions"`
+	AttendedSessions int32  `json:"attended_sessions"`
+	ExcusedSessions  int32  `json:"excused_sessions"`
+}
+
 // GroupSubjectPerformanceRow combines a student's attendance and grade totals
 // for one group on one subject (used by the teacher group overview table).
 type GroupSubjectPerformanceRow struct {
