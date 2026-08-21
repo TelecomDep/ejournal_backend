@@ -131,10 +131,13 @@ Scenario: Student can view their assigned grades
   * def subjects = response.result.subjects
   * def targetSubject = karate.filter(subjects, function(x){ return x.subject_id == subjectId })[0]
   And match targetSubject != null
+  And match targetSubject.attendance_percent == '#number'
+  And match targetSubject.total_sessions == '#number'
   * def grade = karate.filter(targetSubject.grades, function(x){ return x.item_id == itemId })[0]
   And match grade != null
   And match grade.score == 1
   And match grade.max_score == 1
+  And match response.result.summary.attendance_percent == '#number'
 
   # --- TEARDOWN: Clean up test grade item & grade via HTTP ---
   Given path 'api/teacher/grades/items/' + itemId

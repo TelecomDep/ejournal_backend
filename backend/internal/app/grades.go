@@ -758,8 +758,7 @@ func (s *Service) studentPerformanceRadar(sessionToken string, data SemesterSele
 }
 
 // studentAllGrades returns every plan subject for the student together with its
-// grade items and per-subject totals, plus an aggregate summary — everything the
-// student grades dashboard needs in a single request.
+// grade items, grade totals, and attendance totals, plus an aggregate summary.
 func (s *Service) studentAllGrades(sessionToken string, data SemesterSelectionData) Response {
 	studentUser, err := s.userBySessionToken(sessionToken)
 	if err != nil {
@@ -786,9 +785,15 @@ func (s *Service) studentAllGrades(sessionToken string, data SemesterSelectionDa
 	if err != nil {
 		return Response{OK: false, Error: "failed to load subjects"}
 	}
+	attendanceRows, err := s.store.Attendance.GetStudentAttendanceBySubject(ctx, studentProfile.ID, semester.ID)
+	if err != nil {
+		return Response{OK: false, Error: "failed to load attendance summary"}
+	}
+	attendanceBySubject := attendanceMetricsBySubject(attendanceRows)
 
 	subjects := make([]map[string]any, 0, len(allSubjects))
 	var totalScore, totalMax, totalPassed, gradedWorks, totalWorks int32
+	var totalSessions, attendedSessions, excusedSessions int32
 	for _, subject := range allSubjects {
 		for _, g := range subject.Grades {
 			totalWorks++
@@ -805,7 +810,12 @@ func (s *Service) studentAllGrades(sessionToken string, data SemesterSelectionDa
 			percent = int32((float64(subject.PassedScore) / float64(subject.PassedMax)) * 100)
 		}
 
-		subjects = append(subjects, map[string]any{
+		attendance := attendanceBySubject[subject.SubjectID]
+		totalSessions += attendance.TotalSessions
+		attendedSessions += attendance.AttendedSessions
+		excusedSessions += attendance.ExcusedSessions
+
+		subjectResult := map[string]any{
 			"subject_id":    subject.SubjectID,
 			"subject_name":  subject.SubjectName,
 			"percent":       percent,
@@ -813,8 +823,13 @@ func (s *Service) studentAllGrades(sessionToken string, data SemesterSelectionDa
 			"total_max":     subject.TotalMax,
 			"passed_max":    subject.PassedMax,
 			"grades":        subject.Grades,
-		})
+		}
+		for key, value := range attendance.toMap() {
+			subjectResult[key] = value
+		}
+		subjects = append(subjects, subjectResult)
 	}
+	overallAttendance := makeStudentAttendanceMetrics(totalSessions, attendedSessions, excusedSessions)
 
 	return Response{
 		OK: true,
@@ -824,11 +839,16 @@ func (s *Service) studentAllGrades(sessionToken string, data SemesterSelectionDa
 			"semester":    semesterToMap(semester),
 			"subjects":    subjects,
 			"summary": map[string]any{
-				"current_score": totalScore,
-				"total_max":     totalMax,
-				"passed_max":    totalPassed,
-				"graded_works":  gradedWorks,
-				"total_works":   totalWorks,
+				"current_score":      totalScore,
+				"total_max":          totalMax,
+				"passed_max":         totalPassed,
+				"graded_works":       gradedWorks,
+				"total_works":        totalWorks,
+				"total_sessions":     overallAttendance.TotalSessions,
+				"attended_sessions":  overallAttendance.AttendedSessions,
+				"excused_sessions":   overallAttendance.ExcusedSessions,
+				"missed_sessions":    overallAttendance.MissedSessions,
+				"attendance_percent": overallAttendance.Percent,
 			},
 		},
 	}

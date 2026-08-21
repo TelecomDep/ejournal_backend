@@ -2432,12 +2432,28 @@ func (s *Service) handleRequest(raw string) Response {
 		resp := s.studentScheduleForDay(req.Token, data)
 		resp.ID = req.ID
 		return resp
+	case "teacher_schedule_day":
+		var data StudentScheduleDayData
+		if err := json.Unmarshal(req.Data, &data); err != nil {
+			return Response{ID: req.ID, OK: false, Error: "invalid teacher_schedule_day payload"}
+		}
+		resp := s.teacherScheduleForDay(req.Token, data)
+		resp.ID = req.ID
+		return resp
 	case "student_attendance_history":
 		var data AttendanceHistoryData
 		if err := json.Unmarshal(req.Data, &data); err != nil {
 			return Response{ID: req.ID, OK: false, Error: "invalid student_attendance_history payload"}
 		}
 		resp := s.attendanceHistoryForStudent(req.Token, data)
+		resp.ID = req.ID
+		return resp
+	case "student_attendance_summary":
+		var data SemesterSelectionData
+		if err := json.Unmarshal(req.Data, &data); err != nil {
+			return Response{ID: req.ID, OK: false, Error: "invalid student_attendance_summary payload"}
+		}
+		resp := s.studentAttendanceSummary(req.Token, data)
 		resp.ID = req.ID
 		return resp
 	case "teacher_attendance_student_history":

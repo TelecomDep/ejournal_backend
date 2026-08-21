@@ -80,3 +80,21 @@ Scenario: Student can confirm attendance with a valid invite token
   And match response.ok == true
   And match response.result.attendance == 'confirmed'
   And match response.result.subject_id == subjectId
+
+Scenario: Student can view attendance percentages for the current semester
+  Given path 'login'
+  And request { login: 'student_test', password: '123456' }
+  When method post
+  Then status 200
+  * def studentToken = response.result.token
+
+  Given path 'api/student/attendance/summary'
+  And header Authorization = 'Bearer ' + studentToken
+  When method get
+  Then status 200
+  And match response.ok == true
+  And match response.result.semester_id == '#number'
+  And match response.result.summary.attendance_percent == '#number'
+  And match response.result.summary.total_sessions == '#number'
+  And match response.result.subjects == '#[]'
+  And match each response.result.subjects contains { subject_id: '#number', subject_name: '#string', attendance_percent: '#number', total_sessions: '#number', attended_sessions: '#number', excused_sessions: '#number', missed_sessions: '#number' }

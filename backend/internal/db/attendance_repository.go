@@ -490,6 +490,75 @@ func (r *AttendanceRepository) GetStudentSubjectAttendanceHistory(
 	return result, nil
 }
 
+func (r *AttendanceRepository) GetStudentAttendanceBySubject(
+	ctx context.Context,
+	studentID, semesterID int32,
+) ([]StudentSubjectAttendanceStat, error) {
+	if studentID <= 0 {
+		return nil, fmt.Errorf("student id is required")
+	}
+	if semesterID <= 0 {
+		return nil, fmt.Errorf("semester id is required")
+	}
+
+	rows, err := r.pool.Query(
+		ctx,
+		`WITH student_subjects AS (
+		     SELECT DISTINCT sch.subject_id
+		     FROM students st
+		     JOIN schedules sch ON sch.group_id = st.group_id
+		     WHERE st.student_id = $1
+		       AND sch.semester_id = $2
+		 ),
+		 attendance_totals AS (
+		     SELECT session.subject_id,
+		            COUNT(*)::INTEGER AS total_sessions,
+		            COUNT(*) FILTER (WHERE ass.status IN ('present', 'late'))::INTEGER AS attended_sessions,
+		            COUNT(*) FILTER (WHERE ass.status = 'excused')::INTEGER AS excused_sessions
+		     FROM attendance_session_students ass
+		     JOIN attendance_sessions session ON session.session_id = ass.session_id
+		     WHERE ass.student_id = $1
+		       AND session.semester_id = $2
+		     GROUP BY session.subject_id
+		 )
+		 SELECT subject.subject_id,
+		        subject.name,
+		        COALESCE(totals.total_sessions, 0)::INTEGER,
+		        COALESCE(totals.attended_sessions, 0)::INTEGER,
+		        COALESCE(totals.excused_sessions, 0)::INTEGER
+		 FROM student_subjects scope
+		 JOIN subjects subject ON subject.subject_id = scope.subject_id
+		 LEFT JOIN attendance_totals totals ON totals.subject_id = scope.subject_id
+		 ORDER BY subject.name, subject.subject_id`,
+		studentID,
+		semesterID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("list student attendance by subject: %w", err)
+	}
+	defer rows.Close()
+
+	result := make([]StudentSubjectAttendanceStat, 0)
+	for rows.Next() {
+		var item StudentSubjectAttendanceStat
+		if err := rows.Scan(
+			&item.SubjectID,
+			&item.SubjectName,
+			&item.TotalSessions,
+			&item.AttendedSessions,
+			&item.ExcusedSessions,
+		); err != nil {
+			return nil, fmt.Errorf("scan student attendance by subject: %w", err)
+		}
+		result = append(result, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate student attendance by subject: %w", err)
+	}
+
+	return result, nil
+}
+
 func (r *AttendanceRepository) GetTeacherGroupAttendanceStats(
 	ctx context.Context,
 	teacherID int32,

@@ -2039,6 +2039,48 @@ paths:
       summary: Get current student attendance history
       tags:
       - attendance
+  /api/student/attendance/summary:
+    get:
+      description: Returns the current student's overall and per-subject attendance
+        percentage for the selected semester. Excused sessions are excluded from the
+        percentage denominator.
+      parameters:
+      - description: Semester ID; defaults to the open semester
+        in: query
+        name: semester_id
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/app.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/app.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/app.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/app.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/app.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/app.Response'
+      security:
+      - BearerAuth: []
+      summary: Get student attendance summary
+      tags:
+      - attendance
   /api/student/grades:
     post:
       consumes:
@@ -2081,8 +2123,8 @@ paths:
       - grades
   /api/student/grades/all:
     get:
-      description: Returns every plan subject with its grade items and totals for
-        the selected semester. Defaults to the open semester.
+      description: Returns every plan subject with its grade items, totals, and attendance
+        percentage for the selected semester. Defaults to the open semester.
       parameters:
       - description: Semester ID; defaults to the open semester
         in: query
@@ -2095,12 +2137,24 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/app.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/app.Response'
         "401":
           description: Unauthorized
           schema:
             $ref: '#/definitions/app.Response'
         "403":
           description: Forbidden
+          schema:
+            $ref: '#/definitions/app.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/app.Response'
+        "500":
+          description: Internal Server Error
           schema:
             $ref: '#/definitions/app.Response'
       security:
@@ -2208,6 +2262,10 @@ paths:
             $ref: '#/definitions/app.Response'
         "403":
           description: Forbidden
+          schema:
+            $ref: '#/definitions/app.Response'
+        "500":
+          description: Internal Server Error
           schema:
             $ref: '#/definitions/app.Response'
       security:
@@ -2897,6 +2955,44 @@ paths:
       summary: Get a group performance overview for a subject
       tags:
       - attendance
+  /api/teacher/schedule/day:
+    get:
+      description: Returns the current teacher's lessons and groups for a given date,
+        restricted to the current or next calendar week. Defaults to today if date
+        is omitted.
+      parameters:
+      - description: Date in YYYY-MM-DD format (defaults to today)
+        in: query
+        name: date
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/app.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/app.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/app.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/app.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/app.Response'
+      security:
+      - BearerAuth: []
+      summary: Get teacher's schedule for a day
+      tags:
+      - schedule
   /api/teacher/student/performance/radar:
     post:
       consumes:
