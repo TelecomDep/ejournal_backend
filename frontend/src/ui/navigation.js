@@ -21,6 +21,7 @@ const TEACHER_NAV = [
   { key: 'attendance', label: 'Посещаемость', title: 'Посещаемость группы', route: '/teacher/attendance', icon: '✓' },
   { key: 'stats', label: 'Аналитика', title: 'Статистика группы', route: '/teacher/stats', icon: '▥' },
   { key: 'grades', label: 'Оценки', title: 'Ведомость оценок', route: '/teacher/grades', icon: '◇' },
+  { key: 'reports', label: 'Отчёты', title: 'Формирование отчётов', route: '/staff/reports', icon: '□' },
   { key: 'profile', label: 'Профиль', title: 'Профиль преподавателя', route: '/profile', icon: '○' }
 ];
 
@@ -28,8 +29,7 @@ const ADMIN_NAV = [
   { key: 'dashboard', label: 'Главная', title: 'Главная', route: '/dashboard', icon: '⌂' },
   { key: 'users', label: 'Пользователи', title: 'Управление пользователями', route: '/admin/users', icon: '○' },
   { key: 'notifications', label: 'Уведомления', title: 'Управление уведомлениями', route: '/admin/notifications', icon: '○' },
-  { key: 'overview', label: 'Сводка', title: 'Сводка по охвату', route: '/staff/overview', icon: '▥' },
-  { key: 'analytics', label: 'Аналитика', title: 'Аналитика', route: '/staff/analytics', icon: '▥' },
+  { key: 'reports', label: 'Отчёты', title: 'Формирование отчётов', route: '/staff/reports', icon: '□' },
   { key: 'profile', label: 'Профиль', title: 'Профиль администратора', route: '/profile', icon: '○' }
 ];
 
@@ -37,6 +37,7 @@ const STAFF_NAV = [
   { key: 'dashboard', label: 'Главная', title: 'Главная', route: '/dashboard', icon: '⌂' },
   { key: 'overview', label: 'Сводка', title: 'Сводка по охвату', route: '/staff/overview', icon: '▥' },
   { key: 'analytics', label: 'Аналитика', title: 'Аналитика', route: '/staff/analytics', icon: '▥' },
+  { key: 'reports', label: 'Отчёты', title: 'Формирование отчётов', route: '/staff/reports', icon: '□' },
   { key: 'profile', label: 'Профиль', title: 'Профиль', route: '/profile', icon: '○' }
 ];
 

@@ -9,6 +9,7 @@ const getDisplayName = (user) => (
 
 const roleTitle = (role) => {
   if (role === 'teacher') return 'Рабочая панель преподавателя';
+  if (role === 'admin') return 'Панель администратора';
   if (STAFF_ROLES.includes(role)) return 'Сводная панель';
   return 'Личный кабинет студента';
 };
@@ -165,8 +166,8 @@ const getQuickCards = (role) => {
   if (role === 'admin') {
     return [
       { icon: 'staff', title: 'Пользователи', text: 'Учетные записи и доступ', to: '/admin/users' },
-      { icon: 'analytics', title: 'Сводка', text: 'Группы и показатели', to: '/staff/overview' },
-      { icon: 'analytics', title: 'Аналитика', text: 'Расширенная статистика', to: '/staff/analytics' },
+      { icon: 'attendance', title: 'Уведомления', text: 'Сообщения пользователям', to: '/admin/notifications' },
+      { icon: 'grades', title: 'Отчёты', text: 'Excel и PDF по семестрам', to: '/staff/reports' },
       { icon: 'profile', title: 'Профиль', text: 'Данные аккаунта', to: '/profile' }
     ];
   }
@@ -189,7 +190,7 @@ const getQuickCards = (role) => {
 
 const DashboardPage = ({ user, token, navigate }) => {
   const role = user?.role || 'student';
-  const isStaff = STAFF_ROLES.includes(role);
+  const isStaff = role === 'head' || role === 'dean';
   const name = getDisplayName(user);
   const quickCards = getQuickCards(role);
 
@@ -223,7 +224,7 @@ const DashboardPage = ({ user, token, navigate }) => {
 
       {isStaff ? (
         <StaffSnapshot token={token} navigate={navigate} />
-      ) : (
+      ) : role !== 'admin' ? (
         <section className="dashboard-panel">
           <div className="dashboard-panel-head">
             <div>
@@ -237,7 +238,7 @@ const DashboardPage = ({ user, token, navigate }) => {
             <MetricCard icon="grades" label="Оценки" value="В работе" helper="баллы и ведомость" />
           </div>
         </section>
-      )}
+      ) : null}
     </section>
   );
 };

@@ -637,6 +637,80 @@ const api = {
     }
   },
 
+  async getSemesters() {
+    try {
+      const response = await axios.get(`${BACKEND_URL}/api/semesters`);
+      return unwrapApiResponse(response.data);
+    } catch (error) {
+      console.error('Ошибка загрузки семестров:', error);
+      throw error;
+    }
+  },
+
+  async getStaffGeneralRating(token, semesterId) {
+    try {
+      const response = await axios.get(`${BACKEND_URL}/api/staff/ratings/general`, {
+        headers: authHeaders(token),
+        params: {
+          ...(semesterId ? { semester_id: semesterId } : {}),
+          page: 1,
+          page_size: 50
+        }
+      });
+      return unwrapApiResponse(response.data);
+    } catch (error) {
+      console.error('Ошибка загрузки параметров отчёта:', error);
+      throw error;
+    }
+  },
+
+  async downloadStaffPerformanceReport(token, format, semesterId = '', filters = {}) {
+    const normalizedFormat = format === 'pdf' ? 'pdf' : 'xlsx';
+    const fallbackName = `performance-report.${normalizedFormat}`;
+
+    try {
+      const response = await axios.get(
+        `${BACKEND_URL}/api/staff/reports/performance.${normalizedFormat}`,
+        {
+          headers: { 'Authorization': `Bearer ${token}` },
+          params: {
+            ...(semesterId ? { semester_id: semesterId } : {}),
+            ...(filters.departmentId ? { department_id: filters.departmentId } : {}),
+            ...(filters.subjectId ? { subject_id: filters.subjectId } : {}),
+            ...(filters.groupIds?.length ? { group_ids: filters.groupIds.join(',') } : {})
+          },
+          responseType: 'blob'
+        }
+      );
+      const disposition = response.headers['content-disposition'] || '';
+      const encodedMatch = disposition.match(/filename\*=UTF-8''([^;]+)/i);
+      const plainMatch = disposition.match(/filename="?([^";]+)"?/i);
+      let filename = fallbackName;
+
+      if (encodedMatch?.[1]) {
+        try {
+          filename = decodeURIComponent(encodedMatch[1]);
+        } catch {
+          filename = encodedMatch[1];
+        }
+      } else if (plainMatch?.[1]) {
+        filename = plainMatch[1];
+      }
+
+      return { blob: response.data, filename };
+    } catch (error) {
+      if (error.response?.data instanceof Blob) {
+        try {
+          error.response.data = JSON.parse(await error.response.data.text());
+        } catch {
+          // Keep the original response when the backend did not return JSON.
+        }
+      }
+      console.error('Ошибка формирования отчёта:', error);
+      throw error;
+    }
+  },
+
   // Supervisory overview (teacher/head/dean/admin), scoped by role on the backend
   async getStaffOverview(token) {
     try {

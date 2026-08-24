@@ -894,26 +894,23 @@ func semesterSelectionRequest(c *fiber.Ctx, requestID, action, token string) (ap
 // @Produce application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
 // @Security BearerAuth
 // @Param semester_id query int false "Semester ID; defaults to the open semester"
+// @Param department_id query int false "Department ID for head/dean/admin report; required when several departments are visible"
+// @Param subject_id query int false "Subject ID; required for teacher report and optional for department report"
+// @Param group_ids query string false "Comma-separated group IDs"
 // @Success 200 {file} file "Excel workbook"
 // @Failure 401 {object} app.Response
 // @Failure 403 {object} app.Response
 // @Failure 500 {object} app.Response
 // @Router /api/staff/reports/performance.xlsx [get]
 func (s *Server) staffPerformanceReportHandler(c *fiber.Ctx) error {
-	report, err := s.loadStaffPerformanceReport(c)
-	if report == nil {
+	content, filename, err := s.buildScriptedPerformanceReport(c)
+	if content == nil {
 		return err
 	}
 
-	buf, buildErr := app.BuildPerformanceReportXLSX(report)
-	if buildErr != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(app.Response{OK: false, Error: "failed to build report file"})
-	}
-
-	filename := fmt.Sprintf("performance_semester_%d_%s.xlsx", report.SemesterID, report.GeneratedAt.Format("2006-01-02"))
 	c.Set(fiber.HeaderContentType, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 	c.Set(fiber.HeaderContentDisposition, `attachment; filename="`+filename+`"`)
-	return c.Send(buf.Bytes())
+	return c.Send(content)
 }
 
 // staffPerformanceReportPDFHandler godoc
