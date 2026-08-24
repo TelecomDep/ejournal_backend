@@ -13,6 +13,7 @@ import TeacherPage from './pages/TeacherPage';
 import AdminUsersPage from './pages/AdminUsersPage';
 import AdminNotificationsPage from './pages/AdminNotificationsPage';
 import ReportsPage from './pages/ReportsPage';
+import AdminSemestersPage from './pages/AdminSemestersPage';
 import './ui.css';
 
 const getDisplayName = (user) => (
@@ -80,6 +81,16 @@ const iconPaths = {
       <path d="M15.8 19v-7h3.2v7h-3.2Z" />
     </>
   ),
+  semesters: (
+    <>
+      <rect x="3.5" y="4.5" width="17" height="15" rx="2" />
+      <path d="M3.5 10h17" />
+      <path d="M8 2.5v4" />
+      <path d="M16 2.5v4" />
+      <path d="M7.5 14.5h3" />
+      <path d="M13.5 14.5h3" />
+    </>
+  ),
   users: (
     <>
       <circle cx="9" cy="8" r="3" />
@@ -140,6 +151,9 @@ const renderPage = (
   }
   if (activeItem.key === 'reports' && ['admin', 'head', 'dean', 'teacher'].includes(user?.role)) {
     return <ReportsPage token={token} user={user} />;
+  }
+  if (activeItem.key === 'semesters' && user?.role === 'admin') {
+    return <AdminSemestersPage token={token} />;
   }
   if (activeItem.key === 'users' && user?.role === 'admin') {
     return <AdminUsersPage token={token} currentUser={user} />;

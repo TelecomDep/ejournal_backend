@@ -106,6 +106,22 @@ const TeacherPage = ({ token, section = 'attendance' }) => {
   });
   const [sessionLoading, setSessionLoading] = useState(false);
   const [sessionResult, setSessionResult] = useState(null);
+  const [finishingSession, setFinishingSession] = useState(false);
+
+  const handleFinishSession = async () => {
+    if (!window.confirm("Завершить занятие досрочно? Сканирование будет разблокировано у всех студентов.")) return;
+    setFinishingSession(true);
+    clearFeedback();
+    try {
+      await api.finishAttendanceSession(token, sessionResult?.session_id || sessionResult?.lesson_id);
+      setMessage("Занятие успешно завершено досрочно. Сканирование для студентов разблокировано.");
+      setSessionResult(null);
+    } catch (err) {
+      setError(api.getErrorMessage(err, "Не удалось завершить занятие"));
+    } finally {
+      setFinishingSession(false);
+    }
+  };
 
   const [statsSelection, setStatsSelection] = useState({ subjectId: 0, groupId: 0 });
   const [statsLoading, setStatsLoading] = useState(false);
@@ -334,14 +350,39 @@ const TeacherPage = ({ token, section = 'attendance' }) => {
     }
   };
 
-  const copyAttendanceLink = async () => {
-    if (!sessionResult?.join_url) return;
+  const resolveCurrentSiteJoinUrl = (rawJoinUrl) => {
+    if (!rawJoinUrl) return "";
     try {
-      await navigator.clipboard.writeText(sessionResult.join_url);
-      setMessage('Ссылка скопирована.');
-      setError('');
+      // If the web interface is opened on localhost or 127.0.0.1, external phones
+      // cannot resolve "localhost". Keep the backend public domain URL.
+      if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
+        return rawJoinUrl;
+      }
+      const currentOrigin = window.location.origin;
+      if (rawJoinUrl.includes("#/attendance/join")) {
+        const hashPart = rawJoinUrl.substring(rawJoinUrl.indexOf("#/attendance/join"));
+        return `${currentOrigin}/${hashPart}`;
+      }
+      if (rawJoinUrl.includes("token=")) {
+        const tokenPart = rawJoinUrl.substring(rawJoinUrl.indexOf("token="));
+        return `${currentOrigin}/#/attendance/join?${tokenPart}`;
+      }
+      return rawJoinUrl;
     } catch {
-      setError('Не удалось скопировать ссылку автоматически.');
+      return rawJoinUrl;
+    }
+  };
+
+  const activeJoinUrl = resolveCurrentSiteJoinUrl(sessionResult?.join_url);
+
+  const copyAttendanceLink = async () => {
+    if (!activeJoinUrl) return;
+    try {
+      await navigator.clipboard.writeText(activeJoinUrl);
+      setMessage("Ссылка скопирована.");
+      setError("");
+    } catch {
+      setError("Не удалось скопировать ссылку автоматически.");
     }
   };
 
@@ -547,16 +588,38 @@ const TeacherPage = ({ token, section = 'attendance' }) => {
           {sessionResult && (
             <div className="teacher-result-grid teacher-result-grid--qr">
               <div className="teacher-qr-card">
-                <QRCode value={sessionResult.join_url} size={220} />
+                <QRCode value={activeJoinUrl} size={220} />
                 <strong>QR для студентов</strong>
                 <p>Покажите этот код на экране. Студент сканирует его телефоном и отмечается на паре.</p>
               </div>
               <div className="teacher-link-card">
                 <span>Ссылка для студентов</span>
-                <strong>{sessionResult.join_url || 'не получена'}</strong>
+                <strong>{activeJoinUrl || "не получена"}</strong>
               </div>
               <StatCard label="Дата занятия" value={formatDateTime(sessionResult.created_at || new Date())} />
               <StatCard label="Истекает" value={formatDateTime(sessionResult.expires_at)} />
+              <div style={{ gridColumn: "1 / -1", marginTop: "12px", display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap" }}>
+                <button
+                  type="button"
+                  onClick={handleFinishSession}
+                  disabled={finishingSession}
+                  style={{
+                    padding: "10px 20px",
+                    backgroundColor: "#dc2626",
+                    color: "#fff",
+                    border: "none",
+                    borderRadius: "8px",
+                    fontWeight: "600",
+                    fontSize: "0.95rem",
+                    cursor: "pointer"
+                  }}
+                >
+                  {finishingSession ? "Завершаем..." : "⏹ Завершить занятие досрочно"}
+                </button>
+                <span style={{ color: "#6b7280", fontSize: "0.88rem" }}>
+                  Досрочное завершение пары сразу разблокирует сканирование у всех студентов этой группы.
+                </span>
+              </div>
             </div>
           )}
         </div>

@@ -56,11 +56,6 @@ func scheduleDate(rawDate string, now time.Time) (time.Time, error) {
 		}
 	}
 
-	weekStart := startOfWeek(now)
-	rangeEnd := weekStart.AddDate(0, 0, 14)
-	if target.Before(weekStart) || !target.Before(rangeEnd) {
-		return time.Time{}, fmt.Errorf("date must be within the current or next week")
-	}
 	return target, nil
 }
 

@@ -18,8 +18,8 @@ func TestScheduleDate(t *testing.T) {
 		{name: "defaults to today", want: "2026-08-20"},
 		{name: "start of current week", rawDate: "2026-08-17", want: "2026-08-17"},
 		{name: "end of next week", rawDate: "2026-08-30", want: "2026-08-30"},
-		{name: "before current week", rawDate: "2026-08-16", wantErr: true},
-		{name: "after next week", rawDate: "2026-08-31", wantErr: true},
+		{name: "date in past", rawDate: "2026-08-16", want: "2026-08-16"},
+		{name: "date in future", rawDate: "2026-08-31", want: "2026-08-31"},
 		{name: "invalid format", rawDate: "20.08.2026", wantErr: true},
 	}
 

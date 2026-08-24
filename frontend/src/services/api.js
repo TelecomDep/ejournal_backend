@@ -637,9 +637,10 @@ const api = {
     }
   },
 
-  async getSemesters() {
+  async getSemesters(token) {
     try {
-      const response = await axios.get(`${BACKEND_URL}/api/semesters`);
+      const config = token ? { headers: authHeaders(token) } : {};
+      const response = await axios.get(`${BACKEND_URL}/api/semesters`, config);
       return unwrapApiResponse(response.data);
     } catch (error) {
       console.error('Ошибка загрузки семестров:', error);
@@ -856,6 +857,113 @@ const api = {
       return unwrapApiResponse(response.data);
     } catch (error) {
       console.error('Ошибка удаления уведомления:', error);
+      throw error;
+    }
+  },
+
+  async finishAttendanceSession(token, sessionId) {
+    try {
+      const numId = sessionId ? Number(sessionId) : undefined;
+      const response = await axios.post(
+        `${BACKEND_URL}/api/teacher/attendance/session/finish`,
+        { session_id: numId, lesson_id: numId },
+        { headers: authHeaders(token) }
+      );
+      return unwrapApiResponse(response.data);
+    } catch (error) {
+      console.error("Ошибка завершения занятия:", error);
+      throw error;
+    }
+  },
+
+  async getStudentActiveSession(token) {
+    try {
+      const response = await axios.get(`${BACKEND_URL}/api/student/attendance/active-session`, {
+        headers: authHeaders(token)
+      });
+      return unwrapApiResponse(response.data);
+    } catch (error) {
+      console.error("Ошибка загрузки активного занятия студента:", error);
+      throw error;
+    }
+  },
+
+  // Semesters management endpoints
+  async getCurrentSemester(token) {
+    try {
+      const response = await axios.get(`${BACKEND_URL}/api/semesters/current`, {
+        headers: authHeaders(token)
+      });
+      return unwrapApiResponse(response.data);
+    } catch (error) {
+      console.error("Ошибка загрузки текущего семестра:", error);
+      throw error;
+    }
+  },
+
+  async createAdminSemester(token, payload) {
+    try {
+      const response = await axios.post(`${BACKEND_URL}/api/admin/semesters`, payload, {
+        headers: authHeaders(token)
+      });
+      return unwrapApiResponse(response.data);
+    } catch (error) {
+      console.error("Ошибка создания семестра:", error);
+      throw error;
+    }
+  },
+
+  async activateAdminSemester(token, semesterId) {
+    try {
+      const response = await axios.patch(
+        `${BACKEND_URL}/api/admin/semesters/${semesterId}/activate`,
+        {},
+        { headers: authHeaders(token) }
+      );
+      return unwrapApiResponse(response.data);
+    } catch (error) {
+      console.error("Ошибка активации семестра:", error);
+      throw error;
+    }
+  },
+
+  async closeAdminSemester(token, semesterId) {
+    try {
+      const response = await axios.patch(
+        `${BACKEND_URL}/api/admin/semesters/${semesterId}/close`,
+        {},
+        { headers: authHeaders(token) }
+      );
+      return unwrapApiResponse(response.data);
+    } catch (error) {
+      console.error("Ошибка закрытия семестра:", error);
+      throw error;
+    }
+  },
+
+  async archiveAdminSemester(token, semesterId) {
+    try {
+      const response = await axios.patch(
+        `${BACKEND_URL}/api/admin/semesters/${semesterId}/archive`,
+        {},
+        { headers: authHeaders(token) }
+      );
+      return unwrapApiResponse(response.data);
+    } catch (error) {
+      console.error("Ошибка архивации семестра:", error);
+      throw error;
+    }
+  },
+
+  async deleteAdminSemester(token, semesterId) {
+    try {
+      const response = await axios.delete(
+        `${BACKEND_URL}/api/admin/semesters/${semesterId}`,
+        { headers: authHeaders(token) }
+      );
+      return unwrapApiResponse(response.data);
+    } catch (error) {
+      console.error("Ошибка удаления семестра:", error);
       throw error;
     }
   },

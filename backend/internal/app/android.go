@@ -429,6 +429,22 @@ func (s *Service) markAttendanceForAndroid(sessionToken string, data AndroidAtte
 	if err != nil {
 		return Response{OK: false, Error: err.Error()}
 	}
+
+	var subjectName string
+	_ = s.store.Pool().QueryRow(ctx, `SELECT name FROM subjects WHERE subject_id = $1`, session.SubjectID).Scan(&subjectName)
+	if subjectName == "" {
+		subjectName = session.LessonName
+	}
+	if subjectName == "" {
+		subjectName = "Учебное занятие"
+	}
+	result["session_id"] = session.ID
+	result["subject_id"] = session.SubjectID
+	result["subject_name"] = subjectName
+	result["lesson_name"] = subjectName
+	result["expires_at"] = formatAPITime(session.ExpiresAt)
+	result["is_active"] = true
+
 	return Response{OK: true, Result: result}
 }
 

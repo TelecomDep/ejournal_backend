@@ -76,6 +76,9 @@ func (s *Server) Start() {
 	fiberApp.Get("/internal/metrics", s.internalMetricsHandler)
 	fiberApp.Post("/register/by-invite", registrationLimit, s.registerByInviteHandler)
 	fiberApp.Post("/login", loginLimit, s.loginHandler)
+	fiberApp.Post("/api/auth/refresh", s.refreshTokenHandler)
+	fiberApp.Post("/auth/refresh", s.refreshTokenHandler)
+	fiberApp.Get("/api/auth/refresh", s.refreshTokenHandler)
 	fiberApp.Get("/profile", s.profileHandler)
 	fiberApp.Post("/lessons/create", s.androidLessonCreateHandler)
 	fiberApp.Post("/api/auth/forgot-password", recoveryLimit, s.forgotPasswordHandler)
@@ -132,6 +135,8 @@ func (s *Server) Start() {
 	fiberApp.Get("/api/teacher/attendance/session/marked-count", s.teacherAttendanceMarkedCountHandler)
 	fiberApp.Get("/api/teacher/attendance/session/timer", s.teacherAttendanceSessionTimerHandler)
 	fiberApp.Get("/api/teacher/attendance/session/active", s.teacherActiveAttendanceSessionHandler)
+	fiberApp.Post("/api/teacher/attendance/session/finish", s.teacherFinishAttendanceSessionHandler)
+	fiberApp.Post("/api/teacher/lesson/finish", s.teacherFinishAttendanceSessionHandler)
 	fiberApp.Post("/api/teacher/attendance/mark", s.teacherAttendanceMarkHandler)
 	fiberApp.Get("/api/teacher/subjects", s.teacherSubjectsHandler)
 	fiberApp.Post("/api/teacher/attendance/group", s.teacherAttendanceByGroupHandler)
@@ -139,6 +144,8 @@ func (s *Server) Start() {
 	fiberApp.Post("/api/teacher/attendance/student/history", s.teacherAttendanceStudentHistoryHandler)
 	fiberApp.Post("/api/student/attendance/confirm", s.studentAttendanceConfirmHandler)
 	fiberApp.Post("/api/student/mark-attendance", s.androidStudentAttendanceMarkHandler)
+	fiberApp.Get("/api/student/attendance/active-session", s.studentActiveAttendanceSessionHandler)
+	fiberApp.Get("/api/student/active-session", s.studentActiveAttendanceSessionHandler)
 	fiberApp.Get("/api/student/attendance/history", s.studentAttendanceHistoryHandler)
 	fiberApp.Get("/api/student/attendance/summary", s.studentAttendanceSummaryHandler)
 	fiberApp.Get("/api/student/schedule/day", s.studentScheduleDayHandler)
@@ -627,6 +634,33 @@ func (s *Server) registerHandler(c *fiber.Ctx) error {
 // @Failure 401 {object} app.Response
 // @Failure 500 {object} app.Response
 // @Router /login [post]
+func (s *Server) refreshTokenHandler(c *fiber.Ctx) error {
+	token := c.Get("Authorization")
+	if token == "" {
+		type refreshReq struct {
+			Token string `json:"token"`
+		}
+		var r refreshReq
+		_ = c.BodyParser(&r)
+		token = r.Token
+	}
+	if token == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(app.Response{OK: false, Error: "missing token"})
+	}
+
+	req := app.Request{ID: "http-auth-refresh", Action: "auth_refresh", Token: token, Data: []byte("{}")}
+	raw, _ := json.Marshal(req)
+
+	resp, err := s.svc.DispatchRequest(string(raw), s.requestTimeout)
+	if err != nil {
+		return c.Status(fiber.StatusServiceUnavailable).JSON(app.Response{OK: false, Error: err.Error()})
+	}
+	if !resp.OK {
+		return c.Status(fiber.StatusUnauthorized).JSON(resp)
+	}
+	return c.JSON(resp)
+}
+
 func (s *Server) loginHandler(c *fiber.Ctx) error {
 	var body app.LoginData
 	if err := c.BodyParser(&body); err != nil {
@@ -1205,6 +1239,30 @@ func (s *Server) teacherAttendanceSessionTimerHandler(c *fiber.Ctx) error {
 // @Router /api/teacher/attendance/session/active [get]
 func (s *Server) teacherActiveAttendanceSessionHandler(c *fiber.Ctx) error {
 	return s.teacherAttendanceReadHandler(c, "http-teacher-active-attendance-session", "teacher_active_attendance_session", nil)
+}
+
+func (s *Server) teacherFinishAttendanceSessionHandler(c *fiber.Ctx) error {
+	var body app.AttendanceSessionData
+	if len(c.Body()) > 0 {
+		_ = c.BodyParser(&body)
+	}
+	return s.teacherAttendanceReadHandler(c, "http-teacher-finish-attendance-session", "teacher_finish_attendance_session", body)
+}
+
+func (s *Server) studentActiveAttendanceSessionHandler(c *fiber.Ctx) error {
+	token := c.Get("Authorization")
+	if token == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(app.Response{OK: false, Error: "missing Authorization header"})
+	}
+
+	req := app.Request{ID: "http-student-active-attendance-session", Action: "student_active_attendance_session", Token: token, Data: []byte("{}")}
+	raw, _ := json.Marshal(req)
+
+	resp, err := s.svc.DispatchRequest(string(raw), s.requestTimeout)
+	if err != nil {
+		return c.Status(fiber.StatusServiceUnavailable).JSON(app.Response{OK: false, Error: err.Error()})
+	}
+	return c.JSON(resp)
 }
 
 func (s *Server) teacherAttendanceReadHandler(c *fiber.Ctx, requestID, action string, body any) error {

@@ -110,7 +110,8 @@ type GroupPerformanceData struct {
 }
 
 type AttendanceSessionData struct {
-	LessonID int32 `json:"lesson_id"`
+	LessonID  int32 `json:"lesson_id"`
+	SessionID int32 `json:"session_id"`
 }
 
 type TeacherAttendanceMarkData struct {
@@ -952,6 +953,54 @@ func (s *Service) registerByInvite(data RegisterByInviteData) Response {
 	return Response{OK: true, Result: result}
 }
 
+func (s *Service) refreshToken(sessionToken string) Response {
+	tokenStr := normalizeAuthHeader(sessionToken)
+	if tokenStr == "" {
+		return Response{OK: false, Error: "missing token"}
+	}
+
+	claims := &SessionClaims{}
+	p := jwt.NewParser(jwt.WithoutClaimsValidation())
+	_, _, parseErr := p.ParseUnverified(tokenStr, claims)
+	if parseErr != nil || claims.UserID <= 0 {
+		return Response{OK: false, Error: "invalid token structure"}
+	}
+
+	ctx, cancel := s.dbContext()
+	defer cancel()
+
+	dbUser, ok, err := s.store.Users.GetByID(ctx, claims.UserID)
+	if err != nil || !ok || dbUser.Status != "active" {
+		return Response{OK: false, Error: "cannot refresh session: user not active"}
+	}
+
+	var tokenVersion int64
+	if err := s.store.Pool().QueryRow(ctx, `SELECT token_version FROM users WHERE id = $1`, dbUser.ID).Scan(&tokenVersion); err != nil {
+		return Response{OK: false, Error: "failed to load token version"}
+	}
+
+	if claims.TokenVersion != tokenVersion {
+		return Response{OK: false, Error: "session revoked"}
+	}
+
+	newToken, err := s.generateJWT(dbUser.ID, tokenVersion)
+	if err != nil {
+		return Response{OK: false, Error: "failed to generate token"}
+	}
+
+	return Response{
+		OK: true,
+		Result: map[string]any{
+			"token":      newToken,
+			"user_ID":    strconv.FormatInt(int64(dbUser.ID), 10),
+			"user_id":    dbUser.ID,
+			"login":      dbUser.Login,
+			"role":       dbUser.Role,
+			"expires_at": time.Now().UTC().Add(time.Hour).Format(time.RFC3339),
+		},
+	}
+}
+
 func (s *Service) login(data LoginData) Response {
 	login := strings.TrimSpace(data.Login)
 	password := strings.TrimSpace(data.Password)
@@ -1015,6 +1064,7 @@ func (s *Service) login(data LoginData) Response {
 			"user_ID": userID,
 			"login":   storedUser.Login,
 			"role":    storedUser.Role,
+			"email":   storedUser.Email,
 		},
 	}
 }
@@ -1243,15 +1293,28 @@ func (s *Service) confirmAttendanceByStudent(sessionToken string, data Attendanc
 		true,
 	)
 
+	var subjectName string
+	_ = s.store.Pool().QueryRow(ctx, `SELECT name FROM subjects WHERE subject_id = $1`, session.SubjectID).Scan(&subjectName)
+	if subjectName == "" {
+		subjectName = session.LessonName
+	}
+	if subjectName == "" {
+		subjectName = "Учебное занятие"
+	}
+
 	return Response{
 		OK: true,
 		Result: map[string]any{
-			"lesson_id":  claims.LessonID,
-			"student_id": student.UserID,
-			"teacher_id": claims.TeacherID,
-			"subject_id": session.SubjectID,
-			"marked_at":  formatAPITime(markedAt),
-			"attendance": "confirmed",
+			"lesson_id":    claims.LessonID,
+			"student_id":   student.UserID,
+			"teacher_id":   claims.TeacherID,
+			"subject_id":   session.SubjectID,
+			"subject_name": subjectName,
+			"lesson_name":  subjectName,
+			"expires_at":   formatAPITime(session.ExpiresAt),
+			"is_active":    true,
+			"marked_at":    formatAPITime(markedAt),
+			"attendance":   "confirmed",
 		},
 	}
 }
@@ -1636,6 +1699,150 @@ func (s *Service) attendanceManualMarkByTeacher(sessionToken string, data Teache
 	}
 }
 
+func (s *Service) finishAttendanceSessionByTeacher(sessionToken string, data AttendanceSessionData) Response {
+	teacherUser, err := s.userBySessionToken(sessionToken)
+	if err != nil {
+		return Response{OK: false, Error: err.Error()}
+	}
+	if teacherUser.Role != RoleTeacher && teacherUser.Role != RoleAdmin {
+		return Response{OK: false, Error: "forbidden: teacher role required"}
+	}
+
+	ctx, cancel := s.dbContext()
+	defer cancel()
+
+	var sessionID int32 = data.SessionID
+	if sessionID <= 0 {
+		sessionID = data.LessonID
+	}
+
+	if teacherUser.Role == RoleTeacher {
+		teacherProfile, err := s.teacherProfileByUser(teacherUser)
+		if err != nil {
+			return Response{OK: false, Error: err.Error()}
+		}
+		if sessionID > 0 {
+			_, err = s.store.Pool().Exec(
+				ctx,
+				`UPDATE attendance_sessions
+				 SET expires_at = NOW()
+				 WHERE session_id = $1 AND teacher_id = $2`,
+				sessionID,
+				teacherProfile.ID,
+			)
+		} else {
+			err = s.store.Pool().QueryRow(
+				ctx,
+				`UPDATE attendance_sessions
+				 SET expires_at = NOW()
+				 WHERE teacher_id = $1 AND expires_at > NOW()
+				 RETURNING session_id`,
+				teacherProfile.ID,
+			).Scan(&sessionID)
+		}
+	} else {
+		if sessionID > 0 {
+			_, err = s.store.Pool().Exec(
+				ctx,
+				`UPDATE attendance_sessions
+				 SET expires_at = NOW()
+				 WHERE session_id = $1`,
+				sessionID,
+			)
+		} else {
+			err = s.store.Pool().QueryRow(
+				ctx,
+				`UPDATE attendance_sessions
+				 SET expires_at = NOW()
+				 WHERE expires_at > NOW()
+				 ORDER BY session_id DESC
+				 LIMIT 1
+				 RETURNING session_id`,
+			).Scan(&sessionID)
+		}
+	}
+
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return Response{OK: false, Error: "failed to finish attendance session"}
+	}
+
+	return Response{
+		OK: true,
+		Result: map[string]any{
+			"finished":   true,
+			"session_id": sessionID,
+		},
+	}
+}
+
+func (s *Service) activeAttendanceSessionForStudent(sessionToken string) Response {
+	studentUser, err := s.userBySessionToken(sessionToken)
+	if err != nil {
+		return Response{OK: false, Error: err.Error()}
+	}
+	if studentUser.Role != RoleStudent {
+		return Response{OK: false, Error: "forbidden: student role required"}
+	}
+	studentProfile, err := s.studentProfileByUser(studentUser)
+	if err != nil {
+		return Response{OK: false, Error: err.Error()}
+	}
+
+	ctx, cancel := s.dbContext()
+	defer cancel()
+
+	var sessionID int32
+	var subjectID int32
+	var lessonName string
+	var subjectName string
+	var expiresAt time.Time
+	var attendedAt sql.NullTime
+
+	err = s.store.Pool().QueryRow(
+		ctx,
+		`SELECT s.session_id, s.subject_id, COALESCE(s.lesson_name, sub.name), sub.name, s.expires_at, ass.marked_at
+		 FROM attendance_session_students ass
+		 JOIN attendance_sessions s ON s.session_id = ass.session_id
+		 JOIN subjects sub ON sub.subject_id = s.subject_id
+		 WHERE ass.student_id = $1
+		   AND (ass.status = 'present' OR ass.marked_at IS NOT NULL)
+		   AND s.expires_at > NOW()
+		 ORDER BY s.expires_at DESC, s.session_id DESC
+		 LIMIT 1`,
+		studentProfile.ID,
+	).Scan(&sessionID, &subjectID, &lessonName, &subjectName, &expiresAt, &attendedAt)
+
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Response{
+			OK: true,
+			Result: map[string]any{
+				"is_active": false,
+			},
+		}
+	}
+	if err != nil {
+		return Response{OK: false, Error: "failed to load student active session"}
+	}
+
+	var markedAtStr string
+	if attendedAt.Valid {
+		markedAtStr = formatAPITime(attendedAt.Time)
+	}
+
+	return Response{
+		OK: true,
+		Result: map[string]any{
+			"is_active":    true,
+			"session_id":   sessionID,
+			"subject_id":   subjectID,
+			"lesson_name":  lessonName,
+			"subject_name": subjectName,
+			"expires_at":   formatAPITime(expiresAt),
+			"marked_at":    markedAtStr,
+		},
+	}
+}
+
 func (s *Service) activeAttendanceSessionForTeacher(sessionToken string) Response {
 	teacherUser, err := s.userBySessionToken(sessionToken)
 	if err != nil {
@@ -1715,16 +1922,31 @@ func (s *Service) attendanceHistoryForStudent(sessionToken string, data Attendan
 
 	rows, err := s.store.Pool().Query(
 		ctx,
-		`SELECT (ass.marked_at AT TIME ZONE 'Asia/Novosibirsk')::date AS day,
-		        COUNT(*)::int AS count
+		`SELECT 
+		    (COALESCE(ass.marked_at, ses.created_at) AT TIME ZONE 'Asia/Novosibirsk')::date AS day,
+		    to_char(COALESCE(ass.marked_at, ses.created_at) AT TIME ZONE 'Asia/Novosibirsk', 'HH24:MI') AS time_str,
+		    ass.status,
+		    s.name AS subject_name,
+		    COALESCE(NULLIF(ses.lesson_name, ''), 'Занятие') AS lesson_name,
+		    COALESCE(
+		        (SELECT sch.lesson_type FROM schedules sch WHERE sch.subject_id = ses.subject_id AND sch.group_id = ass.group_id_snapshot LIMIT 1),
+		        'Практика'
+		    ) AS lesson_type,
+		    COALESCE(
+		        (SELECT lt.start_time::text || ' - ' || lt.end_time::text 
+		         FROM schedules sch 
+		         JOIN lesson_times lt ON lt.lesson_num = sch.lesson_num 
+		         WHERE sch.subject_id = ses.subject_id AND sch.group_id = ass.group_id_snapshot LIMIT 1),
+		        to_char(COALESCE(ass.marked_at, ses.created_at) AT TIME ZONE 'Asia/Novosibirsk', 'HH24:MI')
+		    ) AS time_slot
 		 FROM attendance_session_students ass
+		 JOIN attendance_sessions ses ON ses.session_id = ass.session_id
+		 JOIN subjects s ON s.subject_id = ses.subject_id
 		 WHERE ass.student_id = $1
 		   AND ass.status IN ('present', 'late')
-		   AND ass.marked_at IS NOT NULL
-		   AND ass.marked_at >= $2
-		   AND ass.marked_at < $3
-		 GROUP BY day
-		 ORDER BY day`,
+		   AND COALESCE(ass.marked_at, ses.created_at) >= $2
+		   AND COALESCE(ass.marked_at, ses.created_at) < $3
+		 ORDER BY day DESC, time_str DESC`,
 		studentProfile.ID,
 		start,
 		end,
@@ -1737,14 +1959,73 @@ func (s *Service) attendanceHistoryForStudent(sessionToken string, data Attendan
 	items := make([]map[string]any, 0)
 	for rows.Next() {
 		var day time.Time
-		var count int32
-		if err := rows.Scan(&day, &count); err != nil {
+		var timeStr string
+		var status string
+		var subjectName string
+		var lessonName string
+		var lessonType string
+		var timeSlot string
+		if err := rows.Scan(&day, &timeStr, &status, &subjectName, &lessonName, &lessonType, &timeSlot); err != nil {
 			return Response{OK: false, Error: "failed to scan attendance history"}
 		}
+		isLate := (status == "late")
 		items = append(items, map[string]any{
-			"date":  day.Format("2006-01-02"),
-			"count": count,
+			"date":         day.Format("2006-01-02"),
+			"time":         formatCleanTimeSlot(timeSlot, timeStr),
+			"subject_name": subjectName,
+			"lesson_name":  lessonName,
+			"lesson_type":  lessonType,
+			"status":       status,
+			"is_late":      isLate,
+			"count":        1,
 		})
+	}
+	if len(items) == 0 {
+		journalRows, jErr := s.store.Pool().Query(
+			ctx,
+			`SELECT 
+			    a.lesson_date AS day,
+			    CASE WHEN a.status THEN 'present' ELSE 'absent' END AS status,
+			    s.name AS subject_name,
+			    'Занятие по расписанию' AS lesson_name,
+			    COALESCE(sch.lesson_type, 'Лекция') AS lesson_type,
+			    COALESCE(lt.start_time::text || ' - ' || lt.end_time::text, '09:00 - 10:35') AS time_slot
+			 FROM attendance a
+			 JOIN schedules sch ON sch.schedule_id = a.schedule_id
+			 JOIN subjects s ON s.subject_id = sch.subject_id
+			 LEFT JOIN lesson_times lt ON lt.lesson_num = sch.lesson_num
+			 WHERE a.student_id = $1
+			   AND a.status = true
+			   AND a.lesson_date >= $2::date
+			   AND a.lesson_date < $3::date
+			 ORDER BY day DESC`,
+			studentProfile.ID,
+			start,
+		end,
+		)
+		if jErr == nil {
+			defer journalRows.Close()
+			for journalRows.Next() {
+				var day time.Time
+				var status string
+				var subjectName string
+				var lessonName string
+				var lessonType string
+				var timeSlot string
+				if err := journalRows.Scan(&day, &status, &subjectName, &lessonName, &lessonType, &timeSlot); err == nil {
+					items = append(items, map[string]any{
+						"date":         day.Format("2006-01-02"),
+						"time":         timeSlot,
+						"subject_name": subjectName,
+						"lesson_name":  lessonName,
+						"lesson_type":  lessonType,
+						"status":       status,
+						"is_late":      false,
+						"count":        1,
+					})
+				}
+			}
+		}
 	}
 	if err := rows.Err(); err != nil {
 		return Response{OK: false, Error: "failed to iterate attendance history"}
@@ -1757,6 +2038,29 @@ func (s *Service) attendanceHistoryForStudent(sessionToken string, data Attendan
 			"items": items,
 		},
 	}
+}
+
+func formatCleanTimeSlot(slot, fallback string) string {
+	slot = strings.TrimSpace(slot)
+	if slot == "" {
+		return fallback
+	}
+	parts := strings.Split(slot, " - ")
+	if len(parts) == 2 {
+		t1 := strings.TrimSpace(parts[0])
+		t2 := strings.TrimSpace(parts[1])
+		if len(t1) >= 5 {
+			t1 = t1[:5]
+		}
+		if len(t2) >= 5 {
+			t2 = t2[:5]
+		}
+		return t1 + " - " + t2
+	}
+	if len(slot) >= 5 {
+		return slot[:5]
+	}
+	return slot
 }
 
 func attendanceStatusLabel(status string) string {
@@ -1976,6 +2280,10 @@ func (s *Service) handleRequest(raw string) Response {
 			return Response{ID: req.ID, OK: false, Error: "invalid register_by_invite payload"}
 		}
 		resp := s.registerByInvite(data)
+		resp.ID = req.ID
+		return resp
+	case "auth_refresh", "refresh_token":
+		resp := s.refreshToken(req.Token)
 		resp.ID = req.ID
 		return resp
 	case "login":
@@ -2410,6 +2718,18 @@ func (s *Service) handleRequest(raw string) Response {
 			return Response{ID: req.ID, OK: false, Error: "invalid teacher_attendance_session_timer payload"}
 		}
 		resp := s.attendanceSessionTimerForTeacher(req.Token, data)
+		resp.ID = req.ID
+		return resp
+	case "teacher_finish_attendance_session":
+		var data AttendanceSessionData
+		if err := json.Unmarshal(req.Data, &data); err != nil {
+			return Response{ID: req.ID, OK: false, Error: "invalid teacher_finish_attendance_session payload"}
+		}
+		resp := s.finishAttendanceSessionByTeacher(req.Token, data)
+		resp.ID = req.ID
+		return resp
+	case "student_active_attendance_session":
+		resp := s.activeAttendanceSessionForStudent(req.Token)
 		resp.ID = req.ID
 		return resp
 	case "teacher_active_attendance_session":
