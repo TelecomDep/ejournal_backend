@@ -516,8 +516,8 @@ const AdminUsersPage = ({ token, currentUser }) => {
     if (form.password.trim().length < 8) return 'Пароль должен содержать не менее 8 символов';
     if (form.email && !form.email.includes('@')) return 'Введите корректный email';
     if (['student', 'teacher'].includes(form.role) && !form.full_name.trim()) return 'Введите ФИО';
-    if (form.role === 'head' && !numberOrUndefined(form.lectern_id)) return 'Укажите ID кафедры';
-    if (form.role === 'dean' && !numberOrUndefined(form.faculty_id)) return 'Укажите ID факультета';
+    if (form.role === 'head' && !numberOrUndefined(form.lectern_id)) return 'Выберите кафедру';
+    if (form.role === 'dean' && !numberOrUndefined(form.faculty_id)) return 'Выберите факультет';
     return '';
   };
 

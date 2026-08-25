@@ -1,104 +1,96 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import api from '../../services/api';
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import api from "../../services/api";
+import { SearchableMultiSelect } from "../components/SearchableSelect";
 
 const PAGE_SIZE = 12;
 
 const ROLE_OPTIONS = [
-  { value: 'student', label: 'Студенты' },
-  { value: 'teacher', label: 'Преподаватели' },
-  { value: 'head', label: 'Заведующие кафедрами' },
-  { value: 'dean', label: 'Деканы' },
-  { value: 'admin', label: 'Администраторы' }
+  { value: "student", label: "Студенты" },
+  { value: "teacher", label: "Преподаватели" },
+  { value: "head", label: "Заведующие кафедрами" },
+  { value: "dean", label: "Деканы" },
+  { value: "admin", label: "Администраторы" }
 ];
 
 const AUDIENCE_OPTIONS = [
-  { value: 'all', label: 'Все активные пользователи' },
-  { value: 'role', label: 'Пользователи выбранной роли' },
-  { value: 'groups', label: 'Учебные группы по ID' },
-  { value: 'users', label: 'Отдельные пользователи по ID' }
+  { value: "all", label: "Все активные пользователи" },
+  { value: "role", label: "Пользователи выбранной роли" },
+  { value: "groups", label: "Учебные группы" },
+  { value: "users", label: "Отдельные пользователи" }
 ];
 
 const CATEGORY_OPTIONS = [
   {
-    value: 'system',
-    label: 'Системное',
+    value: "system",
+    label: "Системное",
     events: [
-      { value: 'admin_update', label: 'Объявление администратора' },
-      { value: 'fraud', label: 'Нарушение' }
+      { value: "admin_update", label: "Объявление администратора" },
+      { value: "fraud", label: "Нарушение" }
     ]
   },
   {
-    value: 'schedule',
-    label: 'Расписание',
+    value: "schedule",
+    label: "Расписание",
     events: [
-      { value: 'lesson_created', label: 'Добавлена пара' },
-      { value: 'lesson_rescheduled', label: 'Пара перенесена' },
-      { value: 'lesson_cancelled', label: 'Пара отменена' }
+      { value: "lesson_created", label: "Добавлена пара" },
+      { value: "lesson_rescheduled", label: "Пара перенесена" },
+      { value: "lesson_cancelled", label: "Пара отменена" }
     ]
   },
   {
-    value: 'grades',
-    label: 'Оценки',
+    value: "grades",
+    label: "Оценки",
     events: [
-      { value: 'grade_created', label: 'Добавлена оценка' },
-      { value: 'grade_updated', label: 'Оценка изменена' }
+      { value: "grade_created", label: "Добавлена оценка" },
+      { value: "grade_updated", label: "Оценка изменена" }
     ]
   },
   {
-    value: 'attendance',
-    label: 'Посещаемость',
+    value: "attendance",
+    label: "Посещаемость",
     events: [
-      { value: 'attendance_opened', label: 'Открыта отметка' },
-      { value: 'attendance_marked', label: 'Посещение отмечено' },
-      { value: 'attendance_rejected', label: 'Отметка отклонена' }
+      { value: "attendance_opened", label: "Открыта отметка" },
+      { value: "attendance_marked", label: "Посещение отмечено" },
+      { value: "attendance_rejected", label: "Отметка отклонена" }
     ]
   }
 ];
 
 const EMPTY_FORM = {
-  title: '',
-  message: '',
-  category: 'system',
-  event_type: 'admin_update',
-  audience: 'all',
-  role: 'student',
-  recipient_ids: '',
-  expires_at: ''
+  title: "",
+  message: "",
+  category: "system",
+  event_type: "admin_update",
+  audience: "all",
+  role: "student",
+  user_ids: [],
+  group_ids: [],
+  expires_at: ""
 };
 
 const categoryLabel = (value) => (
-  CATEGORY_OPTIONS.find((item) => item.value === value)?.label || value || 'Системное'
+  CATEGORY_OPTIONS.find((item) => item.value === value)?.label || value || "Системное"
 );
 
 const formatDateTime = (value) => {
-  if (!value) return 'Без срока';
+  if (!value) return "Без срока";
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '—';
-  return new Intl.DateTimeFormat('ru-RU', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
+  if (Number.isNaN(date.getTime())) return "—";
+  return new Intl.DateTimeFormat("ru-RU", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit"
   }).format(date);
 };
 
 const toDateTimeLocal = (value) => {
-  if (!value) return '';
+  if (!value) return "";
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
+  if (Number.isNaN(date.getTime())) return "";
   const offset = date.getTimezoneOffset() * 60000;
   return new Date(date.getTime() - offset).toISOString().slice(0, 16);
-};
-
-const parseIds = (value) => {
-  const chunks = value.split(/[\s,;]+/).filter(Boolean);
-  if (chunks.length === 0) return [];
-  const ids = chunks.map(Number);
-  if (ids.some((id) => !Number.isInteger(id) || id <= 0)) {
-    throw new Error('ID должны быть положительными целыми числами через запятую.');
-  }
-  return [...new Set(ids)];
 };
 
 const NotificationAdminIcon = ({ name }) => {
@@ -127,7 +119,7 @@ const NotificationAdminIcon = ({ name }) => {
 const AdminNotificationsPage = ({ token, onNotificationCreated }) => {
   const [items, setItems] = useState([]);
   const [page, setPage] = useState(1);
-  const [category, setCategory] = useState('');
+  const [category, setCategory] = useState("");
   const [pagination, setPagination] = useState({ page: 1, pages: 0, total: 0 });
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -135,9 +127,50 @@ const AdminNotificationsPage = ({ token, onNotificationCreated }) => {
   const [composerOpen, setComposerOpen] = useState(false);
   const [editingId, setEditingId] = useState(0);
   const [form, setForm] = useState(EMPTY_FORM);
-  const [error, setError] = useState('');
-  const [notice, setNotice] = useState('');
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
+
+  const [catalogs, setCatalogs] = useState({ groups: [], lecterns: [], faculties: [] });
+  const [usersList, setUsersList] = useState([]);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const [cats, usersRes] = await Promise.all([
+          api.getAdminCatalogs(token),
+          api.getAdminUsers(token, { page_size: 1000 })
+        ]);
+        if (active) {
+          setCatalogs(cats || {});
+          setUsersList(Array.isArray(usersRes?.items) ? usersRes.items : []);
+        }
+      } catch (err) {
+        console.error("Ошибка загрузки справочников для уведомлений:", err);
+      }
+    })();
+    return () => { active = false; };
+  }, [token]);
+
+  const groupOptions = useMemo(() => {
+    return (catalogs.groups || []).map((g) => ({
+      id: g.id,
+      name: g.name,
+      sub: g.lectern_name ? `Кафедра: ${g.lectern_name}` : ""
+    }));
+  }, [catalogs.groups]);
+
+  const userOptions = useMemo(() => {
+    return usersList.map((u) => {
+      const roleName = ROLE_OPTIONS.find((r) => r.value === u.role)?.label || u.role || "Пользователь";
+      return {
+        id: u.user_id,
+        name: u.full_name || u.login,
+        sub: `${roleName} • ${u.login}${u.group_name ? ` • ${u.group_name}` : ""}`
+      };
+    });
+  }, [usersList]);
 
   const selectedCategory = useMemo(
     () => CATEGORY_OPTIONS.find((item) => item.value === form.category) || CATEGORY_OPTIONS[0],
@@ -146,7 +179,7 @@ const AdminNotificationsPage = ({ token, onNotificationCreated }) => {
 
   const loadNotifications = useCallback(async () => {
     setLoading(true);
-    setError('');
+    setError("");
     try {
       const payload = await api.getAdminNotifications(token, {
         page,
@@ -162,7 +195,7 @@ const AdminNotificationsPage = ({ token, onNotificationCreated }) => {
       });
     } catch (requestError) {
       setItems([]);
-      setError(api.getErrorMessage(requestError, 'Не удалось загрузить рассылки'));
+      setError(api.getErrorMessage(requestError, "Не удалось загрузить рассылки"));
     } finally {
       setLoading(false);
     }
@@ -174,14 +207,14 @@ const AdminNotificationsPage = ({ token, onNotificationCreated }) => {
 
   useEffect(() => {
     if (!notice) return undefined;
-    const timer = window.setTimeout(() => setNotice(''), 4500);
+    const timer = window.setTimeout(() => setNotice(""), 4500);
     return () => window.clearTimeout(timer);
   }, [notice]);
 
   const openCreate = () => {
     setEditingId(0);
     setForm(EMPTY_FORM);
-    setError('');
+    setError("");
     setComposerOpen(true);
   };
 
@@ -189,15 +222,14 @@ const AdminNotificationsPage = ({ token, onNotificationCreated }) => {
     setEditingId(Number(item.notification_id) || 0);
     setForm({
       ...EMPTY_FORM,
-      title: item.title || '',
-      message: item.message || '',
-      category: item.category || 'system',
-      event_type: item.event_type || 'admin_update',
+      title: item.title || "",
+      message: item.message || "",
+      category: item.category || "system",
+      event_type: item.event_type || "admin_update",
       expires_at: toDateTimeLocal(item.expires_at)
     });
-    setError('');
+    setError("");
     setComposerOpen(true);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const closeComposer = () => {
@@ -205,111 +237,99 @@ const AdminNotificationsPage = ({ token, onNotificationCreated }) => {
     setComposerOpen(false);
     setEditingId(0);
     setForm(EMPTY_FORM);
-    setError('');
+    setError("");
   };
 
   const updateForm = (event) => {
     const { name, value } = event.target;
-    if (name === 'category') {
-      const nextCategory = CATEGORY_OPTIONS.find((item) => item.value === value) || CATEGORY_OPTIONS[0];
-      setForm((current) => ({
-        ...current,
-        category: value,
-        event_type: nextCategory.events[0].value
-      }));
-      return;
-    }
-    setForm((current) => ({ ...current, [name]: value }));
+    setForm((current) => {
+      const updated = { ...current, [name]: value };
+      if (name === "category") {
+        const matchingCategory = CATEGORY_OPTIONS.find((item) => item.value === value) || CATEGORY_OPTIONS[0];
+        updated.event_type = matchingCategory.events[0]?.value || "admin_update";
+      }
+      return updated;
+    });
+    setError("");
   };
 
-  const submitForm = async (event) => {
+  const submitComposer = async (event) => {
     event.preventDefault();
-    if (submitting) return;
+    setError("");
 
-    const title = form.title.trim();
-    const message = form.message.trim();
-    if (!title || !message) {
-      setError('Заполните заголовок и текст уведомления.');
+    if (!form.title.trim()) {
+      setError("Укажите заголовок уведомления.");
+      return;
+    }
+    if (!form.message.trim()) {
+      setError("Укажите текст уведомления.");
       return;
     }
 
     setSubmitting(true);
-    setError('');
-    setNotice('');
-
     try {
-      const expiresAt = form.expires_at ? new Date(form.expires_at) : null;
-      if (expiresAt && (Number.isNaN(expiresAt.getTime()) || expiresAt <= new Date())) {
-        throw new Error('Срок действия должен быть позже текущего времени.');
-      }
-
       if (editingId) {
         await api.updateAdminNotification(token, editingId, {
-          title,
-          message,
-          ...(expiresAt ? { expires_at: expiresAt.toISOString() } : {})
+          title: form.title.trim(),
+          message: form.message.trim(),
+          expires_at: form.expires_at ? new Date(form.expires_at).toISOString() : null
         });
-        setNotice('Уведомление обновлено.');
+        setNotice("Рассылка успешно обновлена.");
       } else {
         const payload = {
-          title,
-          message,
+          title: form.title.trim(),
+          message: form.message.trim(),
           category: form.category,
           event_type: form.event_type,
           audience: form.audience,
-          role: undefined,
-          user_ids: undefined,
-          group_ids: undefined,
-          expires_at: expiresAt ? expiresAt.toISOString() : undefined
+          role: form.audience === "role" ? form.role : undefined,
+          user_ids: form.audience === "users" ? form.user_ids : undefined,
+          group_ids: form.audience === "groups" ? form.group_ids : undefined,
+          expires_at: form.expires_at ? new Date(form.expires_at).toISOString() : undefined
         };
 
-        if (form.audience === 'role') {
-          payload.role = form.role;
+        if (form.audience === "users" && (!payload.user_ids || payload.user_ids.length === 0)) {
+          setError("Выберите хотя бы одного пользователя.");
+          setSubmitting(false);
+          return;
         }
-        if (form.audience === 'users') {
-          payload.user_ids = parseIds(form.recipient_ids);
-          if (payload.user_ids.length === 0) throw new Error('Укажите хотя бы один ID пользователя.');
-        }
-        if (form.audience === 'groups') {
-          payload.group_ids = parseIds(form.recipient_ids);
-          if (payload.group_ids.length === 0) throw new Error('Укажите хотя бы один ID группы.');
+        if (form.audience === "groups" && (!payload.group_ids || payload.group_ids.length === 0)) {
+          setError("Выберите хотя бы одну учебную группу.");
+          setSubmitting(false);
+          return;
         }
 
         await api.createAdminNotification(token, payload);
-        setNotice('Рассылка создана и отправлена получателям.');
-        onNotificationCreated?.();
-        setPage(1);
+        setNotice("Рассылка успешно создана и отправлена.");
+        if (typeof onNotificationCreated === "function") {
+          onNotificationCreated();
+        }
       }
 
-      setComposerOpen(false);
-      setEditingId(0);
-      setForm(EMPTY_FORM);
+      closeComposer();
+      setPage(1);
       setReloadKey((current) => current + 1);
-    } catch (requestError) {
-      setError(api.getErrorMessage(requestError, 'Не удалось сохранить уведомление'));
+    } catch (submitError) {
+      setError(api.getErrorMessage(submitError, "Не удалось сохранить рассылку."));
     } finally {
       setSubmitting(false);
     }
   };
 
   const deleteNotification = async (item) => {
-    const notificationId = Number(item.notification_id) || 0;
-    if (!notificationId || deletingId) return;
-    if (!window.confirm(`Удалить уведомление «${item.title || 'Без названия'}»?`)) return;
-
-    setDeletingId(notificationId);
-    setError('');
-    setNotice('');
+    const id = Number(item.notification_id) || 0;
+    if (!id) return;
+    if (!window.confirm(`Удалить рассылку "${item.title || "Без названия"}"?`)) {
+      return;
+    }
+    setDeletingId(id);
+    setError("");
     try {
-      await api.deleteAdminNotification(token, notificationId);
-      setNotice('Уведомление удалено.');
-      if (items.length === 1 && page > 1) {
-        setPage((current) => current - 1);
-      } else {
-        setReloadKey((current) => current + 1);
-      }
-    } catch (requestError) {
-      setError(api.getErrorMessage(requestError, 'Не удалось удалить уведомление'));
+      await api.deleteAdminNotification(token, id);
+      setNotice("Рассылка удалена.");
+      setReloadKey((current) => current + 1);
+    } catch (deleteError) {
+      setError(api.getErrorMessage(deleteError, "Не удалось удалить рассылку."));
     } finally {
       setDeletingId(0);
     }
@@ -330,7 +350,7 @@ const AdminNotificationsPage = ({ token, onNotificationCreated }) => {
       </header>
 
       {(error || notice) && (
-        <div className={`admin-notice ${error ? 'is-error' : 'is-success'}`} role={error ? 'alert' : 'status'}>
+        <div className={`admin-notice ${error ? "is-error" : "is-success"}`} role={error ? "alert" : "status"}>
           {error || notice}
         </div>
       )}
@@ -338,23 +358,26 @@ const AdminNotificationsPage = ({ token, onNotificationCreated }) => {
       {composerOpen && (
         <section className="admin-notification-composer" aria-labelledby="notification-composer-title">
           <div className="admin-notification-composer-heading">
-            <span className="admin-notification-composer-icon"><NotificationAdminIcon name="bell" /></span>
+            <span className="admin-notification-composer-icon">
+              <NotificationAdminIcon name="bell" />
+            </span>
             <div>
-              <span>{editingId ? 'Редактирование' : 'Новая рассылка'}</span>
+              <span>{editingId ? "Редактирование" : "Новая рассылка"}</span>
               <h2 id="notification-composer-title">
-                {editingId ? 'Изменить уведомление' : 'Отправить уведомление'}
+                {editingId ? "Изменить уведомление" : "Отправить уведомление"}
               </h2>
             </div>
           </div>
 
-          <form className="admin-notification-form" onSubmit={submitForm}>
+          <form className="admin-notification-form" onSubmit={submitComposer}>
             <label className="admin-form-field is-wide">
               <span>Заголовок *</span>
-              <input name="title" value={form.title} onChange={updateForm} maxLength={255} autoFocus />
+              <input name="title" value={form.title} onChange={updateForm} maxLength={255} required autoFocus />
             </label>
+
             <label className="admin-form-field is-wide">
               <span>Текст уведомления *</span>
-              <textarea name="message" value={form.message} onChange={updateForm} maxLength={10000} rows={4} />
+              <textarea name="message" value={form.message} onChange={updateForm} maxLength={10000} rows={4} required />
             </label>
 
             {!editingId && (
@@ -367,6 +390,7 @@ const AdminNotificationsPage = ({ token, onNotificationCreated }) => {
                     ))}
                   </select>
                 </label>
+
                 <label className="admin-form-field">
                   <span>Событие</span>
                   <select name="event_type" value={form.event_type} onChange={updateForm}>
@@ -375,6 +399,7 @@ const AdminNotificationsPage = ({ token, onNotificationCreated }) => {
                     ))}
                   </select>
                 </label>
+
                 <label className="admin-form-field">
                   <span>Получатели</span>
                   <select name="audience" value={form.audience} onChange={updateForm}>
@@ -384,7 +409,7 @@ const AdminNotificationsPage = ({ token, onNotificationCreated }) => {
                   </select>
                 </label>
 
-                {form.audience === 'role' && (
+                {form.audience === "role" && (
                   <label className="admin-form-field">
                     <span>Роль</span>
                     <select name="role" value={form.role} onChange={updateForm}>
@@ -395,17 +420,30 @@ const AdminNotificationsPage = ({ token, onNotificationCreated }) => {
                   </label>
                 )}
 
-                {(form.audience === 'users' || form.audience === 'groups') && (
-                  <label className="admin-form-field">
-                    <span>{form.audience === 'users' ? 'ID пользователей' : 'ID групп'}</span>
-                    <input
-                      name="recipient_ids"
-                      value={form.recipient_ids}
-                      onChange={updateForm}
-                      placeholder="12, 24, 31"
-                      inputMode="numeric"
+                {form.audience === "groups" && (
+                  <div className="admin-form-field">
+                    <span>Учебные группы *</span>
+                    <SearchableMultiSelect
+                      options={groupOptions}
+                      values={form.group_ids}
+                      onChange={(nextIds) => setForm((prev) => ({ ...prev, group_ids: nextIds }))}
+                      placeholder="Поиск группы по названию..."
+                      allLabel="Выбрать все группы"
                     />
-                  </label>
+                  </div>
+                )}
+
+                {form.audience === "users" && (
+                  <div className="admin-form-field">
+                    <span>Пользователи *</span>
+                    <SearchableMultiSelect
+                      options={userOptions}
+                      values={form.user_ids}
+                      onChange={(nextIds) => setForm((prev) => ({ ...prev, user_ids: nextIds }))}
+                      placeholder="Поиск по ФИО, логину или группе..."
+                      allLabel="Выбрать всех"
+                    />
+                  </div>
                 )}
               </>
             )}
@@ -420,7 +458,7 @@ const AdminNotificationsPage = ({ token, onNotificationCreated }) => {
                 Отмена
               </button>
               <button type="submit" className="admin-primary-button" disabled={submitting}>
-                {submitting ? 'Сохраняем...' : editingId ? 'Сохранить' : 'Отправить'}
+                {submitting ? "Сохраняем..." : editingId ? "Сохранить" : "Отправить"}
               </button>
             </footer>
           </form>
@@ -450,7 +488,7 @@ const AdminNotificationsPage = ({ token, onNotificationCreated }) => {
         </button>
       </div>
 
-      <div className={`admin-notifications-table-wrap ${loading ? 'is-loading' : ''}`}>
+      <div className={`admin-notifications-table-wrap ${loading ? "is-loading" : ""}`}>
         <table className="admin-notifications-table">
           <thead>
             <tr>
@@ -476,13 +514,13 @@ const AdminNotificationsPage = ({ token, onNotificationCreated }) => {
             {items.map((item) => (
               <tr key={item.notification_id}>
                 <td data-label="Категория">
-                  <span className={`admin-notification-category is-${item.category || 'system'}`}>
+                  <span className={`admin-notification-category is-${item.category || "system"}`}>
                     {categoryLabel(item.category)}
                   </span>
                 </td>
                 <td data-label="Сообщение">
-                  <strong className="admin-notification-title">{item.title || 'Без названия'}</strong>
-                  <small className="admin-notification-message">{item.message || '—'}</small>
+                  <strong className="admin-notification-title">{item.title || "Без названия"}</strong>
+                  <small className="admin-notification-message">{item.message || "—"}</small>
                 </td>
                 <td data-label="Получатели">{Number(item.recipient_count) || 0}</td>
                 <td data-label="Создано">{formatDateTime(item.created_at)}</td>

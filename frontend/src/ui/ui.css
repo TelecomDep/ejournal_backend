@@ -5937,13 +5937,14 @@
   align-items: center;
   justify-content: space-between;
   min-height: 42px;
-  padding: 8px 12px;
+  padding: 0 11px;
   background: #ffffff;
-  border: 1px solid var(--border-color, #cbd5e1);
-  border-radius: 6px;
+  border: 1px solid #d9e3f5;
+  border-radius: 8px;
   cursor: pointer;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
   user-select: none;
+  box-sizing: border-box;
 }
 
 .searchable-select.is-open .searchable-select-trigger,
@@ -6075,6 +6076,113 @@
   font-size: 13px;
   color: #94a3b8;
 }
+
+.searchable-multi-select {
+  position: relative;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.searchable-multi-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+  align-items: center;
+}
+
+.searchable-multi-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1d4ed8;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 4px 10px;
+  border-radius: 16px;
+}
+
+.searchable-multi-chip-text {
+  max-width: 240px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.searchable-multi-chip-remove {
+  background: none;
+  border: none;
+  color: #60a5fa;
+  cursor: pointer;
+  padding: 0;
+  font-size: 12px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+}
+
+.searchable-multi-chip-remove:hover {
+  color: #dc2626;
+}
+
+.searchable-multi-clear-all {
+  background: none;
+  border: none;
+  color: #dc2626;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 4px 8px;
+  text-decoration: underline;
+}
+
+.searchable-multi-dropdown-header {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 10px;
+  border-bottom: 1px solid #f1f5f9;
+  background: #f8fafc;
+  border-radius: 6px 6px 0 0;
+}
+
+.searchable-multi-action-btn {
+  background: none;
+  border: none;
+  font-size: 12px;
+  color: #2563eb;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.searchable-multi-action-btn:hover {
+  background: #eff6ff;
+}
+
+.searchable-multi-action-btn.is-danger {
+  color: #dc2626;
+}
+
+.searchable-multi-action-btn.is-danger:hover {
+  background: #fee2e2;
+}
+
+.searchable-multi-list {
+  list-style: none;
+  margin: 0;
+  padding: 4px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.searchable-multi-checkbox {
+  font-size: 14px;
+  color: #2563eb;
+  font-weight: bold;
+  margin-left: 8px;
+}
+
 
 
 /* Admin notifications */
