@@ -124,6 +124,12 @@ const iconPaths = {
       <path d="M13 8.5 16.5 12 13 15.5" />
       <path d="M16.5 12H9" />
     </>
+  ),
+  close: (
+    <>
+      <path d="m6 6 12 12" />
+      <path d="M18 6 6 18" />
+    </>
   )
 };
 
@@ -232,6 +238,23 @@ const Workspace = ({ user, token, route, navigate, onLogout, onUserUpdate }) => 
     };
   }, [refreshUnreadCount]);
 
+  useEffect(() => {
+    if (!isNavOpen) return undefined;
+
+    const previousOverflow = document.body.style.overflow;
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') setIsNavOpen(false);
+    };
+
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isNavOpen]);
+
   const handleNavigate = (to) => {
     navigate(to);
     setIsNavOpen(false);
@@ -254,6 +277,14 @@ const Workspace = ({ user, token, route, navigate, onLogout, onUserUpdate }) => 
               <span className="ui-brand-title">СибГУТИ</span>
               <span className="ui-brand-subtitle">Электронный журнал</span>
             </div>
+            <button
+              type="button"
+              className="ui-sidebar-close"
+              aria-label="Закрыть навигацию"
+              onClick={() => setIsNavOpen(false)}
+            >
+              <NavIcon name="close" />
+            </button>
           </div>
 
           <nav className="ui-nav" aria-label="Разделы">
