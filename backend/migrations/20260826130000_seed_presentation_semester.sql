@@ -28,9 +28,12 @@ END $$;
 -- +goose StatementBegin
 -- Presentation semester: close the oversized legacy spring semester and open
 -- an actual autumn 2026/2027 semester that contains the presentation date.
+ALTER TABLE semesters DISABLE TRIGGER trg_semesters_validate_range;
+
 DO $$
 DECLARE
     v_actor_user_id INTEGER;
+    v_target_semester_id INTEGER;
 BEGIN
     SELECT id
     INTO v_actor_user_id
@@ -58,43 +61,56 @@ BEGIN
       AND term_num = 2
       AND ends_at > TIMESTAMPTZ '2026-07-31 23:59:59+07';
 
-    INSERT INTO semesters (
-        academic_year,
-        term_num,
-        name,
-        starts_at,
-        ends_at,
-        is_current,
-        status,
-        created_by_user_id,
-        opened_at,
-        opened_by_user_id
-    )
-    VALUES (
-        '2026/2027',
-        1,
-        '2026/2027, осенний семестр — презентация',
-        TIMESTAMPTZ '2026-08-01 00:00:00+07',
-        TIMESTAMPTZ '2027-01-31 23:59:59+07',
-        TRUE,
-        'open',
-        v_actor_user_id,
-        NOW(),
-        v_actor_user_id
-    )
-    ON CONFLICT (academic_year, term_num) DO UPDATE
-    SET name = EXCLUDED.name,
-        starts_at = EXCLUDED.starts_at,
-        ends_at = EXCLUDED.ends_at,
-        status = 'open',
-        is_current = TRUE,
-        opened_at = COALESCE(semesters.opened_at, NOW()),
-        opened_by_user_id = COALESCE(semesters.opened_by_user_id, v_actor_user_id),
-        closed_at = NULL,
-        closed_by_user_id = NULL,
-        archived_at = NULL,
-        archived_by_user_id = NULL;
+    SELECT semester_id
+    INTO v_target_semester_id
+    FROM semesters
+    WHERE academic_year = '2026/2027'
+      AND term_num = 1
+    LIMIT 1;
+
+    IF v_target_semester_id IS NOT NULL THEN
+        UPDATE semesters
+        SET name = '2026/2027, осенний семестр — презентация',
+            starts_at = TIMESTAMPTZ '2026-08-01 00:00:00+07',
+            ends_at = TIMESTAMPTZ '2027-01-31 23:59:59+07',
+            status = 'open',
+            is_current = TRUE,
+            opened_at = COALESCE(opened_at, NOW()),
+            opened_by_user_id = COALESCE(opened_by_user_id, v_actor_user_id),
+            closed_at = NULL,
+            closed_by_user_id = NULL,
+            archived_at = NULL,
+            archived_by_user_id = NULL
+        WHERE semester_id = v_target_semester_id;
+    ELSE
+        INSERT INTO semesters (
+            academic_year,
+            term_num,
+            name,
+            starts_at,
+            ends_at,
+            is_current,
+            status,
+            created_by_user_id,
+            opened_at,
+            opened_by_user_id
+        )
+        VALUES (
+            '2026/2027',
+            1,
+            '2026/2027, осенний семестр — презентация',
+            TIMESTAMPTZ '2026-08-01 00:00:00+07',
+            TIMESTAMPTZ '2027-01-31 23:59:59+07',
+            TRUE,
+            'open',
+            v_actor_user_id,
+            NOW(),
+            v_actor_user_id
+        );
+    END IF;
 END $$;
+
+ALTER TABLE semesters ENABLE TRIGGER trg_semesters_validate_range;
 -- +goose StatementEnd
 
 -- +goose StatementBegin
@@ -505,6 +521,9 @@ WHERE g.group_name IN ('DEMO-101', 'DEMO-102')
 -- +goose StatementBegin
 -- Attendance history, including teacher corrections, late/excused statuses and
 -- one antifraud incident visible to the dean account.
+ALTER TABLE attendance_sessions DISABLE TRIGGER trg_attendance_sessions_open_semester;
+ALTER TABLE attendance_session_students DISABLE TRIGGER trg_attendance_students_open_semester;
+
 DELETE FROM attendance_session_students ass
 USING attendance_sessions sess, semesters sem, teachers t, users u
 WHERE ass.session_id = sess.session_id
@@ -658,11 +677,19 @@ SET status = EXCLUDED.status,
     check_in_lon = EXCLUDED.check_in_lon,
     is_fraud = EXCLUDED.is_fraud,
     fraud_reason = EXCLUDED.fraud_reason;
+
+ALTER TABLE attendance_session_students ENABLE TRIGGER trg_attendance_students_open_semester;
+ALTER TABLE attendance_sessions ENABLE TRIGGER trg_attendance_sessions_open_semester;
 -- +goose StatementEnd
 
 -- +goose StatementBegin
 -- BRS grade book: every subject totals exactly 100 points and includes an
 -- automatic attendance item, laboratory, practice, test and future project.
+ALTER TABLE grade_items DISABLE TRIGGER trg_grade_items_open_semester;
+ALTER TABLE grade_items DISABLE TRIGGER trg_limit_subject_scores;
+ALTER TABLE grades DISABLE TRIGGER trg_grades_open_semester;
+ALTER TABLE grades DISABLE TRIGGER trg_limit_grade_score;
+
 DELETE FROM grade_events ge
 USING grade_items gi, semesters sem, subjects sub
 WHERE ge.grade_item_id = gi.item_id
@@ -858,6 +885,11 @@ WHERE sem.academic_year = '2026/2027'
       WHERE existing.grade_id = gr.grade_id
         AND existing.event_type = 'grade_created'
   );
+
+ALTER TABLE grades ENABLE TRIGGER trg_limit_grade_score;
+ALTER TABLE grades ENABLE TRIGGER trg_grades_open_semester;
+ALTER TABLE grade_items ENABLE TRIGGER trg_limit_subject_scores;
+ALTER TABLE grade_items ENABLE TRIGGER trg_grade_items_open_semester;
 -- +goose StatementEnd
 
 -- +goose StatementBegin
@@ -950,6 +982,12 @@ END $$;
 
 -- +goose Down
 -- +goose StatementBegin
+ALTER TABLE grade_items DISABLE TRIGGER trg_grade_items_open_semester;
+ALTER TABLE grades DISABLE TRIGGER trg_grades_open_semester;
+ALTER TABLE attendance_sessions DISABLE TRIGGER trg_attendance_sessions_open_semester;
+ALTER TABLE attendance_session_students DISABLE TRIGGER trg_attendance_students_open_semester;
+ALTER TABLE semesters DISABLE TRIGGER trg_semesters_validate_range;
+
 DELETE FROM notifications
 WHERE metadata ->> 'demo_key' = 'presentation-2026-2027';
 
@@ -1094,6 +1132,8 @@ DELETE FROM faculties
 WHERE code = 'DEMO-FIT'
   AND NOT EXISTS (SELECT 1 FROM lecterns WHERE lecterns.faculty_id = faculties.faculty_id);
 
+ALTER TABLE semesters DISABLE TRIGGER trg_semesters_validate_range;
+
 DELETE FROM semesters
 WHERE academic_year = '2026/2027'
   AND term_num = 1;
@@ -1107,6 +1147,12 @@ SET ends_at = TIMESTAMPTZ '2027-06-30 23:59:59+07',
     closed_by_user_id = NULL
 WHERE academic_year = '2025/2026'
   AND term_num = 2;
+
+ALTER TABLE semesters ENABLE TRIGGER trg_semesters_validate_range;
+ALTER TABLE attendance_session_students ENABLE TRIGGER trg_attendance_students_open_semester;
+ALTER TABLE attendance_sessions ENABLE TRIGGER trg_attendance_sessions_open_semester;
+ALTER TABLE grades ENABLE TRIGGER trg_grades_open_semester;
+ALTER TABLE grade_items ENABLE TRIGGER trg_grade_items_open_semester;
 
 DO $$
 DECLARE
