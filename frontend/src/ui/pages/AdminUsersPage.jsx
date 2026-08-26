@@ -72,7 +72,12 @@ const AdminIcon = ({ name }) => {
   const icons = {
     add: <path d="M12 5v14M5 12h14" />,
     search: <><circle cx="10.8" cy="10.8" r="6.8" /><path d="m16 16 4 4" /></>,
-    refresh: <><path d="M19 7v5h-5" /><path d="M5.3 16.5A8 8 0 0 0 19 12M5 12a8 8 0 0 1 13.7-4.5" /></>,
+    refresh: (
+      <>
+        <path d="M19 8a7.5 7.5 0 1 0 .5 7" />
+        <path d="M19 3v5h-5" />
+      </>
+    ),
     edit: <><path d="m4 20 4.3-1 10-10-3.3-3.3-10 10L4 20Z" /><path d="m13.8 6.8 3.4 3.4" /></>,
     archive: <><path d="M4 7h16v13H4V7Z" /><path d="M3 4h18v3H3V4ZM9 11h6" /></>,
     close: <path d="m6 6 12 12M18 6 6 18" />,
@@ -796,7 +801,7 @@ const AdminUsersPage = ({ token, currentUser }) => {
             </label>
             <button
               type="button"
-              className="admin-icon-button"
+              className="semester-icon-button ui-refresh-button"
               onClick={() => setReloadKey((value) => value + 1)}
               title="Обновить список"
               aria-label="Обновить список"
@@ -934,7 +939,7 @@ const AdminUsersPage = ({ token, currentUser }) => {
             </label>
             <button
               type="button"
-              className="admin-icon-button"
+              className="semester-icon-button ui-refresh-button"
               onClick={() => setReloadKey((value) => value + 1)}
               title="Обновить список"
               aria-label="Обновить список"
@@ -1100,7 +1105,7 @@ const AdminUsersPage = ({ token, currentUser }) => {
             </label>
             <button
               type="button"
-              className="admin-icon-button"
+              className="semester-icon-button ui-refresh-button"
               onClick={() => setReloadKey((value) => value + 1)}
               title="Обновить список"
               aria-label="Обновить список"

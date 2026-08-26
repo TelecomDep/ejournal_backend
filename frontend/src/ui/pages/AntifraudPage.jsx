@@ -44,7 +44,12 @@ const AntifraudIcon = ({ name }) => {
   const icons = {
     shield: <><path d="M12 3 5 6v5c0 4.6 2.7 8.1 7 10 4.3-1.9 7-5.4 7-10V6l-7-3Z" /><path d="m9 12 2 2 4-4" /></>,
     search: <><circle cx="10.5" cy="10.5" r="6.5" /><path d="m15.5 15.5 4 4" /></>,
-    refresh: <><path d="M19 7v5h-5" /><path d="M5.3 16.5A8 8 0 0 0 19 12M5 12a8 8 0 0 1 13.7-4.5" /></>,
+    refresh: (
+      <>
+        <path d="M19 8a7.5 7.5 0 1 0 .5 7" />
+        <path d="M19 3v5h-5" />
+      </>
+    ),
     list: <><path d="M8 6h12M8 12h12M8 18h12" /><path d="M4 6h.01M4 12h.01M4 18h.01" /></>,
     ranking: <><path d="M5 20v-6h4v6M10 20V8h4v12M15 20V4h4v16" /></>,
     filter: <path d="M4 5h16l-6.5 7.2V19l-3 1v-7.8L4 5Z" />,
@@ -113,7 +118,7 @@ const AntifraudPage = ({ token, user, client = api }) => {
     try {
       const [logsResult, rankingResult] = await Promise.all([
         client.getAntifraudLogs(token, requestFilters),
-        client.getAntifraudTopCheaters(token, appliedFilters)
+        client.getAntifraudTopCheaters(token)
       ]);
       setLogs(Array.isArray(logsResult?.logs) ? logsResult.logs : []);
       setTotal(Number(logsResult?.total) || 0);
@@ -168,12 +173,13 @@ const AntifraudPage = ({ token, user, client = api }) => {
         </div>
         <button
           type="button"
-          className="admin-secondary-button antifraud-refresh"
+          className="semester-icon-button ui-refresh-button antifraud-refresh"
           onClick={() => setReloadKey((value) => value + 1)}
           disabled={loading}
+          title="Обновить журнал"
+          aria-label="Обновить журнал антифрода"
         >
           <AntifraudIcon name="refresh" />
-          Обновить
         </button>
       </header>
 
@@ -218,13 +224,13 @@ const AntifraudPage = ({ token, user, client = api }) => {
         </button>
       </div>
 
-      {isAdmin ? (
+      {activeTab === 'logs' && (isAdmin ? (
         <form className="antifraud-filters" onSubmit={applyFilters}>
           <div className="antifraud-filter-title">
             <AntifraudIcon name="filter" />
             <div>
               <strong>Фильтры журнала</strong>
-              <span>Фильтры также применяются к рейтингу</span>
+              <span>Отбор записей журнала</span>
             </div>
           </div>
 
@@ -295,7 +301,7 @@ const AntifraudPage = ({ token, user, client = api }) => {
             <span>Данные других преподавателей и групп не отображаются.</span>
           </div>
         </div>
-      )}
+      ))}
 
       {error && (
         <div className="admin-notice is-error" role="alert">{error}</div>

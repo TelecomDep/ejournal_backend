@@ -381,7 +381,7 @@ const AdminSemestersPage = ({ token }) => {
         <div className="semester-heading-actions">
           <button
             type="button"
-            className="semester-icon-button"
+            className="semester-icon-button ui-refresh-button"
             onClick={() => loadData(true)}
             disabled={refreshing}
             title="Обновить список"

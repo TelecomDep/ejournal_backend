@@ -102,7 +102,12 @@ const NotificationAdminIcon = ({ name }) => {
       </>
     ),
     add: <path d="M12 5v14M5 12h14" />,
-    refresh: <><path d="M19 7v5h-5" /><path d="M5.3 16.5A8 8 0 0 0 19 12M5 12a8 8 0 0 1 13.7-4.5" /></>,
+    refresh: (
+      <>
+        <path d="M19 8a7.5 7.5 0 1 0 .5 7" />
+        <path d="M19 3v5h-5" />
+      </>
+    ),
     edit: <><path d="m4 20 4.3-1 10-10-3.3-3.3-10 10L4 20Z" /><path d="m13.8 6.8 3.4 3.4" /></>,
     trash: <><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13" /><path d="M10 11v5M14 11v5" /></>,
     previous: <path d="m15 18-6-6 6-6" />,
@@ -478,7 +483,7 @@ const AdminNotificationsPage = ({ token, onNotificationCreated }) => {
         <span className="admin-notifications-total">Всего: <strong>{pagination.total}</strong></span>
         <button
           type="button"
-          className="admin-icon-button"
+          className="semester-icon-button ui-refresh-button"
           aria-label="Обновить список"
           title="Обновить список"
           onClick={() => setReloadKey((current) => current + 1)}
