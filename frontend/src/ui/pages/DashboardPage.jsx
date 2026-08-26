@@ -1,5 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import api from '../../services/api';
+import React from 'react';
 
 const STAFF_ROLES = ['admin', 'head', 'dean'];
 
@@ -13,8 +12,6 @@ const roleTitle = (role) => {
   if (STAFF_ROLES.includes(role)) return 'Сводная панель';
   return 'Личный кабинет студента';
 };
-
-const clampPct = (value) => Math.max(0, Math.min(100, Math.round(Number(value) || 0)));
 
 const DashboardIcon = ({ name }) => {
   const icons = {
@@ -76,83 +73,6 @@ const QuickCard = ({ icon, title, text, to, navigate }) => (
   </button>
 );
 
-const MetricCard = ({ icon, label, value, helper }) => (
-  <article className="dashboard-metric-card">
-    <span className="dashboard-card-icon"><DashboardIcon name={icon} /></span>
-    <span>
-      <small>{label}</small>
-      <strong>{value}</strong>
-      <em>{helper}</em>
-    </span>
-  </article>
-);
-
-const StaffSnapshot = ({ token, navigate }) => {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    api.getStaffOverview(token)
-      .then((payload) => {
-        if (!cancelled) {
-          setData(payload);
-          setError('');
-        }
-      })
-      .catch((err) => {
-        if (!cancelled) {
-          setError(api.getErrorMessage(err, 'Не удалось загрузить сводку'));
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [token]);
-
-  const stats = useMemo(() => {
-    const students = data?.students || [];
-    const counts = data?.counts || {};
-    const average = students.length
-      ? Math.round(students.reduce((sum, item) => sum + clampPct(item.attendance_pct), 0) / students.length)
-      : 0;
-    const risk = students.filter((item) => clampPct(item.attendance_pct) < 60).length;
-    return { counts, average, risk };
-  }, [data]);
-
-  if (loading) {
-    return <div className="dashboard-panel dashboard-panel-muted">Загрузка сводки...</div>;
-  }
-
-  if (error) {
-    return <div className="dashboard-panel dashboard-panel-error">{error}</div>;
-  }
-
-  return (
-    <section className="dashboard-panel">
-      <div className="dashboard-panel-head">
-        <div>
-          <span>Сводка доступа</span>
-          <h2>{data?.label || 'Область контроля'}</h2>
-        </div>
-        <button type="button" onClick={() => navigate('/staff/overview')}>Открыть сводку</button>
-      </div>
-
-      <div className="dashboard-metric-grid is-staff">
-        <MetricCard icon="staff" label="Студенты" value={stats.counts.students ?? 0} helper="в области" />
-        <MetricCard icon="analytics" label="Средняя посещаемость" value={`${stats.average}%`} helper="по студентам" />
-        <MetricCard icon="attendance" label="Зона риска" value={stats.risk} helper="ниже 60%" />
-      </div>
-    </section>
-  );
-};
-
 const getQuickCards = (role) => {
   if (role === 'teacher') {
     return [
@@ -188,7 +108,7 @@ const getQuickCards = (role) => {
   ];
 };
 
-const DashboardPage = ({ user, token, navigate }) => {
+const DashboardPage = ({ user, navigate }) => {
   const role = user?.role || 'student';
   const isStaff = role === 'head' || role === 'dean';
   const name = getDisplayName(user);
@@ -221,24 +141,6 @@ const DashboardPage = ({ user, token, navigate }) => {
 		  />
 		))}
       </div>
-
-      {isStaff ? (
-        <StaffSnapshot token={token} navigate={navigate} />
-      ) : role !== 'admin' ? (
-        <section className="dashboard-panel">
-          <div className="dashboard-panel-head">
-            <div>
-              <span>Следующие блоки</span>
-              <h2>{role === 'teacher' ? 'Преподавательский контур' : 'Студенческий контур'}</h2>
-            </div>
-          </div>
-          <div className="dashboard-metric-grid">
-            <MetricCard icon="schedule" label="Навигация" value="Готова" helper="основные разделы" />
-            <MetricCard icon="attendance" label="Посещаемость" value="В работе" helper="QR и история" />
-            <MetricCard icon="grades" label="Оценки" value="В работе" helper="баллы и ведомость" />
-          </div>
-        </section>
-      ) : null}
     </section>
   );
 };
