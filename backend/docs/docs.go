@@ -15,6 +15,42 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/api/admin/catalogs": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "List entity catalogs for administrative pickers (groups, lecterns, faculties, teachers, students)",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/api/admin/notifications": {
             "get": {
                 "security": [
@@ -1205,6 +1241,24 @@ const docTemplate = `{
                         "description": "Semester ID; defaults to the open semester",
                         "name": "semester_id",
                         "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Department ID for head/dean/admin report; required when several departments are visible",
+                        "name": "department_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Subject ID; required for teacher report and optional for department report",
+                        "name": "subject_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Comma-separated group IDs",
+                        "name": "group_ids",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -2046,6 +2100,58 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/httpserver.teacherAttendanceMarkedCountResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/teacher/attendance/session/roster": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns every student in a teacher-owned attendance session with the current status and mark time.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "attendance"
+                ],
+                "summary": "Get the live attendance roster",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Attendance session ID",
+                        "name": "lesson_id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/httpserver.teacherAttendanceSessionRosterResponse"
                         }
                     },
                     "400": {
@@ -5346,6 +5452,102 @@ const docTemplate = `{
                 "roster_size": {
                     "type": "integer",
                     "example": 25
+                }
+            }
+        },
+        "httpserver.teacherAttendanceSessionRosterResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string",
+                    "example": ""
+                },
+                "id": {
+                    "type": "string",
+                    "example": "http-teacher-attendance-session-roster"
+                },
+                "ok": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "result": {
+                    "$ref": "#/definitions/httpserver.teacherAttendanceSessionRosterResult"
+                }
+            }
+        },
+        "httpserver.teacherAttendanceSessionRosterResult": {
+            "type": "object",
+            "properties": {
+                "attendance_percent": {
+                    "type": "number",
+                    "example": 72
+                },
+                "lesson_id": {
+                    "type": "integer",
+                    "example": 5
+                },
+                "lesson_name": {
+                    "type": "string",
+                    "example": "Networks"
+                },
+                "marked_count": {
+                    "type": "integer",
+                    "example": 18
+                },
+                "roster_size": {
+                    "type": "integer",
+                    "example": 25
+                },
+                "server_time": {
+                    "type": "string",
+                    "example": "2026-04-21T21:12:06+07:00"
+                },
+                "students": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/httpserver.teacherAttendanceSessionRosterStudent"
+                    }
+                },
+                "subject_id": {
+                    "type": "integer",
+                    "example": 2
+                },
+                "timezone": {
+                    "type": "string",
+                    "example": "Asia/Novosibirsk"
+                }
+            }
+        },
+        "httpserver.teacherAttendanceSessionRosterStudent": {
+            "type": "object",
+            "properties": {
+                "group_id": {
+                    "type": "integer",
+                    "example": 237
+                },
+                "group_name": {
+                    "type": "string",
+                    "example": "ИКС-433"
+                },
+                "marked_at": {
+                    "type": "string",
+                    "example": "2026-04-21T21:12:05+07:00"
+                },
+                "marked_by": {
+                    "type": "string",
+                    "example": "self"
+                },
+                "status": {
+                    "type": "string",
+                    "example": "present"
+                },
+                "student_id": {
+                    "type": "integer",
+                    "example": 4
+                },
+                "student_name": {
+                    "type": "string",
+                    "example": "Демин Сергей А."
                 }
             }
         },

@@ -1626,6 +1626,62 @@ func (s *Service) attendanceMarkedCountForTeacher(sessionToken string, data Atte
 	}
 }
 
+func (s *Service) attendanceSessionRosterForTeacher(sessionToken string, data AttendanceSessionData) Response {
+	ctx, cancel := s.dbContext()
+	defer cancel()
+
+	session, ok, resp := s.attendanceSessionByTeacher(ctx, sessionToken, data.LessonID)
+	if !ok {
+		return resp
+	}
+
+	rows, err := s.store.Attendance.GetSessionRoster(ctx, session.ID)
+	if err != nil {
+		return Response{OK: false, Error: "failed to load attendance session roster"}
+	}
+
+	students := make([]map[string]any, 0, len(rows))
+	markedCount := 0
+	for _, row := range rows {
+		if row.Status != "absent" {
+			markedCount++
+		}
+
+		student := map[string]any{
+			"student_id":   row.StudentID,
+			"student_name": row.StudentName,
+			"group_id":     row.GroupID,
+			"group_name":   row.GroupName,
+			"status":       row.Status,
+			"marked_by":    row.MarkedBy,
+		}
+		if row.MarkedAt != nil {
+			student["marked_at"] = formatAPITime(*row.MarkedAt)
+		}
+		students = append(students, student)
+	}
+
+	attendancePercent := 0.0
+	if len(rows) > 0 {
+		attendancePercent = float64(markedCount) * 100 / float64(len(rows))
+	}
+
+	return Response{
+		OK: true,
+		Result: map[string]any{
+			"lesson_id":          session.ID,
+			"lesson_name":        session.LessonName,
+			"subject_id":         session.SubjectID,
+			"server_time":        formatAPITime(time.Now().UTC()),
+			"timezone":           "Asia/Novosibirsk",
+			"roster_size":        len(rows),
+			"marked_count":       markedCount,
+			"attendance_percent": attendancePercent,
+			"students":           students,
+		},
+	}
+}
+
 func (s *Service) attendanceSessionTimerForTeacher(sessionToken string, data AttendanceSessionData) Response {
 	ctx, cancel := s.dbContext()
 	defer cancel()
@@ -2710,6 +2766,14 @@ func (s *Service) handleRequest(raw string) Response {
 			return Response{ID: req.ID, OK: false, Error: "invalid teacher_attendance_marked_count payload"}
 		}
 		resp := s.attendanceMarkedCountForTeacher(req.Token, data)
+		resp.ID = req.ID
+		return resp
+	case "teacher_attendance_session_roster":
+		var data AttendanceSessionData
+		if err := json.Unmarshal(req.Data, &data); err != nil {
+			return Response{ID: req.ID, OK: false, Error: "invalid teacher_attendance_session_roster payload"}
+		}
+		resp := s.attendanceSessionRosterForTeacher(req.Token, data)
 		resp.ID = req.ID
 		return resp
 	case "teacher_attendance_session_timer":

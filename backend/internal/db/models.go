@@ -153,6 +153,16 @@ type AttendanceSessionProgress struct {
 	MarkedCount int32 `json:"marked_count"`
 }
 
+type AttendanceSessionStudent struct {
+	StudentID   int32      `json:"student_id"`
+	StudentName string     `json:"student_name"`
+	GroupID     int32      `json:"group_id"`
+	GroupName   string     `json:"group_name"`
+	Status      string     `json:"status"`
+	MarkedAt    *time.Time `json:"marked_at,omitempty"`
+	MarkedBy    string     `json:"marked_by,omitempty"`
+}
+
 type AttendanceHistoryItem struct {
 	Date       time.Time `json:"date"`
 	LessonName string    `json:"lesson_name"`

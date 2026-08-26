@@ -167,6 +167,35 @@ type teacherAttendanceMarkedCountResponse struct {
 	Error  string                             `json:"error" example:""`
 }
 
+type teacherAttendanceSessionRosterStudent struct {
+	StudentID   int32  `json:"student_id" example:"4"`
+	StudentName string `json:"student_name" example:"Демин Сергей А."`
+	GroupID     int32  `json:"group_id" example:"237"`
+	GroupName   string `json:"group_name" example:"ИКС-433"`
+	Status      string `json:"status" example:"present"`
+	MarkedAt    string `json:"marked_at,omitempty" example:"2026-04-21T21:12:05+07:00"`
+	MarkedBy    string `json:"marked_by,omitempty" example:"self"`
+}
+
+type teacherAttendanceSessionRosterResult struct {
+	LessonID          int32                                   `json:"lesson_id" example:"5"`
+	LessonName        string                                  `json:"lesson_name" example:"Networks"`
+	SubjectID         int32                                   `json:"subject_id" example:"2"`
+	ServerTime        string                                  `json:"server_time" example:"2026-04-21T21:12:06+07:00"`
+	Timezone          string                                  `json:"timezone" example:"Asia/Novosibirsk"`
+	RosterSize        int                                     `json:"roster_size" example:"25"`
+	MarkedCount       int                                     `json:"marked_count" example:"18"`
+	AttendancePercent float64                                 `json:"attendance_percent" example:"72"`
+	Students          []teacherAttendanceSessionRosterStudent `json:"students"`
+}
+
+type teacherAttendanceSessionRosterResponse struct {
+	ID     string                               `json:"id" example:"http-teacher-attendance-session-roster"`
+	OK     bool                                 `json:"ok" example:"true"`
+	Result teacherAttendanceSessionRosterResult `json:"result"`
+	Error  string                               `json:"error" example:""`
+}
+
 type teacherAttendanceSessionTimerResult struct {
 	LessonID         int32  `json:"lesson_id" example:"5"`
 	ExpiresAt        string `json:"expires_at" example:"2026-04-21T21:25:37+07:00"`

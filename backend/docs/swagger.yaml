@@ -1006,6 +1006,75 @@ definitions:
         example: 25
         type: integer
     type: object
+  httpserver.teacherAttendanceSessionRosterResponse:
+    properties:
+      error:
+        example: ""
+        type: string
+      id:
+        example: http-teacher-attendance-session-roster
+        type: string
+      ok:
+        example: true
+        type: boolean
+      result:
+        $ref: '#/definitions/httpserver.teacherAttendanceSessionRosterResult'
+    type: object
+  httpserver.teacherAttendanceSessionRosterResult:
+    properties:
+      attendance_percent:
+        example: 72
+        type: number
+      lesson_id:
+        example: 5
+        type: integer
+      lesson_name:
+        example: Networks
+        type: string
+      marked_count:
+        example: 18
+        type: integer
+      roster_size:
+        example: 25
+        type: integer
+      server_time:
+        example: "2026-04-21T21:12:06+07:00"
+        type: string
+      students:
+        items:
+          $ref: '#/definitions/httpserver.teacherAttendanceSessionRosterStudent'
+        type: array
+      subject_id:
+        example: 2
+        type: integer
+      timezone:
+        example: Asia/Novosibirsk
+        type: string
+    type: object
+  httpserver.teacherAttendanceSessionRosterStudent:
+    properties:
+      group_id:
+        example: 237
+        type: integer
+      group_name:
+        example: ИКС-433
+        type: string
+      marked_at:
+        example: "2026-04-21T21:12:05+07:00"
+        type: string
+      marked_by:
+        example: self
+        type: string
+      status:
+        example: present
+        type: string
+      student_id:
+        example: 4
+        type: integer
+      student_name:
+        example: Демин Сергей А.
+        type: string
+    type: object
   httpserver.teacherAttendanceSessionTimerResponse:
     properties:
       error:
@@ -1169,6 +1238,29 @@ info:
   title: EJournal Backend API
   version: "1.0"
 paths:
+  /api/admin/catalogs:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/app.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/app.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/app.Response'
+      security:
+      - BearerAuth: []
+      summary: List entity catalogs for administrative pickers (groups, lecterns,
+        faculties, teachers, students)
+      tags:
+      - admin
   /api/admin/notifications:
     get:
       produces:
@@ -1933,6 +2025,20 @@ paths:
         in: query
         name: semester_id
         type: integer
+      - description: Department ID for head/dean/admin report; required when several
+          departments are visible
+        in: query
+        name: department_id
+        type: integer
+      - description: Subject ID; required for teacher report and optional for department
+          report
+        in: query
+        name: subject_id
+        type: integer
+      - description: Comma-separated group IDs
+        in: query
+        name: group_ids
+        type: string
       produces:
       - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
       responses:
@@ -2497,6 +2603,40 @@ paths:
       security:
       - BearerAuth: []
       summary: Get attendance marked count
+      tags:
+      - attendance
+  /api/teacher/attendance/session/roster:
+    get:
+      description: Returns every student in a teacher-owned attendance session with
+        the current status and mark time.
+      parameters:
+      - description: Attendance session ID
+        in: query
+        name: lesson_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httpserver.teacherAttendanceSessionRosterResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/app.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/app.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/app.Response'
+      security:
+      - BearerAuth: []
+      summary: Get the live attendance roster
       tags:
       - attendance
   /api/teacher/attendance/session/timer:

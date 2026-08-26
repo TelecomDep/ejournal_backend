@@ -189,6 +189,55 @@ func (r *AttendanceRepository) GetSessionProgress(ctx context.Context, sessionID
 	return out, nil
 }
 
+func (r *AttendanceRepository) GetSessionRoster(ctx context.Context, sessionID int32) ([]AttendanceSessionStudent, error) {
+	if sessionID <= 0 {
+		return nil, fmt.Errorf("session id is required")
+	}
+
+	rows, err := r.pool.Query(
+		ctx,
+		`SELECT ass.student_id,
+		        st.student_name,
+		        ass.group_id_snapshot,
+		        g.group_name,
+		        ass.status,
+		        ass.marked_at,
+		        COALESCE(ass.marked_by, '')
+		 FROM attendance_session_students ass
+		 INNER JOIN students st ON st.student_id = ass.student_id
+		 INNER JOIN groups g ON g.group_id = ass.group_id_snapshot
+		 WHERE ass.session_id = $1
+		 ORDER BY g.group_name, st.student_name, st.student_id`,
+		sessionID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("list attendance session roster: %w", err)
+	}
+	defer rows.Close()
+
+	result := make([]AttendanceSessionStudent, 0)
+	for rows.Next() {
+		var item AttendanceSessionStudent
+		if err := rows.Scan(
+			&item.StudentID,
+			&item.StudentName,
+			&item.GroupID,
+			&item.GroupName,
+			&item.Status,
+			&item.MarkedAt,
+			&item.MarkedBy,
+		); err != nil {
+			return nil, fmt.Errorf("scan attendance session roster row: %w", err)
+		}
+		result = append(result, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate attendance session roster rows: %w", err)
+	}
+
+	return result, nil
+}
+
 func (r *AttendanceRepository) Mark(ctx context.Context, sessionID, studentID int32, markedAt time.Time) (bool, error) {
 	if sessionID <= 0 {
 		return false, fmt.Errorf("session id is required")

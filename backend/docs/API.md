@@ -390,6 +390,46 @@ Authorization: Bearer <jwt_token>
 
 ---
 
+### GET `/api/teacher/attendance/session/roster` — живая таблица занятия
+
+Возвращает полный состав текущей сессии с актуальным статусом каждого студента. Интерфейс преподавателя опрашивает endpoint раз в 2 секунды, поэтому самостоятельные отметки появляются в таблице без перезагрузки страницы.
+
+**Auth:** Bearer (teacher).
+
+**Query:** `lesson_id` (int, обязателен).
+
+**Ответ 200 (`result`):**
+
+```json
+{
+  "lesson_id": 5,
+  "lesson_name": "Networks",
+  "subject_id": 2,
+  "server_time": "2026-04-21T21:12:06+07:00",
+  "timezone": "Asia/Novosibirsk",
+  "roster_size": 25,
+  "marked_count": 18,
+  "attendance_percent": 72,
+  "students": [
+    {
+      "student_id": 4,
+      "student_name": "Демин Сергей А.",
+      "group_id": 237,
+      "group_name": "ИКС-433",
+      "status": "present",
+      "marked_at": "2026-04-21T21:12:05+07:00",
+      "marked_by": "self"
+    }
+  ]
+}
+```
+
+`marked_by`: `self` для самостоятельной отметки студента, `teacher` для ручной правки преподавателя. У неотмеченного студента `status = absent`, а `marked_at` и `marked_by` могут отсутствовать.
+
+**Ошибки:** `400`, `401`, `403` (чужая сессия).
+
+---
+
 ### POST `/api/teacher/attendance/mark` — ручная правка посещения
 
 Преподаватель вручную ставит статус студенту в своей сессии (поверх само-отметки).
@@ -956,6 +996,7 @@ Upsert: если оценка по этой точке у студента уж�
 | GET | `/api/teacher/attendance/session/active` | teacher | Активная сессия |
 | GET | `/api/teacher/attendance/session/timer` | teacher | Таймер сессии |
 | GET | `/api/teacher/attendance/session/marked-count` | teacher | Счётчик отметившихся |
+| GET | `/api/teacher/attendance/session/roster` | teacher | Живая таблица отметок по студентам |
 | POST | `/api/teacher/attendance/mark` | teacher | Ручная правка статуса |
 | GET | `/api/teacher/subjects` | teacher | Предметы и группы преподавателя |
 | POST | `/api/teacher/attendance/group` | teacher | Посещаемость по группе |

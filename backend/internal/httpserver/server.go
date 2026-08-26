@@ -133,6 +133,7 @@ func (s *Server) Start() {
 	fiberApp.Post("/api/teacher/attendance-link", s.teacherAttendanceLinkHandler)
 	fiberApp.Post("/api/teacher/attendance/session", s.teacherAttendanceLinkHandler)
 	fiberApp.Get("/api/teacher/attendance/session/marked-count", s.teacherAttendanceMarkedCountHandler)
+	fiberApp.Get("/api/teacher/attendance/session/roster", s.teacherAttendanceSessionRosterHandler)
 	fiberApp.Get("/api/teacher/attendance/session/timer", s.teacherAttendanceSessionTimerHandler)
 	fiberApp.Get("/api/teacher/attendance/session/active", s.teacherActiveAttendanceSessionHandler)
 	fiberApp.Post("/api/teacher/attendance/session/finish", s.teacherFinishAttendanceSessionHandler)
@@ -1207,6 +1208,23 @@ func (s *Server) teacherGroupPerformanceHandler(c *fiber.Ctx) error {
 func (s *Server) teacherAttendanceMarkedCountHandler(c *fiber.Ctx) error {
 	body := app.AttendanceSessionData{LessonID: int32(c.QueryInt("lesson_id", 0))}
 	return s.teacherAttendanceReadHandler(c, "http-teacher-attendance-marked-count", "teacher_attendance_marked_count", body)
+}
+
+// teacherAttendanceSessionRosterHandler godoc
+// @Summary Get the live attendance roster
+// @Description Returns every student in a teacher-owned attendance session with the current status and mark time.
+// @Tags attendance
+// @Produce json
+// @Security BearerAuth
+// @Param lesson_id query int true "Attendance session ID"
+// @Success 200 {object} teacherAttendanceSessionRosterResponse
+// @Failure 400 {object} app.Response
+// @Failure 401 {object} app.Response
+// @Failure 403 {object} app.Response
+// @Router /api/teacher/attendance/session/roster [get]
+func (s *Server) teacherAttendanceSessionRosterHandler(c *fiber.Ctx) error {
+	body := app.AttendanceSessionData{LessonID: int32(c.QueryInt("lesson_id", 0))}
+	return s.teacherAttendanceReadHandler(c, "http-teacher-attendance-session-roster", "teacher_attendance_session_roster", body)
 }
 
 // teacherAttendanceSessionTimerHandler godoc

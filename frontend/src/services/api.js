@@ -174,6 +174,49 @@ const api = {
     }
   },
 
+  async getTeacherActiveAttendanceSession(token) {
+    try {
+      const response = await axios.get(`${BACKEND_URL}/api/teacher/attendance/session/active`, {
+        headers: authHeaders(token)
+      });
+      return unwrapApiResponse(response.data);
+    } catch (error) {
+      console.error('Ошибка загрузки активного занятия преподавателя:', error);
+      throw error;
+    }
+  },
+
+  async getAttendanceSessionRoster(token, lessonId) {
+    try {
+      const response = await axios.get(`${BACKEND_URL}/api/teacher/attendance/session/roster`, {
+        headers: authHeaders(token),
+        params: { lesson_id: Number(lessonId) }
+      });
+      return unwrapApiResponse(response.data);
+    } catch (error) {
+      console.error('Ошибка загрузки списка посещаемости:', error);
+      throw error;
+    }
+  },
+
+  async updateAttendanceStatus(token, lessonId, studentId, status) {
+    try {
+      const response = await axios.post(
+        `${BACKEND_URL}/api/teacher/attendance/mark`,
+        {
+          lesson_id: Number(lessonId),
+          student_id: Number(studentId),
+          status
+        },
+        { headers: authHeaders(token) }
+      );
+      return unwrapApiResponse(response.data);
+    } catch (error) {
+      console.error('Ошибка исправления посещаемости:', error);
+      throw error;
+    }
+  },
+
   // Teacher: Get assigned subjects and groups
   async getTeacherSubjects(token) {
     try {

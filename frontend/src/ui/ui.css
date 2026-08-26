@@ -4074,6 +4074,10 @@
   align-items: stretch;
 }
 
+.teacher-result-grid--session {
+  grid-template-columns: minmax(260px, 1.4fr) repeat(2, minmax(180px, 1fr));
+}
+
 .teacher-stat-grid {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
@@ -4150,6 +4154,287 @@
 
 .teacher-stat-card small {
   color: #6d7891;
+}
+
+.teacher-session-loading {
+  padding: 16px 18px;
+  border: 1px solid #e1e7f5;
+  border-radius: 13px;
+  background: #f8faff;
+  color: #526079;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.teacher-active-session-card {
+  min-height: 96px;
+  display: grid;
+  align-content: center;
+  gap: 7px;
+  padding: 18px;
+  border: 1px solid #c9d8fb;
+  border-radius: 14px;
+  background: #eef4ff;
+}
+
+.teacher-active-session-card strong {
+  color: #173b93;
+  font-size: 17px;
+}
+
+.teacher-active-session-card span {
+  color: #53698d;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.teacher-finish-row {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.teacher-finish-row span {
+  color: #6d7891;
+  font-size: 13px;
+}
+
+.teacher-danger {
+  min-height: 42px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 10px;
+  background: #c92f3b;
+  color: #ffffff;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background 0.16s ease, transform 0.16s ease;
+}
+
+.teacher-danger:hover {
+  background: #ac202d;
+}
+
+.teacher-danger:active {
+  transform: translateY(1px);
+}
+
+.teacher-danger:disabled {
+  opacity: 0.58;
+  cursor: not-allowed;
+}
+
+.attendance-live-panel {
+  min-width: 0;
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+  border: 1px solid #dbe4f7;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 16px 40px rgba(38, 60, 112, 0.06);
+}
+
+.attendance-live-head {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.attendance-live-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.attendance-live-title-row h2 {
+  margin: 0;
+  color: #101b37;
+  font-size: 21px;
+}
+
+.attendance-live-indicator {
+  width: 10px;
+  height: 10px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: #1f9d61;
+  box-shadow: 0 0 0 4px #e3f5eb;
+}
+
+.attendance-live-head p {
+  margin: 7px 0 0;
+  color: #6d7891;
+  font-size: 14px;
+}
+
+.attendance-live-head p strong {
+  color: #263756;
+}
+
+.attendance-live-filters {
+  display: grid;
+  grid-template-columns: minmax(210px, 1fr) minmax(150px, 0.7fr);
+  gap: 10px;
+}
+
+.attendance-live-filters label {
+  display: grid;
+  gap: 6px;
+  color: #6d7891;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.attendance-live-filters input,
+.attendance-live-filters select {
+  min-height: 42px;
+  width: 100%;
+  padding: 0 12px;
+  border: 1px solid #dbe4f7;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #101b37;
+  font: inherit;
+}
+
+.attendance-live-filters input::placeholder {
+  color: #7b869d;
+}
+
+.attendance-live-filters input:focus,
+.attendance-live-filters select:focus,
+.attendance-status-select:focus {
+  outline: none;
+  border-color: var(--sib-blue);
+  box-shadow: 0 0 0 3px rgba(44, 68, 184, 0.14);
+}
+
+.attendance-live-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: #fff1f1;
+  color: #9d202c;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.attendance-live-error button {
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid #e8aab0;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #8e1722;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.attendance-live-table {
+  min-width: 900px;
+}
+
+.attendance-live-table th:nth-child(1) {
+  width: 30%;
+}
+
+.attendance-live-table th:nth-child(2) {
+  width: 13%;
+}
+
+.attendance-live-table th:nth-child(3) {
+  width: 20%;
+}
+
+.attendance-live-name {
+  color: #182746;
+  font-weight: 780;
+}
+
+.attendance-status-select {
+  min-height: 38px;
+  min-width: 156px;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.attendance-status-select.is-present {
+  border-color: #b8e3cb;
+  background: #eaf8f0;
+  color: #17653f;
+}
+
+.attendance-status-select.is-late {
+  border-color: #ead19d;
+  background: #fff6df;
+  color: #8a5a08;
+}
+
+.attendance-status-select.is-excused {
+  border-color: #c5d7fb;
+  background: #eef4ff;
+  color: #24499d;
+}
+
+.attendance-status-select.is-absent {
+  border-color: #dbe1ec;
+  background: #f4f6fa;
+  color: #59667e;
+}
+
+.attendance-status-select:disabled {
+  opacity: 0.62;
+  cursor: wait;
+}
+
+.attendance-source {
+  color: #526079;
+  font-size: 13px;
+}
+
+.attendance-source.is-self {
+  color: #17653f;
+  font-weight: 750;
+}
+
+.attendance-source.is-teacher {
+  color: #24499d;
+  font-weight: 750;
+}
+
+.attendance-live-skeleton td span {
+  display: block;
+  height: 13px;
+  border-radius: 5px;
+  background: #e9edf5;
+}
+
+.attendance-live-empty {
+  height: 116px;
+  color: #6d7891 !important;
+  text-align: center !important;
+}
+
+.attendance-live-note {
+  margin: 0;
+  color: #6d7891;
+  font-size: 13px;
 }
 
 .teacher-table-wrap {
@@ -4328,6 +4613,54 @@
   white-space: nowrap;
 }
 
+[data-theme="dark"] .attendance-live-panel,
+[data-theme="dark"] .attendance-live-filters input,
+[data-theme="dark"] .attendance-live-filters select,
+[data-theme="dark"] .attendance-live-error button {
+  border-color: #30384a;
+  background: #181d28;
+  color: #e7eaf3;
+}
+
+[data-theme="dark"] .attendance-live-title-row h2,
+[data-theme="dark"] .attendance-live-head p strong,
+[data-theme="dark"] .attendance-live-name {
+  color: #e7eaf3;
+}
+
+[data-theme="dark"] .attendance-live-head p,
+[data-theme="dark"] .attendance-live-filters label,
+[data-theme="dark"] .attendance-live-note,
+[data-theme="dark"] .attendance-live-empty {
+  color: #aeb7ca !important;
+}
+
+[data-theme="dark"] .attendance-live-table-wrap,
+[data-theme="dark"] .attendance-live-table th,
+[data-theme="dark"] .attendance-live-table td {
+  border-color: #30384a;
+}
+
+[data-theme="dark"] .attendance-live-table,
+[data-theme="dark"] .attendance-live-table td {
+  background: #181d28;
+  color: #dce2ef;
+}
+
+[data-theme="dark"] .attendance-live-table th {
+  background: #202633;
+  color: #b8c1d4;
+}
+
+[data-theme="dark"] .attendance-live-error {
+  background: #3a1f25;
+  color: #ffb8bf;
+}
+
+[data-theme="dark"] .attendance-live-skeleton td span {
+  background: #2a3140;
+}
+
 @media (max-width: 1024px) {
   .ui-shell {
     display: block;
@@ -4495,6 +4828,15 @@
 
   .teacher-step:last-child {
     border-bottom: 0;
+  }
+
+  .attendance-live-head {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .attendance-live-filters {
+    grid-template-columns: minmax(0, 1fr) minmax(150px, 0.5fr);
   }
 
 }
@@ -4868,6 +5210,25 @@
 
   .teacher-primary,
   .teacher-secondary {
+    width: 100%;
+  }
+
+  .attendance-live-panel {
+    padding: 16px;
+  }
+
+  .attendance-live-filters {
+    grid-template-columns: 1fr;
+  }
+
+  .attendance-live-error,
+  .teacher-finish-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .attendance-live-error button,
+  .teacher-danger {
     width: 100%;
   }
 

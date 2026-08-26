@@ -229,6 +229,7 @@ Lifecycle семестра: `planned → open → closed → archived`. Одно
 |---|---|
 | `POST /api/teacher/attendance-link` (алиас `POST /api/teacher/attendance/session`) | создать сессию посещаемости + инвайт-ссылку/QR |
 | `GET /api/teacher/attendance/session/marked-count?lesson_id=` | сколько студентов уже отметились |
+| `GET /api/teacher/attendance/session/roster?lesson_id=` | актуальный состав занятия и статус каждого студента для живой таблицы |
 | `GET /api/teacher/attendance/session/timer?lesson_id=` | оставшееся время сессии |
 | `GET /api/teacher/attendance/session/active` | текущая активная сессия преподавателя |
 | `GET /api/teacher/subjects` | предметы и группы преподавателя (из расписания) |

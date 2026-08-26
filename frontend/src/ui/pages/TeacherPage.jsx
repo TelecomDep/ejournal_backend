@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import QRCode from '../../components/QRCode';
 import api from '../../services/api';
+import AttendanceLiveTable from '../components/AttendanceLiveTable';
 
 const gradeTypes = [
   { value: 'current', label: 'Текущая работа' },
@@ -106,18 +107,19 @@ const TeacherPage = ({ token, section = 'attendance' }) => {
   });
   const [sessionLoading, setSessionLoading] = useState(false);
   const [sessionResult, setSessionResult] = useState(null);
+  const [sessionRecoveryLoading, setSessionRecoveryLoading] = useState(false);
   const [finishingSession, setFinishingSession] = useState(false);
 
   const handleFinishSession = async () => {
-    if (!window.confirm("Завершить занятие досрочно? Сканирование будет разблокировано у всех студентов.")) return;
+    if (!window.confirm('Завершить занятие досрочно? Новые отметки студентов станут недоступны.')) return;
     setFinishingSession(true);
     clearFeedback();
     try {
       await api.finishAttendanceSession(token, sessionResult?.session_id || sessionResult?.lesson_id);
-      setMessage("Занятие успешно завершено досрочно. Сканирование для студентов разблокировано.");
+      setMessage('Занятие завершено. Новые отметки студентов недоступны.');
       setSessionResult(null);
     } catch (err) {
-      setError(api.getErrorMessage(err, "Не удалось завершить занятие"));
+      setError(api.getErrorMessage(err, 'Не удалось завершить занятие'));
     } finally {
       setFinishingSession(false);
     }
@@ -192,6 +194,28 @@ const TeacherPage = ({ token, section = 'attendance' }) => {
       active = false;
     };
   }, [token]);
+
+  useEffect(() => {
+    if (section !== 'attendance') return undefined;
+
+    let active = true;
+    setSessionRecoveryLoading(true);
+    api.getTeacherActiveAttendanceSession(token)
+      .then((response) => {
+        if (!active || !response?.active || !response?.session) return;
+        setSessionResult((current) => current || response.session);
+      })
+      .catch((err) => {
+        if (active) setError(api.getErrorMessage(err, 'Не удалось восстановить активное занятие'));
+      })
+      .finally(() => {
+        if (active) setSessionRecoveryLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [section, token]);
 
   const sessionSubject = useMemo(
     () => subjects.find((subject) => Number(subject.subject_id) === Number(sessionForm.subjectId)),
@@ -585,42 +609,50 @@ const TeacherPage = ({ token, section = 'attendance' }) => {
             </div>
           </form>
 
+          {sessionRecoveryLoading && !sessionResult && (
+            <div className="teacher-session-loading">Проверяем активное занятие...</div>
+          )}
+
           {sessionResult && (
-            <div className="teacher-result-grid teacher-result-grid--qr">
-              <div className="teacher-qr-card">
-                <QRCode value={activeJoinUrl} size={220} />
-                <strong>QR для студентов</strong>
-                <p>Покажите этот код на экране. Студент сканирует его телефоном и отмечается на паре.</p>
+            <>
+              <div className={`teacher-result-grid ${activeJoinUrl ? 'teacher-result-grid--qr' : 'teacher-result-grid--session'}`}>
+                {activeJoinUrl ? (
+                  <>
+                    <div className="teacher-qr-card">
+                      <QRCode value={activeJoinUrl} size={220} />
+                      <strong>QR для студентов</strong>
+                      <p>Покажите этот код на экране. Студент сканирует его телефоном и отмечается на паре.</p>
+                    </div>
+                    <div className="teacher-link-card">
+                      <span>Ссылка для студентов</span>
+                      <strong>{activeJoinUrl}</strong>
+                    </div>
+                  </>
+                ) : (
+                  <div className="teacher-active-session-card">
+                    <strong>Активное занятие восстановлено</strong>
+                    <span>Таблица продолжает обновляться после перезагрузки страницы.</span>
+                  </div>
+                )}
+                <StatCard label="Дата занятия" value={formatDateTime(sessionResult.created_at || new Date())} />
+                <StatCard label="Истекает" value={formatDateTime(sessionResult.expires_at)} />
+                <div className="teacher-finish-row">
+                  <button
+                    type="button"
+                    className="teacher-danger"
+                    onClick={handleFinishSession}
+                    disabled={finishingSession}
+                  >
+                    {finishingSession ? 'Завершаем...' : 'Завершить занятие'}
+                  </button>
+                  <span>
+                    Досрочное завершение пары сразу блокирует новые отметки студентов.
+                  </span>
+                </div>
               </div>
-              <div className="teacher-link-card">
-                <span>Ссылка для студентов</span>
-                <strong>{activeJoinUrl || "не получена"}</strong>
-              </div>
-              <StatCard label="Дата занятия" value={formatDateTime(sessionResult.created_at || new Date())} />
-              <StatCard label="Истекает" value={formatDateTime(sessionResult.expires_at)} />
-              <div style={{ gridColumn: "1 / -1", marginTop: "12px", display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap" }}>
-                <button
-                  type="button"
-                  onClick={handleFinishSession}
-                  disabled={finishingSession}
-                  style={{
-                    padding: "10px 20px",
-                    backgroundColor: "#dc2626",
-                    color: "#fff",
-                    border: "none",
-                    borderRadius: "8px",
-                    fontWeight: "600",
-                    fontSize: "0.95rem",
-                    cursor: "pointer"
-                  }}
-                >
-                  {finishingSession ? "Завершаем..." : "⏹ Завершить занятие досрочно"}
-                </button>
-                <span style={{ color: "#6b7280", fontSize: "0.88rem" }}>
-                  Досрочное завершение пары сразу разблокирует сканирование у всех студентов этой группы.
-                </span>
-              </div>
-            </div>
+
+              <AttendanceLiveTable token={token} session={sessionResult} />
+            </>
           )}
         </div>
       )}

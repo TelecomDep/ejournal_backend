@@ -60,3 +60,5 @@ tests/karate.jar
 tests/target/
 target/
 schema.dbml
+
+output/

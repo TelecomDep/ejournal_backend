@@ -4,6 +4,60 @@
  */
 
 export interface paths {
+    "/api/admin/catalogs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List entity catalogs for administrative pickers (groups, lecterns, faculties, teachers, students) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/notifications": {
         parameters: {
             query?: never;
@@ -1449,6 +1503,12 @@ export interface paths {
                 query?: {
                     /** @description Semester ID; defaults to the open semester */
                     semester_id?: number;
+                    /** @description Department ID for head/dean/admin report; required when several departments are visible */
+                    department_id?: number;
+                    /** @description Subject ID; required for teacher report and optional for department report */
+                    subject_id?: number;
+                    /** @description Comma-separated group IDs */
+                    group_ids?: string;
                 };
                 header?: never;
                 path?: never;
@@ -2551,6 +2611,75 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["httpserver.teacherAttendanceMarkedCountResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/teacher/attendance/session/roster": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get the live attendance roster
+         * @description Returns every student in a teacher-owned attendance session with the current status and mark time.
+         */
+        get: {
+            parameters: {
+                query: {
+                    /** @description Attendance session ID */
+                    lesson_id: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["httpserver.teacherAttendanceSessionRosterResponse"];
                     };
                 };
                 /** @description Bad Request */
@@ -5525,6 +5654,50 @@ export interface components {
             marked_count?: number;
             /** @example 25 */
             roster_size?: number;
+        };
+        "httpserver.teacherAttendanceSessionRosterResponse": {
+            /** @example  */
+            error?: string;
+            /** @example http-teacher-attendance-session-roster */
+            id?: string;
+            /** @example true */
+            ok?: boolean;
+            result?: components["schemas"]["httpserver.teacherAttendanceSessionRosterResult"];
+        };
+        "httpserver.teacherAttendanceSessionRosterResult": {
+            /** @example 72 */
+            attendance_percent?: number;
+            /** @example 5 */
+            lesson_id?: number;
+            /** @example Networks */
+            lesson_name?: string;
+            /** @example 18 */
+            marked_count?: number;
+            /** @example 25 */
+            roster_size?: number;
+            /** @example 2026-04-21T21:12:06+07:00 */
+            server_time?: string;
+            students?: components["schemas"]["httpserver.teacherAttendanceSessionRosterStudent"][];
+            /** @example 2 */
+            subject_id?: number;
+            /** @example Asia/Novosibirsk */
+            timezone?: string;
+        };
+        "httpserver.teacherAttendanceSessionRosterStudent": {
+            /** @example 237 */
+            group_id?: number;
+            /** @example ИКС-433 */
+            group_name?: string;
+            /** @example 2026-04-21T21:12:05+07:00 */
+            marked_at?: string;
+            /** @example self */
+            marked_by?: string;
+            /** @example present */
+            status?: string;
+            /** @example 4 */
+            student_id?: number;
+            /** @example Демин Сергей А. */
+            student_name?: string;
         };
         "httpserver.teacherAttendanceSessionTimerResponse": {
             /** @example  */
