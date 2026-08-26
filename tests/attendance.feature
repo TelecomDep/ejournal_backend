@@ -113,10 +113,12 @@ Scenario: Teacher can view and correct the live attendance roster
   And match response.result.students != []
   And match each response.result.students contains { student_id: '#number', student_name: '#string', group_id: '#number', group_name: '#string', status: '#string' }
   * def studentId = response.result.students[0].student_id
+  * def lessonIdInt = parseInt(lessonId)
+  * def studentIdInt = parseInt(studentId)
 
   Given path 'api/teacher/attendance/mark'
   And header Authorization = 'Bearer ' + teacherToken
-  And request { lesson_id: '#(lessonId)', student_id: '#(studentId)', status: 'late' }
+  And request { lesson_id: '#(lessonIdInt)', student_id: '#(studentIdInt)', status: 'late' }
   When method post
   Then status 200
   And match response.ok == true
@@ -127,7 +129,7 @@ Scenario: Teacher can view and correct the live attendance roster
   And header Authorization = 'Bearer ' + teacherToken
   When method get
   Then status 200
-  And match response.result.students contains deep { student_id: '#(studentId)', status: 'late', marked_by: 'teacher' }
+  And match response.result.students contains deep { student_id: '#(studentIdInt)', status: 'late', marked_by: 'teacher' }
 
 Scenario: Student can view attendance percentages for the current semester
   Given path 'login'

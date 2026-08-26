@@ -1,5 +1,31 @@
 -- +goose Up
 -- +goose StatementBegin
+-- Synchronize all sequences before seeding data so that auto-increment / serial / identity
+-- primary keys do not conflict with existing records.
+DO $$
+DECLARE
+    r RECORD;
+    v_max BIGINT;
+    v_seq TEXT;
+BEGIN
+    FOR r IN (
+        SELECT table_name, column_name
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND (column_default LIKE 'nextval(%' OR is_identity = 'YES')
+    ) LOOP
+        v_seq := pg_get_serial_sequence(quote_ident(r.table_name), quote_ident(r.column_name));
+        IF v_seq IS NOT NULL THEN
+            EXECUTE format('SELECT COALESCE(MAX(%I), 0) FROM %I', r.column_name, r.table_name) INTO v_max;
+            IF v_max > 0 THEN
+                EXECUTE format('SELECT setval(%L, %s, true)', v_seq, v_max);
+            END IF;
+        END IF;
+    END LOOP;
+END $$;
+-- +goose StatementEnd
+
+-- +goose StatementBegin
 -- Presentation semester: close the oversized legacy spring semester and open
 -- an actual autumn 2026/2027 semester that contains the presentation date.
 DO $$
@@ -314,7 +340,11 @@ DECLARE
     v_control_type_id INTEGER;
     v_subject_index TEXT;
 BEGIN
-    SELECT lectern_id INTO v_lectern_id FROM lecterns WHERE code = 'KAF-IT' LIMIT 1;
+    SELECT lectern_id INTO v_lectern_id
+    FROM lecterns
+    WHERE code IN ('DEMO-IT', 'KAF-IT')
+    ORDER BY CASE WHEN code = 'DEMO-IT' THEN 0 ELSE 1 END
+    LIMIT 1;
     SELECT semester_id INTO v_semester_id
     FROM semesters
     WHERE academic_year = '2026/2027' AND term_num = 1;
@@ -1077,4 +1107,26 @@ SET ends_at = TIMESTAMPTZ '2027-06-30 23:59:59+07',
     closed_by_user_id = NULL
 WHERE academic_year = '2025/2026'
   AND term_num = 2;
+
+DO $$
+DECLARE
+    r RECORD;
+    v_max BIGINT;
+    v_seq TEXT;
+BEGIN
+    FOR r IN (
+        SELECT table_name, column_name
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND (column_default LIKE 'nextval(%' OR is_identity = 'YES')
+    ) LOOP
+        v_seq := pg_get_serial_sequence(quote_ident(r.table_name), quote_ident(r.column_name));
+        IF v_seq IS NOT NULL THEN
+            EXECUTE format('SELECT COALESCE(MAX(%I), 0) FROM %I', r.column_name, r.table_name) INTO v_max;
+            IF v_max > 0 THEN
+                EXECUTE format('SELECT setval(%L, %s, true)', v_seq, v_max);
+            END IF;
+        END IF;
+    END LOOP;
+END $$;
 -- +goose StatementEnd
