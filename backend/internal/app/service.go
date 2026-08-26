@@ -2962,6 +2962,14 @@ func (s *Service) handleRequest(raw string) Response {
 		resp := s.staffStudentsPage(req.Token, data)
 		resp.ID = req.ID
 		return resp
+	case "staff_analytics":
+		var data StaffAnalyticsData
+		if err := json.Unmarshal(req.Data, &data); err != nil {
+			return Response{ID: req.ID, OK: false, Error: "invalid staff_analytics payload"}
+		}
+		resp := s.staffAnalytics(req.Token, data)
+		resp.ID = req.ID
+		return resp
 
 	case "delete_email":
 		resp := s.deleteEmail(req.Token)

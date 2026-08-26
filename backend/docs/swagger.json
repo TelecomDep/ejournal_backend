@@ -971,6 +971,81 @@
                 }
             }
         },
+        "/api/staff/analytics": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns role-scoped analytics for faculty, stream, group or student, including rating, attendance, risk, distribution, heatmap and weekly dynamics.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "staff"
+                ],
+                "summary": "Staff analytics",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Semester ID",
+                        "name": "semester_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Scope: faculty, stream, group or student",
+                        "name": "scope_type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Scope ID",
+                        "name": "scope_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Subject ID",
+                        "name": "subject_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/api/staff/overview": {
             "get": {
                 "security": [

@@ -1854,6 +1854,55 @@ paths:
       summary: Get current semester
       tags:
       - semesters
+  /api/staff/analytics:
+    get:
+      description: Returns role-scoped analytics for faculty, stream, group or student,
+        including rating, attendance, risk, distribution, heatmap and weekly dynamics.
+      parameters:
+      - description: Semester ID
+        in: query
+        name: semester_id
+        type: integer
+      - description: 'Scope: faculty, stream, group or student'
+        in: query
+        name: scope_type
+        type: string
+      - description: Scope ID
+        in: query
+        name: scope_id
+        type: string
+      - description: Subject ID
+        in: query
+        name: subject_id
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/app.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/app.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/app.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/app.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/app.Response'
+      security:
+      - BearerAuth: []
+      summary: Staff analytics
+      tags:
+      - staff
   /api/staff/overview:
     get:
       description: 'Returns groups, teachers and students scoped to the caller''s

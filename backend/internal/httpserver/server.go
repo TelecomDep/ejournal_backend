@@ -156,6 +156,7 @@ func (s *Server) Start() {
 	fiberApp.Get("/api/teacher/schedule/day", s.teacherScheduleDayHandler)
 	fiberApp.Get("/api/staff/overview", s.staffOverviewHandler)
 	fiberApp.Get("/api/staff/overview/students", s.staffStudentsPageHandler)
+	fiberApp.Get("/api/staff/analytics", s.staffAnalyticsHandler)
 	fiberApp.Get("/api/staff/ratings/general", s.generalRatingHandler)
 	fiberApp.Get("/api/staff/reports/performance.xlsx", s.staffPerformanceReportHandler)
 	fiberApp.Get("/api/staff/reports/performance.pdf", s.staffPerformanceReportPDFHandler)
@@ -808,6 +809,84 @@ func (s *Server) staffOverviewHandler(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(resp)
+}
+
+// staffAnalyticsHandler godoc
+// @Summary Staff analytics
+// @Description Returns role-scoped analytics for faculty, stream, group or student, including rating, attendance, risk, distribution, heatmap and weekly dynamics.
+// @Tags staff
+// @Produce json
+// @Security BearerAuth
+// @Param semester_id query int false "Semester ID"
+// @Param scope_type query string false "Scope: faculty, stream, group or student"
+// @Param scope_id query string false "Scope ID"
+// @Param subject_id query int false "Subject ID"
+// @Success 200 {object} app.Response
+// @Failure 400 {object} app.Response
+// @Failure 401 {object} app.Response
+// @Failure 403 {object} app.Response
+// @Failure 404 {object} app.Response
+// @Router /api/staff/analytics [get]
+func (s *Server) staffAnalyticsHandler(c *fiber.Ctx) error {
+	token := c.Get("Authorization")
+	if token == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(app.Response{OK: false, Error: "missing Authorization header"})
+	}
+
+	semesterID, err := optionalSemesterIDFromQuery(c)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(app.Response{OK: false, Error: err.Error()})
+	}
+
+	data := app.StaffAnalyticsData{
+		SemesterID: semesterID,
+		ScopeType:  c.Query("scope_type", "faculty"),
+		ScopeID:    strings.TrimSpace(c.Query("scope_id")),
+	}
+	if rawSubjectID := strings.TrimSpace(c.Query("subject_id")); rawSubjectID != "" {
+		subjectID, parseErr := strconv.ParseInt(rawSubjectID, 10, 32)
+		if parseErr != nil || subjectID <= 0 {
+			return c.Status(fiber.StatusBadRequest).JSON(app.Response{OK: false, Error: "invalid subject_id"})
+		}
+		parsed := int32(subjectID)
+		data.SubjectID = &parsed
+	}
+
+	payload, err := json.Marshal(data)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(app.Response{OK: false, Error: "Error marshalling query"})
+	}
+	raw, err := json.Marshal(app.Request{ID: "http-staff-analytics", Action: "staff_analytics", Token: token, Data: payload})
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(app.Response{OK: false, Error: "Error marshalling envelope"})
+	}
+
+	resp, err := s.svc.DispatchRequest(string(raw), s.requestTimeout)
+	if err != nil {
+		return c.Status(fiber.StatusServiceUnavailable).JSON(app.Response{OK: false, Error: err.Error()})
+	}
+	if !resp.OK {
+		return c.Status(staffAnalyticsHTTPStatus(resp)).JSON(resp)
+	}
+	return c.JSON(resp)
+}
+
+func staffAnalyticsHTTPStatus(resp app.Response) int {
+	if resp.OK {
+		return fiber.StatusOK
+	}
+	switch resp.Error {
+	case "missing token", "invalid token", "session not found", "session revoked", "account is not active":
+		return fiber.StatusUnauthorized
+	case "forbidden", "forbidden: staff role required", "forbidden: head role or higher required":
+		return fiber.StatusForbidden
+	case "semester not found", "open semester not found", "analytics stream not found", "analytics group not found", "analytics student not found", "analytics subject not found":
+		return fiber.StatusNotFound
+	case "failed to resolve scope", "failed to load analytics groups", "failed to scan analytics groups", "failed to iterate analytics groups", "failed to load analytics students", "failed to scan analytics students", "failed to iterate analytics students", "failed to load analytics subjects", "failed to scan analytics subjects", "failed to iterate analytics subjects", "failed to load analytics grades", "failed to scan analytics grades", "failed to iterate analytics grades", "failed to load analytics attendance", "failed to scan analytics attendance", "failed to iterate analytics attendance":
+		return fiber.StatusInternalServerError
+	default:
+		return fiber.StatusBadRequest
+	}
 }
 
 // staffStudentsPageHandler godoc

@@ -451,6 +451,7 @@ Backend (`backend/`):
 - `internal/app/grades.go` — контрольные точки и оценки
 - `internal/app/semester.go` — lifecycle семестров и правила исторического чтения/записи
 - `internal/app/supervision.go` — ролевой обзор оргструктуры (staff overview)
+- `internal/app/staff_analytics.go` — рейтинговая, attendance- и недельная аналитика для руководящих ролей
 - `internal/app/schedule.go` — расписание студента на день
 - `internal/app/report.go` — Excel-отчёт успеваемости (excelize)
 - `internal/app/mailer.go` — отправка писем (SMTP, восстановление пароля)
