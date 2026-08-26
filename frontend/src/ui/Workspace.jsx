@@ -14,6 +14,7 @@ import AdminUsersPage from './pages/AdminUsersPage';
 import AdminNotificationsPage from './pages/AdminNotificationsPage';
 import ReportsPage from './pages/ReportsPage';
 import AdminSemestersPage from './pages/AdminSemestersPage';
+import AntifraudPage from './pages/AntifraudPage';
 import './ui.css';
 
 const getDisplayName = (user) => (
@@ -112,6 +113,12 @@ const iconPaths = {
       <path d="M10 19h4" />
     </>
   ),
+  antifraud: (
+    <>
+      <path d="M12 3 5 6v5c0 4.6 2.7 8.1 7 10 4.3-1.9 7-5.4 7-10V6l-7-3Z" />
+      <path d="M12 8v5M12 16.5v.01" />
+    </>
+  ),
   profile: (
     <>
       <circle cx="12" cy="8" r="3.4" />
@@ -166,6 +173,9 @@ const renderPage = (
   }
   if (activeItem.key === 'notifications' && user?.role === 'admin') {
     return <AdminNotificationsPage token={token} onNotificationCreated={onNotificationCreated} />;
+  }
+  if (activeItem.key === 'antifraud' && ['admin', 'teacher'].includes(user?.role)) {
+    return <AntifraudPage token={token} user={user} />;
   }
   if (activeItem.key === 'profile') {
     const initialTab = route === '/profile/notifications'

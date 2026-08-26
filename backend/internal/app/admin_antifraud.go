@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -20,8 +21,14 @@ type FraudLogItem struct {
 }
 
 type FraudLogsQuery struct {
-	Page     int32 `json:"page"`
-	PageSize int32 `json:"page_size"`
+	Page      int32  `json:"page"`
+	PageSize  int32  `json:"page_size"`
+	Search    string `json:"search,omitempty"`
+	GroupID   int32  `json:"group_id,omitempty"`
+	TeacherID int32  `json:"teacher_id,omitempty"`
+	Reason    string `json:"reason,omitempty"`
+	DateFrom  string `json:"date_from,omitempty"`
+	DateTo    string `json:"date_to,omitempty"`
 }
 
 type TopCheaterItem struct {
@@ -32,13 +39,65 @@ type TopCheaterItem struct {
 	LastAttemptAt      *time.Time `json:"last_attempt_at,omitempty"`
 }
 
+func fraudFilterWhere(scope VisibilityScope, query FraudLogsQuery) (string, []any) {
+	conditions := []string{"ass.is_fraud = TRUE"}
+	args := make([]any, 0)
+	add := func(template string, value any) {
+		args = append(args, value)
+		conditions = append(conditions, fmt.Sprintf(template, len(args)))
+	}
+
+	if !scope.All {
+		if scope.Role == RoleTeacher {
+			add("g.group_id = ANY($%d)", nonNil(scope.GroupIDs))
+		} else {
+			add("g.lectern_id = ANY($%d)", nonNil(scope.LecternIDs))
+		}
+	}
+
+	if search := strings.TrimSpace(query.Search); search != "" {
+		args = append(args, "%"+search+"%")
+		placeholder := fmt.Sprintf("$%d", len(args))
+		conditions = append(conditions, `(st.student_name ILIKE `+placeholder+` OR
+			COALESCE(g.group_name, '') ILIKE `+placeholder+` OR
+			COALESCE(sub.name, '') ILIKE `+placeholder+` OR
+			COALESCE(t.name, u_t.login, '') ILIKE `+placeholder+` OR
+			COALESCE(ass.device_id, '') ILIKE `+placeholder+`)`)
+	}
+	if query.GroupID > 0 {
+		add("g.group_id = $%d", query.GroupID)
+	}
+	if query.TeacherID > 0 {
+		add("s.teacher_id = $%d", query.TeacherID)
+	}
+
+	switch strings.TrimSpace(query.Reason) {
+	case "distance":
+		conditions = append(conditions, "ass.fraud_reason = 'student is too far from lesson location'")
+	case "device":
+		conditions = append(conditions, "ass.fraud_reason = 'device_id already used in this lesson'")
+	case "":
+	default:
+		add("COALESCE(ass.fraud_reason, '') ILIKE $%d", "%"+strings.TrimSpace(query.Reason)+"%")
+	}
+
+	if parsed, err := time.Parse("2006-01-02", strings.TrimSpace(query.DateFrom)); err == nil {
+		add("ass.marked_at >= $%d", parsed)
+	}
+	if parsed, err := time.Parse("2006-01-02", strings.TrimSpace(query.DateTo)); err == nil {
+		add("ass.marked_at < $%d", parsed.AddDate(0, 0, 1))
+	}
+
+	return strings.Join(conditions, " AND "), args
+}
+
 func (s *Service) admin_antifraud_logs(token string, query FraudLogsQuery) Response {
 	actor, err := s.userBySessionToken(token)
 	if err != nil {
 		return Response{OK: false, Error: "unauthorized"}
 	}
-	if actor.Role != RoleAdmin && actor.Role != RoleMinister && actor.Role != RoleDean && actor.Role != RoleDirector {
-		return Response{OK: false, Error: "forbidden: admin or supervisory role required"}
+	if actor.Role != RoleAdmin && actor.Role != RoleMinister && actor.Role != RoleDean && actor.Role != RoleDirector && actor.Role != RoleTeacher {
+		return Response{OK: false, Error: "forbidden: staff role required"}
 	}
 
 	if query.Page <= 0 {
@@ -55,12 +114,7 @@ func (s *Service) admin_antifraud_logs(token string, query FraudLogsQuery) Respo
 	if err != nil {
 		return Response{OK: false, Error: "failed to resolve scope"}
 	}
-	scopePredicate := "TRUE"
-	scopeArgs := make([]any, 0)
-	if !scope.All {
-		scopePredicate = "g.lectern_id = ANY($1)"
-		scopeArgs = append(scopeArgs, nonNil(scope.LecternIDs))
-	}
+	filterWhere, filterArgs := fraudFilterWhere(scope, query)
 
 	var total int32
 	err = s.store.Pool().QueryRow(
@@ -69,14 +123,18 @@ func (s *Service) admin_antifraud_logs(token string, query FraudLogsQuery) Respo
 		 FROM attendance_session_students ass
 		 JOIN students st ON st.student_id = ass.student_id
 		 LEFT JOIN groups g ON g.group_id = st.group_id
-		 WHERE ass.is_fraud = TRUE AND `+scopePredicate, scopeArgs...,
+		 LEFT JOIN attendance_sessions s ON s.session_id = ass.session_id
+		 LEFT JOIN subjects sub ON sub.subject_id = s.subject_id
+		 LEFT JOIN teachers t ON t.teacher_id = s.teacher_id
+		 LEFT JOIN users u_t ON u_t.id = t.user_id
+		 WHERE `+filterWhere, filterArgs...,
 	).Scan(&total)
 	if err != nil {
 		return Response{OK: false, Error: "failed to count fraud logs"}
 	}
 
-	listArgs := append(append([]any{}, scopeArgs...), query.PageSize, offset)
-	limitArg := len(scopeArgs) + 1
+	listArgs := append(append([]any{}, filterArgs...), query.PageSize, offset)
+	limitArg := len(filterArgs) + 1
 	offsetArg := limitArg + 1
 	rows, err := s.store.Pool().Query(
 		ctx,
@@ -98,9 +156,9 @@ func (s *Service) admin_antifraud_logs(token string, query FraudLogsQuery) Respo
 		 LEFT JOIN subjects sub ON sub.subject_id = s.subject_id
 		 LEFT JOIN teachers t ON t.teacher_id = s.teacher_id
 		 LEFT JOIN users u_t ON u_t.id = t.user_id
-		 WHERE ass.is_fraud = TRUE AND %s
+		 WHERE %s
 		 ORDER BY ass.marked_at DESC, ass.session_id DESC
-		 LIMIT $%d OFFSET $%d`, scopePredicate, limitArg, offsetArg),
+		 LIMIT $%d OFFSET $%d`, filterWhere, limitArg, offsetArg),
 		listArgs...,
 	)
 	if err != nil {
@@ -143,13 +201,13 @@ func (s *Service) admin_antifraud_logs(token string, query FraudLogsQuery) Respo
 	}
 }
 
-func (s *Service) admin_antifraud_top_cheaters(token string) Response {
+func (s *Service) admin_antifraud_top_cheaters(token string, query FraudLogsQuery) Response {
 	actor, err := s.userBySessionToken(token)
 	if err != nil {
 		return Response{OK: false, Error: "unauthorized"}
 	}
-	if actor.Role != RoleAdmin && actor.Role != RoleMinister && actor.Role != RoleDean && actor.Role != RoleDirector {
-		return Response{OK: false, Error: "forbidden: admin or supervisory role required"}
+	if actor.Role != RoleAdmin && actor.Role != RoleMinister && actor.Role != RoleDean && actor.Role != RoleDirector && actor.Role != RoleTeacher {
+		return Response{OK: false, Error: "forbidden: staff role required"}
 	}
 
 	ctx, cancel := s.dbContext()
@@ -158,26 +216,25 @@ func (s *Service) admin_antifraud_top_cheaters(token string) Response {
 	if err != nil {
 		return Response{OK: false, Error: "failed to resolve scope"}
 	}
-	scopePredicate := "TRUE"
-	args := make([]any, 0)
-	if !scope.All {
-		scopePredicate = "g.lectern_id = ANY($1)"
-		args = append(args, nonNil(scope.LecternIDs))
-	}
+	filterWhere, args := fraudFilterWhere(scope, query)
 
 	rows, err := s.store.Pool().Query(
 		ctx,
 		`SELECT st.student_id,
 		        st.student_name,
 		        COALESCE(g.group_name, ''),
-		        st.total_cheat_attempts,
+		        COUNT(*)::INTEGER AS total_cheat_attempts,
 		        MAX(ass.marked_at) AS last_attempt_at
-		 FROM students st
+		 FROM attendance_session_students ass
+		 JOIN students st ON st.student_id = ass.student_id
 		 LEFT JOIN groups g ON g.group_id = st.group_id
-		 LEFT JOIN attendance_session_students ass ON ass.student_id = st.student_id AND ass.is_fraud = TRUE
-		 WHERE st.total_cheat_attempts > 0 AND `+scopePredicate+`
-		 GROUP BY st.student_id, st.student_name, g.group_name, st.total_cheat_attempts
-		 ORDER BY st.total_cheat_attempts DESC, st.student_name ASC
+		 JOIN attendance_sessions s ON s.session_id = ass.session_id
+		 LEFT JOIN subjects sub ON sub.subject_id = s.subject_id
+		 LEFT JOIN teachers t ON t.teacher_id = s.teacher_id
+		 LEFT JOIN users u_t ON u_t.id = t.user_id
+		 WHERE `+filterWhere+`
+		 GROUP BY st.student_id, st.student_name, g.group_name
+		 ORDER BY total_cheat_attempts DESC, st.student_name ASC
 		 LIMIT 50`, args...,
 	)
 	if err != nil {

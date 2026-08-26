@@ -768,6 +768,38 @@ const api = {
     }
   },
 
+  async getAntifraudLogs(token, filters = {}) {
+    try {
+      const params = Object.fromEntries(
+        Object.entries(filters).filter(([, value]) => value !== '' && value !== undefined && value !== null)
+      );
+      const response = await axios.get(`${BACKEND_URL}/api/staff/antifraud/logs`, {
+        headers: authHeaders(token),
+        params
+      });
+      return unwrapApiResponse(response.data);
+    } catch (error) {
+      console.error('Ошибка загрузки журнала антифрода:', error);
+      throw error;
+    }
+  },
+
+  async getAntifraudTopCheaters(token, filters = {}) {
+    try {
+      const params = Object.fromEntries(
+        Object.entries(filters).filter(([, value]) => value !== '' && value !== undefined && value !== null)
+      );
+      const response = await axios.get(`${BACKEND_URL}/api/staff/antifraud/top-cheaters`, {
+        headers: authHeaders(token),
+        params
+      });
+      return unwrapApiResponse(response.data);
+    } catch (error) {
+      console.error('Ошибка загрузки рейтинга нарушителей:', error);
+      throw error;
+    }
+  },
+
   async getNotifications(token, filters = {}) {
     try {
       const params = Object.fromEntries(

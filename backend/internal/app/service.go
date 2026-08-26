@@ -2057,7 +2057,7 @@ func (s *Service) attendanceHistoryForStudent(sessionToken string, data Attendan
 			 ORDER BY day DESC`,
 			studentProfile.ID,
 			start,
-		end,
+			end,
 		)
 		if jErr == nil {
 			defer journalRows.Close()
@@ -2508,7 +2508,9 @@ func (s *Service) handleRequest(raw string) Response {
 		resp.ID = req.ID
 		return resp
 	case "admin_antifraud_top_cheaters":
-		resp := s.admin_antifraud_top_cheaters(req.Token)
+		var query FraudLogsQuery
+		_ = json.Unmarshal(req.Data, &query)
+		resp := s.admin_antifraud_top_cheaters(req.Token, query)
 		resp.ID = req.ID
 		return resp
 	case "admin_services_list":

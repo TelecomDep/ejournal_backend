@@ -21,6 +21,7 @@ const TEACHER_NAV = [
   { key: 'attendance', label: 'Посещаемость', title: 'Посещаемость группы', route: '/teacher/attendance', icon: '✓' },
   { key: 'stats', label: 'Аналитика', title: 'Статистика группы', route: '/teacher/stats', icon: '▥' },
   { key: 'grades', label: 'Оценки', title: 'Ведомость оценок', route: '/teacher/grades', icon: '◇' },
+  { key: 'antifraud', label: 'Антифрод', title: 'Контроль нарушений', route: '/staff/antifraud', icon: '!' },
   { key: 'reports', label: 'Отчёты', title: 'Формирование отчётов', route: '/staff/reports', icon: '□' },
   { key: 'profile', label: 'Профиль', title: 'Профиль преподавателя', route: '/profile', icon: '○' }
 ];
@@ -30,6 +31,7 @@ const ADMIN_NAV = [
   { key: 'semesters', label: 'Семестры', title: 'Управление семестрами', route: '/admin/semesters', icon: '□' },
   { key: 'users', label: 'Пользователи', title: 'Управление пользователями', route: '/admin/users', icon: '○' },
   { key: 'notifications', label: 'Уведомления', title: 'Управление уведомлениями', route: '/admin/notifications', icon: '○' },
+  { key: 'antifraud', label: 'Антифрод', title: 'Контроль нарушений', route: '/staff/antifraud', icon: '!' },
   { key: 'reports', label: 'Отчёты', title: 'Формирование отчётов', route: '/staff/reports', icon: '□' },
   { key: 'profile', label: 'Профиль', title: 'Профиль администратора', route: '/profile', icon: '○' }
 ];

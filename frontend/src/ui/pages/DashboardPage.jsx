@@ -159,7 +159,7 @@ const getQuickCards = (role) => {
       { icon: 'attendance', title: 'Открыть QR', text: 'Создать отметку посещаемости', to: '/teacher/attendance' },
       { icon: 'grades', title: 'Оценки', text: 'Работы и баллы студентов', to: '/teacher/grades' },
       { icon: 'analytics', title: 'Статистика группы', text: 'Посещаемость и успеваемость', to: '/teacher/stats' },
-      { icon: 'profile', title: 'Профиль', text: 'Данные аккаунта', to: '/profile' }
+      { icon: 'attendance', title: 'Антифрод', text: 'Нарушения при отметке', to: '/staff/antifraud' }
     ];
   }
 
@@ -168,7 +168,7 @@ const getQuickCards = (role) => {
       { icon: 'staff', title: 'Пользователи', text: 'Учетные записи и доступ', to: '/admin/users' },
       { icon: 'attendance', title: 'Уведомления', text: 'Сообщения пользователям', to: '/admin/notifications' },
       { icon: 'grades', title: 'Отчёты', text: 'Excel и PDF по семестрам', to: '/staff/reports' },
-      { icon: 'profile', title: 'Профиль', text: 'Данные аккаунта', to: '/profile' }
+      { icon: 'analytics', title: 'Антифрод', text: 'Журнал и рейтинг нарушений', to: '/staff/antifraud' }
     ];
   }
 

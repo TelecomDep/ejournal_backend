@@ -125,6 +125,8 @@ func (s *Server) Start() {
 	fiberApp.Patch("/api/admin/roles/:role", s.adminRoleUpdateHandler)
 	fiberApp.Get("/api/admin/antifraud/logs", s.adminAntifraudLogsHandler)
 	fiberApp.Get("/api/admin/antifraud/top-cheaters", s.adminAntifraudTopCheatersHandler)
+	fiberApp.Get("/api/staff/antifraud/logs", s.adminAntifraudLogsHandler)
+	fiberApp.Get("/api/staff/antifraud/top-cheaters", s.adminAntifraudTopCheatersHandler)
 	fiberApp.Get("/api/admin/services", s.adminServicesListHandler)
 	fiberApp.Get("/api/admin/audit-logs", s.adminAuditLogsHandler)
 	fiberApp.Get("/api/admin/system/maintenance", s.adminSystemMaintenanceGetHandler)
@@ -2169,14 +2171,28 @@ func (s *Server) adminAntifraudLogsHandler(c *fiber.Ctx) error {
 	page, _ := strconv.Atoi(c.Query("page", "1"))
 	pageSize, _ := strconv.Atoi(c.Query("page_size", "20"))
 	query := app.FraudLogsQuery{
-		Page:     int32(page),
-		PageSize: int32(pageSize),
+		Page:      int32(page),
+		PageSize:  int32(pageSize),
+		Search:    c.Query("search"),
+		GroupID:   int32(c.QueryInt("group_id", 0)),
+		TeacherID: int32(c.QueryInt("teacher_id", 0)),
+		Reason:    c.Query("reason"),
+		DateFrom:  c.Query("date_from"),
+		DateTo:    c.Query("date_to"),
 	}
 	return s.androidJSONActionHandler(c, "http-admin-antifraud-logs", "admin_antifraud_logs", &query)
 }
 
 func (s *Server) adminAntifraudTopCheatersHandler(c *fiber.Ctx) error {
-	return s.androidJSONActionHandler(c, "http-admin-antifraud-top-cheaters", "admin_antifraud_top_cheaters", nil)
+	query := app.FraudLogsQuery{
+		Search:    c.Query("search"),
+		GroupID:   int32(c.QueryInt("group_id", 0)),
+		TeacherID: int32(c.QueryInt("teacher_id", 0)),
+		Reason:    c.Query("reason"),
+		DateFrom:  c.Query("date_from"),
+		DateTo:    c.Query("date_to"),
+	}
+	return s.androidJSONActionHandler(c, "http-admin-antifraud-top-cheaters", "admin_antifraud_top_cheaters", &query)
 }
 
 func (s *Server) adminServicesListHandler(c *fiber.Ctx) error {
