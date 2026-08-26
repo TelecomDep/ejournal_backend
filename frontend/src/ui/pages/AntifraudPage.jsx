@@ -318,7 +318,7 @@ const AntifraudPage = ({ token, user, client = api }) => {
                 {loading && <LoadingRows columns={5} />}
                 {!loading && logs.length === 0 && (
                   <tr className="antifraud-empty">
-                    <td colSpan="5">
+                    <td colSpan={5}>
                       <AntifraudIcon name="shield" />
                       <strong>Нарушений не найдено</strong>
                       <span>Измените фильтры или обновите журнал.</span>
