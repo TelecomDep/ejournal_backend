@@ -126,6 +126,19 @@ const api = {
     }
   },
 
+  async getTeacherScheduleDay(token, date) {
+    try {
+      const response = await axios.get(`${BACKEND_URL}/api/teacher/schedule/day`, {
+        headers: authHeaders(token),
+        params: date ? { date } : {}
+      });
+      return unwrapApiResponse(response.data);
+    } catch (error) {
+      console.error('Ошибка загрузки расписания преподавателя:', error);
+      throw error;
+    }
+  },
+
   // Student: Get students list
   async getStudentsList(token) {
     try {
@@ -704,6 +717,23 @@ const api = {
       return unwrapApiResponse(response.data);
     } catch (error) {
       console.error('Ошибка загрузки параметров отчёта:', error);
+      throw error;
+    }
+  },
+
+  async getStudentGroupRating(token, semesterId) {
+    try {
+      const response = await axios.get(`${BACKEND_URL}/api/student/ratings/group`, {
+        headers: authHeaders(token),
+        params: {
+          ...(semesterId ? { semester_id: semesterId } : {}),
+          page: 1,
+          page_size: 1
+        }
+      });
+      return unwrapApiResponse(response.data);
+    } catch (error) {
+      console.error('Ошибка загрузки рейтинга группы:', error);
       throw error;
     }
   },

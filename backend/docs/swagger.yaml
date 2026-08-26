@@ -263,6 +263,8 @@ definitions:
     type: object
   app.GeneralRatingStudent:
     properties:
+      is_current_user:
+        type: boolean
       personal_data_consent:
         $ref: '#/definitions/app.GeneralRatingConsent'
       student_label:
@@ -1935,7 +1937,8 @@ paths:
     get:
       description: Returns semester metadata, role-scoped departments, subjects, groups,
         student consent status, attendance, laboratory/practice grades, and per-subject
-        summaries in the standard response envelope.
+        summaries in the standard response envelope. A student only receives their
+        own group.
       parameters:
       - description: Semester ID; defaults to the open semester
         in: query
@@ -2342,6 +2345,57 @@ paths:
       summary: Get student performance radar
       tags:
       - grades
+  /api/student/ratings/group:
+    get:
+      description: Returns semester metadata, role-scoped departments, subjects, groups,
+        student consent status, attendance, laboratory/practice grades, and per-subject
+        summaries in the standard response envelope. A student only receives their
+        own group.
+      parameters:
+      - description: Semester ID; defaults to the open semester
+        in: query
+        name: semester_id
+        type: integer
+      - description: Group page; defaults to 1
+        in: query
+        name: page
+        type: integer
+      - description: Groups per page; defaults to 20, maximum 50
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httpserver.generalRatingResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/app.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/app.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/app.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/app.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/app.Response'
+      security:
+      - BearerAuth: []
+      summary: Get source data for the common student rating
+      tags:
+      - staff
   /api/student/schedule/day:
     get:
       description: Returns the current student's lessons for a given date, restricted

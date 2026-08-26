@@ -1336,7 +1336,7 @@ export interface paths {
         };
         /**
          * Get source data for the common student rating
-         * @description Returns semester metadata, role-scoped departments, subjects, groups, student consent status, attendance, laboratory/practice grades, and per-subject summaries in the standard response envelope.
+         * @description Returns semester metadata, role-scoped departments, subjects, groups, student consent status, attendance, laboratory/practice grades, and per-subject summaries in the standard response envelope. A student only receives their own group.
          */
         get: {
             parameters: {
@@ -2101,6 +2101,97 @@ export interface paths {
                 };
                 /** @description Forbidden */
                 403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/student/ratings/group": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get source data for the common student rating
+         * @description Returns semester metadata, role-scoped departments, subjects, groups, student consent status, attendance, laboratory/practice grades, and per-subject summaries in the standard response envelope. A student only receives their own group.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Semester ID; defaults to the open semester */
+                    semester_id?: number;
+                    /** @description Group page; defaults to 1 */
+                    page?: number;
+                    /** @description Groups per page; defaults to 20, maximum 50 */
+                    page_size?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["httpserver.generalRatingResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -5194,6 +5285,7 @@ export interface components {
             title?: string;
         };
         "app.GeneralRatingStudent": {
+            is_current_user?: boolean;
             personal_data_consent?: components["schemas"]["app.GeneralRatingConsent"];
             student_label?: string;
             student_ref?: string;

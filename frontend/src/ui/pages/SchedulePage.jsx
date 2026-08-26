@@ -92,6 +92,8 @@ const getLessonType = (lesson) => {
 };
 
 const SchedulePage = ({ user, token }) => {
+  const isTeacher = user?.role === 'teacher';
+  const canViewSchedule = user?.role === 'student' || isTeacher;
   const allowedDays = useMemo(buildAllowedDays, []);
   const todayISO = toISODate(new Date());
   const [selectedDate, setSelectedDate] = useState(
@@ -106,7 +108,7 @@ const SchedulePage = ({ user, token }) => {
   const selectedIndex = allowedDays.indexOf(selectedDate);
 
   useEffect(() => {
-    if (user?.role !== 'student') {
+    if (!canViewSchedule) {
       return undefined;
     }
 
@@ -114,7 +116,11 @@ const SchedulePage = ({ user, token }) => {
     setLoading(true);
     setError('');
 
-    api.getStudentScheduleDay(token, selectedDate)
+    const scheduleRequest = isTeacher
+      ? api.getTeacherScheduleDay(token, selectedDate)
+      : api.getStudentScheduleDay(token, selectedDate);
+
+    scheduleRequest
       .then((payload) => {
         if (!cancelled) {
           setLessons(normalizeLessons(payload));
@@ -135,7 +141,7 @@ const SchedulePage = ({ user, token }) => {
     return () => {
       cancelled = true;
     };
-  }, [selectedDate, token, user?.role]);
+  }, [canViewSchedule, isTeacher, selectedDate, token]);
 
   const selectDate = (isoDate) => {
     if (allowedDays.includes(isoDate)) {
@@ -150,12 +156,12 @@ const SchedulePage = ({ user, token }) => {
     }
   };
 
-  if (user?.role !== 'student') {
+  if (!canViewSchedule) {
     return (
       <section className="schedule-page">
         <h1>Расписание</h1>
         <div className="schedule-empty-role">
-          Расписание пока подключено только для роли студента по ручке из API.md.
+          Расписание доступно студентам и преподавателям.
         </div>
       </section>
     );
@@ -235,7 +241,7 @@ const SchedulePage = ({ user, token }) => {
               {lessons.map((lesson) => (
                 <article
                   className="schedule-row"
-                  key={`${lesson.lesson_num}-${lesson.subject_id}-${lesson.start_time}`}
+                  key={lesson.schedule_id || `${lesson.lesson_num}-${lesson.subject_id}-${lesson.group_id || ''}-${lesson.start_time}`}
                 >
                   <time>
                     {lesson.start_time} - {lesson.end_time}
@@ -247,7 +253,11 @@ const SchedulePage = ({ user, token }) => {
                       {lesson.room_info ? `ауд. ${lesson.room_info}` : 'ауд. не указана'}
                       {lesson.subgroup ? `, ${lesson.subgroup}` : ''}
                     </p>
-                    <span>{lesson.teacher_name || 'Преподаватель не указан'}</span>
+                    <span>
+                      {isTeacher
+                        ? (lesson.group_name ? `Группа ${lesson.group_name}` : 'Группа не указана')
+                        : (lesson.teacher_name || 'Преподаватель не указан')}
+                    </span>
                   </div>
                   <strong>{getLessonType(lesson)}</strong>
                 </article>

@@ -18,7 +18,7 @@ type generalRatingResponse struct {
 
 // generalRatingHandler godoc
 // @Summary Get source data for the common student rating
-// @Description Returns semester metadata, role-scoped departments, subjects, groups, student consent status, attendance, laboratory/practice grades, and per-subject summaries in the standard response envelope.
+// @Description Returns semester metadata, role-scoped departments, subjects, groups, student consent status, attendance, laboratory/practice grades, and per-subject summaries in the standard response envelope. A student only receives their own group.
 // @Tags staff
 // @Produce json
 // @Security BearerAuth
@@ -32,6 +32,7 @@ type generalRatingResponse struct {
 // @Failure 404 {object} app.Response
 // @Failure 500 {object} app.Response
 // @Router /api/staff/ratings/general [get]
+// @Router /api/student/ratings/group [get]
 func (s *Server) generalRatingHandler(c *fiber.Ctx) error {
 	token := c.Get("Authorization")
 	if token == "" {
@@ -61,7 +62,7 @@ func generalRatingHTTPStatus(resp app.Response) int {
 		return fiber.StatusUnauthorized
 	case "forbidden: staff role required":
 		return fiber.StatusForbidden
-	case "semester not found", "open semester not found":
+	case "semester not found", "open semester not found", "student profile not found":
 		return fiber.StatusNotFound
 	default:
 		return fiber.StatusInternalServerError

@@ -1101,7 +1101,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Returns semester metadata, role-scoped departments, subjects, groups, student consent status, attendance, laboratory/practice grades, and per-subject summaries in the standard response envelope.",
+                "description": "Returns semester metadata, role-scoped departments, subjects, groups, student consent status, attendance, laboratory/practice grades, and per-subject summaries in the standard response envelope. A student only receives their own group.",
                 "produces": [
                     "application/json"
                 ],
@@ -1706,6 +1706,81 @@ const docTemplate = `{
                     },
                     "403": {
                         "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/student/ratings/group": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns semester metadata, role-scoped departments, subjects, groups, student consent status, attendance, laboratory/practice grades, and per-subject summaries in the standard response envelope. A student only receives their own group.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "staff"
+                ],
+                "summary": "Get source data for the common student rating",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Semester ID; defaults to the open semester",
+                        "name": "semester_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Group page; defaults to 1",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Groups per page; defaults to 20, maximum 50",
+                        "name": "page_size",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/httpserver.generalRatingResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/app.Response"
                         }
@@ -4381,6 +4456,9 @@ const docTemplate = `{
         "app.GeneralRatingStudent": {
             "type": "object",
             "properties": {
+                "is_current_user": {
+                    "type": "boolean"
+                },
                 "personal_data_consent": {
                     "$ref": "#/definitions/app.GeneralRatingConsent"
                 },

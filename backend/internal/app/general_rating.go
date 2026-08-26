@@ -6,11 +6,14 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"math"
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/jackc/pgx/v5"
 )
 
 const generalRatingSchemaVersion = "1.0"
@@ -82,6 +85,7 @@ type GeneralRatingStudentSubject struct {
 type GeneralRatingStudent struct {
 	StudentRef          string                        `json:"student_ref"`
 	StudentLabel        string                        `json:"student_label"`
+	IsCurrentUser       bool                          `json:"is_current_user"`
 	PersonalDataConsent GeneralRatingConsent          `json:"personal_data_consent"`
 	Subjects            []GeneralRatingStudentSubject `json:"subjects"`
 }
@@ -188,27 +192,40 @@ func (s *Service) generalRatingScopePredicate(
 	ctx context.Context,
 	user User,
 	semesterID int32,
-) (string, []any, error) {
+) (string, []any, int32, error) {
 	args := []any{semesterID}
 	if user.Role == RoleStudent {
-		return "", nil, fmt.Errorf("forbidden: staff role required")
+		var studentID, groupID int32
+		err := s.store.Pool().QueryRow(ctx, `
+			SELECT student_id, group_id
+			FROM students
+			WHERE user_id = $1 OR student_id = $1
+			ORDER BY CASE WHEN user_id = $1 THEN 0 ELSE 1 END
+			LIMIT 1`, user.ID).Scan(&studentID, &groupID)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return "", nil, 0, fmt.Errorf("student profile not found")
+		}
+		if err != nil {
+			return "", nil, 0, fmt.Errorf("failed to load student profile")
+		}
+		return "sch.group_id = $2", append(args, groupID), studentID, nil
 	}
 	if user.Role == RoleTeacher {
 		teacherID, err := s.teacherIDForUser(ctx, user.ID)
 		if err != nil {
-			return "", nil, fmt.Errorf("failed to resolve teacher profile")
+			return "", nil, 0, fmt.Errorf("failed to resolve teacher profile")
 		}
-		return "sch.teacher_id = $2", append(args, teacherID), nil
+		return "sch.teacher_id = $2", append(args, teacherID), 0, nil
 	}
 
 	scope, err := s.scopeForUser(ctx, user)
 	if err != nil {
-		return "", nil, err
+		return "", nil, 0, err
 	}
 	if scope.All {
-		return "TRUE", args, nil
+		return "TRUE", args, 0, nil
 	}
-	return "g.lectern_id = ANY($2)", append(args, nonNil(scope.LecternIDs)), nil
+	return "g.lectern_id = ANY($2)", append(args, nonNil(scope.LecternIDs)), 0, nil
 }
 
 // GeneralRating returns the detailed, role-scoped source data used to build a
@@ -218,10 +235,6 @@ func (s *Service) GeneralRating(token string, semesterID *int32, page, pageSize 
 	if err != nil {
 		return nil, Response{OK: false, Error: err.Error()}
 	}
-	if user.Role == RoleStudent {
-		return nil, Response{OK: false, Error: "forbidden: staff role required"}
-	}
-
 	ctx, cancel := s.dbContext()
 	defer cancel()
 
@@ -229,7 +242,7 @@ func (s *Service) GeneralRating(token string, semesterID *int32, page, pageSize 
 	if err != nil {
 		return nil, Response{OK: false, Error: err.Error()}
 	}
-	predicate, queryArgs, err := s.generalRatingScopePredicate(ctx, user, semester.ID)
+	predicate, queryArgs, currentStudentID, err := s.generalRatingScopePredicate(ctx, user, semester.ID)
 	if err != nil {
 		return nil, Response{OK: false, Error: err.Error()}
 	}
@@ -597,6 +610,7 @@ func (s *Service) GeneralRating(token string, semesterID *int32, page, pageSize 
 			student := GeneralRatingStudent{
 				StudentRef:          studentRef,
 				StudentLabel:        studentLabel,
+				IsCurrentUser:       currentStudentID > 0 && studentBuilder.id == currentStudentID,
 				PersonalDataConsent: GeneralRatingConsent{Accepted: studentBuilder.consent},
 				Subjects:            make([]GeneralRatingStudentSubject, 0, len(studentBuilder.subjectOrder)),
 			}

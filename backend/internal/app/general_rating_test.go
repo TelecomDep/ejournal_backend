@@ -109,6 +109,7 @@ func TestGeneralRatingJSONKeepsEmptyArraysAndNullScore(t *testing.T) {
 	for _, fragment := range []string{
 		`"departments":[]`,
 		`"subjects":[]`,
+		`"is_current_user":false`,
 		`"lectures":[]`,
 		`"laboratory_works":[]`,
 		`"score":null`,

@@ -2338,9 +2338,9 @@
 }
 
 .analytics-switch {
-  min-width: 360px;
+  min-width: 520px;
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 4px;
   padding: 5px;
   border: 1px solid #dce5f6;
@@ -2673,6 +2673,272 @@
   color: #68758e;
   font-size: 14px;
   line-height: 1.55;
+}
+
+.group-rating {
+  min-width: 0;
+  display: grid;
+  gap: 18px;
+}
+
+.group-rating-summary {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(280px, 1.35fr) repeat(3, minmax(150px, 0.65fr));
+  overflow: hidden;
+  border: 1px solid #dce5f6;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 16px 40px rgba(38, 60, 112, 0.06);
+}
+
+.group-rating-title,
+.group-rating-summary article {
+  min-width: 0;
+  min-height: 122px;
+  display: flex;
+  justify-content: center;
+  flex-direction: column;
+  padding: 20px 22px;
+}
+
+.group-rating-title {
+  background: linear-gradient(120deg, #1359e8 0%, #233d9e 100%);
+  color: #ffffff;
+}
+
+.group-rating-title span,
+.group-rating-summary article small {
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.group-rating-title span {
+  color: rgba(255, 255, 255, 0.72);
+  text-transform: uppercase;
+}
+
+.group-rating-title h2 {
+  margin: 6px 0 0;
+  overflow: hidden;
+  font-size: 25px;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.group-rating-title p {
+  margin: 7px 0 0;
+  color: rgba(255, 255, 255, 0.74);
+  font-size: 13px;
+}
+
+.group-rating-summary article {
+  border-left: 1px solid #e7ecf8;
+}
+
+.group-rating-summary article small {
+  color: #6d7891;
+}
+
+.group-rating-summary article strong {
+  margin-top: 5px;
+  color: #101b37;
+  font-size: 23px;
+  line-height: 1.1;
+}
+
+.group-rating-summary article span {
+  margin-top: 5px;
+  color: #7d879b;
+  font-size: 12px;
+}
+
+.group-rating-card {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid #e1e7f5;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 16px 40px rgba(38, 60, 112, 0.06);
+}
+
+.group-rating-toolbar {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 22px;
+  border-bottom: 1px solid #e8edf8;
+}
+
+.group-rating-toolbar > div > span {
+  color: #1f55d8;
+  font-size: 12px;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.group-rating-toolbar h2 {
+  margin: 5px 0 0;
+  color: #101b37;
+  font-size: 22px;
+}
+
+.group-rating-toolbar label {
+  width: min(300px, 100%);
+  display: grid;
+  gap: 7px;
+  color: #5e6b84;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.group-rating-toolbar select {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 38px 0 13px;
+  border: 1px solid #dce5f6;
+  border-radius: 9px;
+  background: #ffffff;
+  color: #172541;
+  font: inherit;
+  font-size: 13px;
+}
+
+.group-rating-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 14px 22px;
+  border-bottom: 1px solid #e8edf8;
+  background: #fbfcff;
+}
+
+.group-rating-legend span,
+.group-rating-score,
+.group-rating-rank {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.group-rating-legend span {
+  min-height: 28px;
+  padding: 0 10px;
+  font-size: 11px;
+}
+
+.group-rating-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.group-rating-table {
+  width: 100%;
+  min-width: 920px;
+  border-collapse: collapse;
+  color: #172541;
+}
+
+.group-rating-table th,
+.group-rating-table td {
+  padding: 14px 16px;
+  border-bottom: 1px solid #e8edf8;
+  text-align: center;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.group-rating-table th {
+  background: #f6f8fd;
+  color: #64718a;
+  font-size: 11px;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.group-rating-table th:nth-child(2),
+.group-rating-table td:nth-child(2) {
+  min-width: 230px;
+  text-align: left;
+}
+
+.group-rating-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.group-rating-table tbody tr.is-current td {
+  background: #f0f5ff;
+  box-shadow: inset 0 1px #8baef8, inset 0 -1px #8baef8;
+}
+
+.group-rating-table tbody tr.is-current td:first-child {
+  box-shadow: inset 4px 0 #1f55d8, inset 0 1px #8baef8, inset 0 -1px #8baef8;
+}
+
+.group-rating-table tbody tr.is-current td:last-child {
+  box-shadow: inset -1px 0 #8baef8, inset 0 1px #8baef8, inset 0 -1px #8baef8;
+}
+
+.group-rating-rank {
+  width: 34px;
+  height: 34px;
+  font-size: 13px;
+}
+
+.group-rating-student {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.group-rating-student strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.group-rating-student small {
+  color: #7c879c;
+  font-size: 11px;
+}
+
+.group-rating-score {
+  min-width: 52px;
+  min-height: 30px;
+  padding: 0 9px;
+  font-size: 12px;
+}
+
+.group-rating-legend .is-green,
+.group-rating-rank.is-green,
+.group-rating-score.is-green {
+  background: #e4f6ec;
+  color: #13764d;
+}
+
+.group-rating-legend .is-yellow,
+.group-rating-rank.is-yellow,
+.group-rating-score.is-yellow {
+  background: #fff6cf;
+  color: #806000;
+}
+
+.group-rating-legend .is-orange,
+.group-rating-rank.is-orange,
+.group-rating-score.is-orange {
+  background: #ffeadb;
+  color: #a34e13;
+}
+
+.group-rating-legend .is-red,
+.group-rating-rank.is-red,
+.group-rating-score.is-red {
+  background: #fde7e9;
+  color: #b12633;
 }
 
 .attendance-page {
@@ -4812,6 +5078,18 @@
     border-left: 0;
   }
 
+  .group-rating-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .group-rating-title {
+    grid-column: 1 / -1;
+  }
+
+  .group-rating-summary article:nth-of-type(3) {
+    grid-column: 1 / -1;
+  }
+
   .grades-summary-grid,
   .attendance-stat-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -4890,6 +5168,11 @@
     width: 100%;
   }
 
+  .analytics-switch button {
+    padding: 0 8px;
+    font-size: 12px;
+  }
+
   .analytics-metrics {
     grid-template-columns: 1fr;
   }
@@ -4911,6 +5194,39 @@
     align-items: flex-start;
     flex-direction: column;
     padding: 22px;
+  }
+
+  .group-rating-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .group-rating-title,
+  .group-rating-summary article {
+    min-height: 104px;
+    padding: 17px;
+  }
+
+  .group-rating-summary article:nth-of-type(3) {
+    grid-column: auto;
+  }
+
+  .group-rating-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+    padding: 18px;
+  }
+
+  .group-rating-toolbar label {
+    width: 100%;
+  }
+
+  .group-rating-legend {
+    padding: 12px 18px;
+  }
+
+  .group-rating-table th,
+  .group-rating-table td {
+    padding: 12px;
   }
 
   .grades-heading {

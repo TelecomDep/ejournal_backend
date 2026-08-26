@@ -152,6 +152,7 @@ func (s *Server) Start() {
 	fiberApp.Get("/api/student/attendance/history", s.studentAttendanceHistoryHandler)
 	fiberApp.Get("/api/student/attendance/summary", s.studentAttendanceSummaryHandler)
 	fiberApp.Get("/api/student/schedule/day", s.studentScheduleDayHandler)
+	fiberApp.Get("/api/student/ratings/group", s.generalRatingHandler)
 	fiberApp.Get("/api/teacher/schedule/day", s.teacherScheduleDayHandler)
 	fiberApp.Get("/api/staff/overview", s.staffOverviewHandler)
 	fiberApp.Get("/api/staff/overview/students", s.staffStudentsPageHandler)
