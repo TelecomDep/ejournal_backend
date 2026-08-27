@@ -549,9 +549,9 @@ const StaffAnalyticsPage = ({ token }) => {
     <section className="staff-analytics-page">
       <header className="staff-analytics-hero">
         <div>
-          <span>Аналитика dean</span>
+          <span>Аналитика успеваемости</span>
           <h1>{selectionLabel}</h1>
-          <p>{roleTitle}. Сравнивайте общий рейтинг и посещаемость, находите группы с отклонениями и проваливайтесь до предмета конкретного студента.</p>
+          <p>{roleTitle}. Сравнивайте общий рейтинг и посещаемость, находите группы с отклонениями и переходите к предметам конкретного студента.</p>
         </div>
         <div className="staff-analytics-hero-meta">
           <strong>{activeSemester?.name || activeSemester?.title || data?.semester?.title || 'Текущий семестр'}</strong>

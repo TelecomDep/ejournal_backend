@@ -55,6 +55,30 @@ const normalizeItems = (payload) => {
   return [];
 };
 
+const aggregateItemsByDate = (items) => {
+  const grouped = new Map();
+
+  items.forEach((item) => {
+    if (!item?.date) return;
+
+    const current = grouped.get(item.date);
+    const count = Number(item.count || 0);
+    if (current) {
+      current.count += count;
+      current.entries.push(item);
+      return;
+    }
+
+    grouped.set(item.date, {
+      ...item,
+      count,
+      entries: [item]
+    });
+  });
+
+  return Array.from(grouped.values());
+};
+
 const getIntensity = (count) => {
   if (count <= 0) return 0;
   if (count === 1) return 1;
@@ -162,13 +186,15 @@ const AttendancePage = ({ user, token }) => {
     };
   }, [token, user?.role, year]);
 
+  const dailyItems = useMemo(() => aggregateItemsByDate(items), [items]);
+
   const itemsByDate = useMemo(() => {
     const map = new Map();
-    items.forEach((item) => {
+    dailyItems.forEach((item) => {
       if (item.date) map.set(item.date, item);
     });
     return map;
-  }, [items]);
+  }, [dailyItems]);
 
   const monthDays = useMemo(
     () => buildMonthDays(year, monthIndex, itemsByDate),
@@ -176,20 +202,20 @@ const AttendancePage = ({ user, token }) => {
   );
 
   const monthItems = useMemo(() => (
-    items
+    dailyItems
       .filter((item) => {
         const date = fromISODate(item.date);
         return date.getFullYear() === year && date.getMonth() === monthIndex;
       })
       .sort((a, b) => b.date.localeCompare(a.date))
-  ), [items, monthIndex, year]);
+  ), [dailyItems, monthIndex, year]);
 
   const totalMarks = useMemo(
-    () => items.reduce((sum, item) => sum + Number(item.count || 0), 0),
-    [items]
+    () => dailyItems.reduce((sum, item) => sum + Number(item.count || 0), 0),
+    [dailyItems]
   );
-  const activeDays = items.filter((item) => Number(item.count || 0) > 0).length;
-  const bestDay = items.reduce(
+  const activeDays = dailyItems.filter((item) => Number(item.count || 0) > 0).length;
+  const bestDay = dailyItems.reduce(
     (best, item) => (Number(item.count || 0) > Number(best.count || 0) ? item : best),
     { date: '', count: 0 }
   );
