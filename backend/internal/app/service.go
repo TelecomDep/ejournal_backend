@@ -1688,6 +1688,8 @@ func (s *Service) attendanceSessionRosterForTeacher(sessionToken string, data At
 			"group_name":   row.GroupName,
 			"status":       row.Status,
 			"marked_by":    row.MarkedBy,
+			"is_fraud":     row.IsFraud,
+			"fraud_reason": row.FraudReason,
 		}
 		if row.MarkedAt != nil {
 			student["marked_at"] = formatAPITime(*row.MarkedAt)
@@ -1771,6 +1773,9 @@ func (s *Service) attendanceManualMarkByTeacher(sessionToken string, data Teache
 	result, err := s.store.Attendance.SetStudentAttendanceStatus(ctx, session.ID, data.StudentID, status, time.Now().UTC())
 	if err != nil {
 		return Response{OK: false, Error: "failed to update attendance status"}
+	}
+	if result == "fraud_locked" {
+		return Response{OK: false, Error: "нельзя изменить статус: зафиксирована попытка нарушения (антифрод)"}
 	}
 	if result == "not_found" {
 		return Response{OK: false, Error: "student not found in this session's roster"}

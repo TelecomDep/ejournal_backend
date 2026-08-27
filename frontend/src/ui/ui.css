@@ -5404,6 +5404,71 @@
   font-weight: 750;
 }
 
+.attendance-source.is-fraud {
+  color: #b91c1c;
+  font-weight: 750;
+}
+
+.attendance-live-table tr.is-fraud-row {
+  background: #fff5f5 !important;
+}
+
+.attendance-live-table tr.is-fraud-row:hover {
+  background: #ffebeb !important;
+}
+
+.attendance-live-student-col {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.attendance-fraud-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #dc2626;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.attendance-status-fraud {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+}
+
+.attendance-fraud-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  background: #fee2e2;
+  color: #b91c1c;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.attendance-fraud-reason {
+  color: #dc2626;
+  font-size: 11px;
+  font-weight: 600;
+  padding-left: 2px;
+}
+
+.attendance-live-fraud-count {
+  color: #dc2626;
+  font-weight: 700;
+}
+
 .attendance-live-skeleton td span {
   display: block;
   height: 13px;

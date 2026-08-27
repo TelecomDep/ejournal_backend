@@ -161,6 +161,8 @@ type AttendanceSessionStudent struct {
 	Status      string     `json:"status"`
 	MarkedAt    *time.Time `json:"marked_at,omitempty"`
 	MarkedBy    string     `json:"marked_by,omitempty"`
+	IsFraud     bool       `json:"is_fraud"`
+	FraudReason string     `json:"fraud_reason,omitempty"`
 }
 
 type AttendanceHistoryItem struct {

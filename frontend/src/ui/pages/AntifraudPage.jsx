@@ -14,7 +14,14 @@ const EMPTY_FILTERS = {
 
 const reasonLabel = (reason) => {
   if (reason === 'student is too far from lesson location') return 'Вне зоны занятия';
-  if (reason === 'device_id already used in this lesson') return 'Повторное устройство';
+  if (
+    reason === 'device_id already used in this lesson' ||
+    reason === 'Повторная отметка с устройства другого студента' ||
+    reason === 'Повторное устройство' ||
+    reason === 'duplicate_device'
+  ) {
+    return 'Повторное устройство';
+  }
   return reason || 'Причина не указана';
 };
 

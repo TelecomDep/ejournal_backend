@@ -202,7 +202,9 @@ func (r *AttendanceRepository) GetSessionRoster(ctx context.Context, sessionID i
 		        g.group_name,
 		        ass.status,
 		        ass.marked_at,
-		        COALESCE(ass.marked_by, '')
+		        COALESCE(ass.marked_by, ''),
+		        ass.is_fraud,
+		        COALESCE(ass.fraud_reason, '')
 		 FROM attendance_session_students ass
 		 INNER JOIN students st ON st.student_id = ass.student_id
 		 INNER JOIN groups g ON g.group_id = ass.group_id_snapshot
@@ -226,6 +228,8 @@ func (r *AttendanceRepository) GetSessionRoster(ctx context.Context, sessionID i
 			&item.Status,
 			&item.MarkedAt,
 			&item.MarkedBy,
+			&item.IsFraud,
+			&item.FraudReason,
 		); err != nil {
 			return nil, fmt.Errorf("scan attendance session roster row: %w", err)
 		}
@@ -466,6 +470,23 @@ func (r *AttendanceRepository) SetStudentAttendanceStatus(
 	}
 	if markedAt.IsZero() {
 		markedAt = time.Now().UTC()
+	}
+
+	var isFraud bool
+	err := r.pool.QueryRow(
+		ctx,
+		`SELECT is_fraud FROM attendance_session_students WHERE session_id = $1 AND student_id = $2`,
+		sessionID,
+		studentID,
+	).Scan(&isFraud)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "not_found", nil
+	}
+	if err != nil {
+		return "", fmt.Errorf("check student attendance fraud: %w", err)
+	}
+	if isFraud {
+		return "fraud_locked", nil
 	}
 
 	cmd, err := r.pool.Exec(
