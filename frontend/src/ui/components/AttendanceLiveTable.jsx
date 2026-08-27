@@ -27,7 +27,7 @@ const formatTime = (value) => {
 };
 
 const sourceLabel = (value) => {
-  if (value === 'self') return 'Самостоятельно';
+  if (value === 'self') return 'Студент';
   if (value === 'teacher') return 'Преподаватель';
   return 'Нет отметки';
 };

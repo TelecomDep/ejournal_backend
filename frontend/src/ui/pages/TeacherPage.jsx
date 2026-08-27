@@ -102,13 +102,62 @@ const TeacherPage = ({ token, section = 'attendance' }) => {
   const [sessionForm, setSessionForm] = useState({
     subjectId: 0,
     groupIds: [],
-    lessonName: 'Занятие',
+    lessonName: 'Занятие (Практика)',
+    lessonType: 'Практика',
     expiresMinutes: 20
   });
   const [sessionLoading, setSessionLoading] = useState(false);
-  const [sessionResult, setSessionResult] = useState(null);
+  const saveActiveSession = (session) => {
+    setSessionResult(session);
+    if (session) {
+      try {
+        localStorage.setItem('active_teacher_session', JSON.stringify(session));
+      } catch {}
+    } else {
+      try {
+        localStorage.removeItem('active_teacher_session');
+      } catch {}
+    }
+  };
+
+  const [sessionResult, setSessionResult] = useState(() => {
+    try {
+      const saved = localStorage.getItem('active_teacher_session');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed?.expires_at && new Date(parsed.expires_at).getTime() > Date.now()) {
+          return parsed;
+        }
+      }
+    } catch {}
+    return null;
+  });
   const [sessionRecoveryLoading, setSessionRecoveryLoading] = useState(false);
   const [finishingSession, setFinishingSession] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    setSessionRecoveryLoading(true);
+    api.getTeacherActiveAttendanceSession(token)
+      .then((res) => {
+        if (!active) return;
+        if (res?.active && res?.session) {
+          saveActiveSession(res.session);
+        } else if (res && !res.active) {
+          saveActiveSession(null);
+        }
+      })
+      .catch((err) => {
+        console.warn('Could not recover active session:', err);
+      })
+      .finally(() => {
+        if (active) setSessionRecoveryLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [token]);
 
   const handleFinishSession = async () => {
     if (!window.confirm('Завершить занятие досрочно? Новые отметки студентов станут недоступны.')) return;
@@ -117,7 +166,7 @@ const TeacherPage = ({ token, section = 'attendance' }) => {
     try {
       await api.finishAttendanceSession(token, sessionResult?.session_id || sessionResult?.lesson_id);
       setMessage('Занятие завершено. Новые отметки студентов недоступны.');
-      setSessionResult(null);
+      saveActiveSession(null);
     } catch (err) {
       setError(api.getErrorMessage(err, 'Не удалось завершить занятие'));
     } finally {
@@ -327,11 +376,16 @@ const TeacherPage = ({ token, section = 'attendance' }) => {
   const updateSessionSubject = (subjectId) => {
     const selected = subjects.find((subject) => Number(subject.subject_id) === subjectId);
     const groups = groupsOf(selected);
-    setSessionForm((current) => ({
-      ...current,
-      subjectId,
-      groupIds: groups.map((group) => group.id)
-    }));
+    setSessionForm((current) => {
+      const type = current.lessonType || 'Факультатив';
+      const subName = selected?.subject_name || 'Занятие';
+      return {
+        ...current,
+        subjectId,
+        groupIds: groups.map((group) => group.id),
+        lessonName: `${subName} (${type})`
+      };
+    });
   };
 
   const toggleSessionGroup = (groupId) => {
@@ -363,9 +417,10 @@ const TeacherPage = ({ token, section = 'attendance' }) => {
         asNumber(sessionForm.subjectId),
         sessionForm.groupIds,
         sessionForm.lessonName.trim() || 'Занятие',
-        asNumber(sessionForm.expiresMinutes)
+        asNumber(sessionForm.expiresMinutes),
+        sessionForm.lessonType || 'Практика'
       );
-      setSessionResult(response);
+      saveActiveSession(response);
       setMessage('QR и ссылка для отметки посещаемости созданы.');
     } catch (err) {
       setError(api.getErrorMessage(err, 'Не удалось создать ссылку посещаемости'));
@@ -377,11 +432,6 @@ const TeacherPage = ({ token, section = 'attendance' }) => {
   const resolveCurrentSiteJoinUrl = (rawJoinUrl) => {
     if (!rawJoinUrl) return "";
     try {
-      // If the web interface is opened on localhost or 127.0.0.1, external phones
-      // cannot resolve "localhost". Keep the backend public domain URL.
-      if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
-        return rawJoinUrl;
-      }
       const currentOrigin = window.location.origin;
       if (rawJoinUrl.includes("#/attendance/join")) {
         const hashPart = rawJoinUrl.substring(rawJoinUrl.indexOf("#/attendance/join"));
@@ -397,7 +447,34 @@ const TeacherPage = ({ token, section = 'attendance' }) => {
     }
   };
 
+  const [dynamicNonce, setDynamicNonce] = useState(() => Math.random().toString(36).substring(2, 10));
+  const [dynamicTs, setDynamicTs] = useState(() => Math.floor(Date.now() / 1000));
+  const [countdown, setCountdown] = useState(4);
+
+  useEffect(() => {
+    if (!sessionResult?.join_url) return;
+
+    const interval = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          setDynamicTs(Math.floor(Date.now() / 1000));
+          setDynamicNonce(Math.random().toString(36).substring(2, 10));
+          return 4;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [sessionResult?.join_url]);
+
   const activeJoinUrl = resolveCurrentSiteJoinUrl(sessionResult?.join_url);
+
+  const dynamicQrUrl = useMemo(() => {
+    if (!activeJoinUrl) return "";
+    const separator = activeJoinUrl.includes("?") ? "&" : "?";
+    return `${activeJoinUrl}${separator}ts=${dynamicTs}&nonce=${dynamicNonce}`;
+  }, [activeJoinUrl, dynamicTs, dynamicNonce]);
 
   const copyAttendanceLink = async () => {
     if (!activeJoinUrl) return;
@@ -545,6 +622,28 @@ const TeacherPage = ({ token, section = 'attendance' }) => {
 
           <form className="teacher-form-grid" onSubmit={createSession}>
             <label>
+              Тип занятия
+              <select
+                value={sessionForm.lessonType}
+                onChange={(event) => {
+                  const val = event.target.value;
+                  setSessionForm((current) => ({
+                    ...current,
+                    lessonType: val,
+                    lessonName: val === 'Факультатив'
+                      ? (sessionSubject?.subject_name ? `${sessionSubject.subject_name} (Факультатив)` : 'Факультатив')
+                      : (sessionSubject?.subject_name ? `${sessionSubject.subject_name} (${val})` : `Занятие (${val})`)
+                  }));
+                }}
+              >
+                <option value="Практика">Практика</option>
+                <option value="Лекция">Лекция</option>
+                <option value="Лабораторная работа">Лабораторная работа</option>
+                <option value="Факультатив">Факультатив (в любое время)</option>
+              </select>
+            </label>
+
+            <label>
               Предмет
               <select
                 value={sessionForm.subjectId}
@@ -619,9 +718,13 @@ const TeacherPage = ({ token, section = 'attendance' }) => {
                 {activeJoinUrl ? (
                   <>
                     <div className="teacher-qr-card">
-                      <QRCode value={activeJoinUrl} size={220} />
-                      <strong>QR для студентов</strong>
-                      <p>Покажите этот код на экране. Студент сканирует его телефоном и отмечается на паре.</p>
+                      <QRCode value={dynamicQrUrl} size={220} />
+                      <div className="teacher-qr-dynamic-badge">
+                        <span className="teacher-qr-pulse" />
+                        <span>Динамический QR: ротация через {countdown} сек</span>
+                      </div>
+                      <strong>QR для проектора / экрана</strong>
+                      <p>Код автоматически меняется каждые 4 секунды с защитой от фото и пересылки.</p>
                     </div>
                     <div className="teacher-link-card">
                       <span>Ссылка для студентов</span>

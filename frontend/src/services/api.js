@@ -166,7 +166,7 @@ const api = {
   },
 
   // Teacher: Create attendance link
-  async createAttendanceLink(token, subjectId, groupIds, lessonName, expiresMinutes) {
+  async createAttendanceLink(token, subjectId, groupIds, lessonName, expiresMinutes, lessonType) {
     try {
       const response = await axios.post(
         `${BACKEND_URL}/api/teacher/attendance-link`,
@@ -174,6 +174,7 @@ const api = {
           subject_id: subjectId,
           group_ids: groupIds,
           lesson_name: lessonName,
+          lesson_type: lessonType,
           expires_minutes: expiresMinutes
         },
         {

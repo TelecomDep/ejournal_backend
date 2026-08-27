@@ -27,15 +27,19 @@ type AndroidLessonCreateData struct {
 	Lat            *float64 `json:"lat"`
 	Lon            *float64 `json:"lon"`
 	LessonName     string   `json:"lesson_name,omitempty"`
+	LessonType     string   `json:"lesson_type,omitempty"`
 	ExpiresMinutes int      `json:"expires_minutes,omitempty"`
 }
 
 type AndroidAttendanceMarkData struct {
-	LessonID    int32    `json:"lesson_id"`
-	InviteToken string   `json:"invite_token,omitempty"`
-	DeviceID    string   `json:"device_id"`
-	Lat         *float64 `json:"lat"`
-	Lon         *float64 `json:"lon"`
+	LessonID           int32    `json:"lesson_id"`
+	InviteToken        string   `json:"invite_token,omitempty"`
+	DeviceID           string   `json:"device_id"`
+	Timestamp          *int64   `json:"ts,omitempty"`
+	Nonce              string   `json:"nonce,omitempty"`
+	BiometricSignature string   `json:"biometric_signature,omitempty"`
+	Lat                *float64 `json:"lat"`
+	Lon                *float64 `json:"lon"`
 }
 
 func validCoordinates(lat, lon float64) bool {
@@ -180,9 +184,17 @@ func (s *Service) createLessonForAndroid(sessionToken string, data AndroidLesson
 	}
 
 	expiresMinutes := normalizeInviteTTL(data.ExpiresMinutes)
+	lessonType := strings.TrimSpace(data.LessonType)
+	if lessonType == "" {
+		lessonType = "Практика"
+	}
 	lessonName := strings.TrimSpace(data.LessonName)
 	if lessonName == "" {
-		lessonName = strings.TrimSpace(data.Subject)
+		if strings.EqualFold(lessonType, "факультатив") || strings.EqualFold(lessonType, "elective") {
+			lessonName = fmt.Sprintf("%s (Факультатив)", strings.TrimSpace(data.Subject))
+		} else {
+			lessonName = fmt.Sprintf("%s (%s)", strings.TrimSpace(data.Subject), lessonType)
+		}
 	}
 	session, rosterSize, err := s.store.Attendance.CreateSessionWithGroupsAndLocation(
 		ctx,
@@ -210,6 +222,7 @@ func (s *Service) createLessonForAndroid(sessionToken string, data AndroidLesson
 		Result: map[string]any{
 			"id":              session.ID,
 			"lesson_id":       session.ID,
+			"lesson_type":     lessonType,
 			"teacher_id":      teacherProfile.ID,
 			"subject_id":      subjectID,
 			"semester_id":     semester.ID,
@@ -365,6 +378,14 @@ func (s *Service) markAttendanceForAndroid(sessionToken string, data AndroidAtte
 		return Response{OK: false, Error: "attendance session expired"}
 	}
 
+	if data.Timestamp != nil && *data.Timestamp > 0 {
+		nowSec := time.Now().Unix()
+		age := nowSec - *data.Timestamp
+		if age < -10 || age > 8 {
+			return Response{OK: false, Error: "QR-код устарел! Пожалуйста, отсканируйте актуальный QR-код с экрана"}
+		}
+	}
+
 	fraudReason := ""
 	if session.Lat != nil && session.Lon != nil &&
 		distanceMeters(*session.Lat, *session.Lon, *data.Lat, *data.Lon) > maxAttendanceDistanceMeters {
@@ -423,6 +444,7 @@ func (s *Service) markAttendanceForAndroid(sessionToken string, data AndroidAtte
 			session,
 			true,
 		)
+		_ = s.updateAutoAttendanceGrades(ctx, session.SubjectID, session.SemesterID, &studentProfile.ID, session.TeacherID)
 	}
 
 	result, err := s.studentAndroidResult(ctx, studentUser, markResult == "fraud")

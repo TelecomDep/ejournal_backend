@@ -90,6 +90,7 @@ type AttendanceCreateData struct {
 	SemesterID     *int32  `json:"semester_id,omitempty"`
 	GroupIDs       []int32 `json:"group_ids,omitempty"`
 	LessonName     string  `json:"lesson_name,omitempty"`
+	LessonType     string  `json:"lesson_type,omitempty"`
 	ExpiresMinutes int     `json:"expires_minutes,omitempty"`
 }
 
@@ -1109,20 +1110,27 @@ func (s *Service) createAttendanceLinkByTeacher(sessionToken string, data Attend
 	defer cancel()
 
 	nowLocal := time.Now().In(appTimeLocation)
-	nearestLesson, found, err := s.nearestLessonForTeacher(ctx, teacherProfile.ID, nowLocal)
-	if err != nil {
-		return Response{OK: false, Error: "failed to load nearest lesson"}
-	}
-	if !found {
-		return Response{OK: false, Error: "no scheduled lessons found for teacher"}
-	}
-	if !s.allowEarlyAttendance && nowLocal.Before(nearestLesson.StartAt.Add(-15*time.Minute)) {
-		return Response{
-			OK: false,
-			Error: fmt.Sprintf(
-				"attendance can be started no earlier than 15 minutes before class start (%s)",
-				formatAPITime(nearestLesson.StartAt),
-			),
+	isElective := strings.EqualFold(strings.TrimSpace(data.LessonType), "elective") ||
+		strings.EqualFold(strings.TrimSpace(data.LessonType), "факультатив")
+
+	var nearestLesson TeacherNearestLesson
+	var found bool
+	if !isElective {
+		nearestLesson, found, err = s.nearestLessonForTeacher(ctx, teacherProfile.ID, nowLocal)
+		if err != nil {
+			return Response{OK: false, Error: "failed to load nearest lesson"}
+		}
+		if !found {
+			return Response{OK: false, Error: "no scheduled lessons found for teacher"}
+		}
+		if !s.allowEarlyAttendance && nowLocal.Before(nearestLesson.StartAt.Add(-15*time.Minute)) {
+			return Response{
+				OK: false,
+				Error: fmt.Sprintf(
+					"attendance can be started no earlier than 15 minutes before class start (%s)",
+					formatAPITime(nearestLesson.StartAt),
+				),
+				}
 		}
 	}
 
@@ -1133,7 +1141,7 @@ func (s *Service) createAttendanceLinkByTeacher(sessionToken string, data Attend
 	if requestedSubjectID <= 0 {
 		return Response{OK: false, Error: "subject_id is required"}
 	}
-	if requestedSubjectID != nearestLesson.SubjectID {
+	if !isElective && requestedSubjectID != nearestLesson.SubjectID {
 		return Response{OK: false, Error: "subject_id does not match nearest scheduled lesson"}
 	}
 
@@ -1144,7 +1152,7 @@ func (s *Service) createAttendanceLinkByTeacher(sessionToken string, data Attend
 	if len(groupIDs) == 0 {
 		return Response{OK: false, Error: "group_ids are required"}
 	}
-	if !containsAllGroupIDs(nearestLesson.GroupIDs, groupIDs) {
+	if !isElective && !containsAllGroupIDs(nearestLesson.GroupIDs, groupIDs) {
 		return Response{OK: false, Error: "group_ids do not match nearest scheduled lesson"}
 	}
 	sort.Slice(groupIDs, func(i, j int) bool { return groupIDs[i] < groupIDs[j] })
@@ -1173,7 +1181,36 @@ func (s *Service) createAttendanceLinkByTeacher(sessionToken string, data Attend
 
 	effectiveTTL := normalizeInviteTTL(data.ExpiresMinutes)
 	expiresAt := time.Now().Add(time.Duration(effectiveTTL) * time.Minute)
-	session, rosterSize, err := s.store.Attendance.CreateSessionWithGroups(ctx, teacherProfile.ID, subject.ID, semester.ID, groupIDs, expiresAt)
+
+	lessonType := strings.TrimSpace(data.LessonType)
+	if lessonType == "" {
+		if isElective {
+			lessonType = "Факультатив"
+		} else {
+			lessonType = "Практика"
+		}
+	}
+
+	lessonName := strings.TrimSpace(data.LessonName)
+	if lessonName == "" {
+		if isElective {
+			lessonName = fmt.Sprintf("%s (Факультатив)", subject.Name)
+		} else {
+			lessonName = fmt.Sprintf("%s (%s)", subject.Name, lessonType)
+		}
+	}
+
+	session, rosterSize, err := s.store.Attendance.CreateSessionWithGroupsAndLocation(
+		ctx,
+		teacherProfile.ID,
+		subject.ID,
+		semester.ID,
+		groupIDs,
+		expiresAt,
+		lessonName,
+		nil,
+		nil,
+	)
 	if err != nil {
 		return Response{OK: false, Error: "failed to create attendance session"}
 	}
@@ -1192,10 +1229,6 @@ func (s *Service) createAttendanceLinkByTeacher(sessionToken string, data Attend
 	)
 
 	joinURL := buildAttendanceJoinURL(s.siteBaseURL, inviteToken)
-	lessonName := strings.TrimSpace(data.LessonName)
-	if lessonName == "" {
-		lessonName = subject.Name
-	}
 	scheduleStart := nowLocal
 	scheduleEnd := nowLocal.Add(95 * time.Minute)
 	if found && requestedSubjectID == nearestLesson.SubjectID {
@@ -1211,6 +1244,7 @@ func (s *Service) createAttendanceLinkByTeacher(sessionToken string, data Attend
 			"semester_id":     semester.ID,
 			"semester":        semesterToMap(semester),
 			"lesson_name":     lessonName,
+			"lesson_type":     lessonType,
 			"invite_token":    inviteToken,
 			"url":             joinURL,
 			"join_url":        joinURL,
@@ -1861,7 +1895,7 @@ func (s *Service) activeAttendanceSessionForStudent(sessionToken string) Respons
 		 JOIN attendance_sessions s ON s.session_id = ass.session_id
 		 JOIN subjects sub ON sub.subject_id = s.subject_id
 		 WHERE ass.student_id = $1
-		   AND (ass.status = 'present' OR ass.marked_at IS NOT NULL)
+		   AND ass.status IN ('present', 'late')
 		   AND s.expires_at > NOW()
 		 ORDER BY s.expires_at DESC, s.session_id DESC
 		 LIMIT 1`,
@@ -1937,6 +1971,21 @@ func (s *Service) activeAttendanceSessionForTeacher(sessionToken string) Respons
 	sessionResult, err := s.attendanceProgressResult(ctx, session, now)
 	if err != nil {
 		return Response{OK: false, Error: "failed to load attendance progress"}
+	}
+
+	remainingMinutes := int(session.ExpiresAt.UTC().Sub(now.UTC()).Minutes())
+	if remainingMinutes < 1 {
+		remainingMinutes = 1
+	}
+	teacherIDStr := strconv.FormatInt(int64(teacherProfile.ID), 10)
+	sessionIDStr := strconv.FormatInt(int64(session.ID), 10)
+	inviteToken, _, _ := s.generateAttendanceInviteToken(sessionIDStr, teacherIDStr, remainingMinutes)
+	if inviteToken != "" {
+		joinURL := buildAttendanceJoinURL(s.siteBaseURL, inviteToken)
+		sessionResult["invite_token"] = inviteToken
+		sessionResult["join_url"] = joinURL
+		sessionResult["qr_payload"] = joinURL
+		sessionResult["url"] = joinURL
 	}
 
 	return Response{
