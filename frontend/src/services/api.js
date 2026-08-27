@@ -721,6 +721,24 @@ const api = {
     }
   },
 
+  async getStaffAnalytics(token, filters = {}) {
+    try {
+      const response = await axios.get(`${BACKEND_URL}/api/staff/analytics`, {
+        headers: authHeaders(token),
+        params: {
+          ...(filters.semesterId ? { semester_id: filters.semesterId } : {}),
+          ...(filters.scopeType ? { scope_type: filters.scopeType } : {}),
+          ...(filters.scopeId ? { scope_id: filters.scopeId } : {}),
+          ...(filters.subjectId ? { subject_id: filters.subjectId } : {})
+        }
+      });
+      return unwrapApiResponse(response.data);
+    } catch (error) {
+      console.error('Ошибка загрузки аналитики для сотрудников:', error);
+      throw error;
+    }
+  },
+
   async getStudentGroupRating(token, semesterId) {
     try {
       const response = await axios.get(`${BACKEND_URL}/api/student/ratings/group`, {

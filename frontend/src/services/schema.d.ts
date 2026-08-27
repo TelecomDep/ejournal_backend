@@ -1191,6 +1191,90 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/staff/analytics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Staff analytics
+         * @description Returns role-scoped analytics for faculty, stream, group or student, including rating, attendance, risk, distribution, heatmap and weekly dynamics.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Semester ID */
+                    semester_id?: number;
+                    /** @description Scope: faculty, stream, group or student */
+                    scope_type?: string;
+                    /** @description Scope ID */
+                    scope_id?: string;
+                    /** @description Subject ID */
+                    subject_id?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/staff/overview": {
         parameters: {
             query?: never;

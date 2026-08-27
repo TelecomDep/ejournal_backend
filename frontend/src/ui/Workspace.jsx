@@ -7,6 +7,7 @@ import SchedulePage from './pages/SchedulePage';
 import GradesPage from './pages/GradesPage';
 import AttendancePage from './pages/AttendancePage';
 import AnalyticsPage from './pages/AnalyticsPage';
+import StaffAnalyticsPage from './pages/StaffAnalyticsPage';
 import DashboardPage from './pages/DashboardPage';
 import StaffOverviewPage from './pages/StaffOverviewPage';
 import TeacherPage from './pages/TeacherPage';
@@ -157,10 +158,13 @@ const renderPage = (
   onNotificationCreated
 ) => {
   if (activeItem.key === 'dashboard') {
-    return <DashboardPage user={user} token={token} navigate={navigate} />;
+    return <DashboardPage user={user} navigate={navigate} />;
   }
   if (activeItem.key === 'overview' && ['admin', 'head', 'dean'].includes(user?.role)) {
     return <StaffOverviewPage token={token} />;
+  }
+  if (activeItem.key === 'analytics' && ['admin', 'head', 'dean'].includes(user?.role)) {
+    return <StaffAnalyticsPage token={token} />;
   }
   if (activeItem.key === 'reports' && ['admin', 'head', 'dean', 'teacher'].includes(user?.role)) {
     return <ReportsPage token={token} user={user} />;
