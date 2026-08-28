@@ -70,8 +70,56 @@ const updateSnapshotStudent = (snapshot, studentId, status) => {
   };
 };
 
+const mergePendingStatuses = (payload, pendingStatuses) => {
+  if (!payload || pendingStatuses.size === 0) return payload;
+
+  const students = (payload.students || []).map((student) => {
+    const pending = pendingStatuses.get(Number(student.student_id));
+    if (!pending) return student;
+    if (pending.confirmed && student.status === pending.status) {
+      pendingStatuses.delete(Number(student.student_id));
+      return student;
+    }
+    return {
+      ...student,
+      status: pending.status,
+      marked_at: pending.markedAt,
+      marked_by: "teacher"
+    };
+  });
+  const markedCount = students.filter((student) => student.status !== "absent" && !student.is_fraud).length;
+
+  return {
+    ...payload,
+    students,
+    marked_count: markedCount,
+    roster_size: students.length,
+    attendance_percent: students.length ? (markedCount * 100) / students.length : 0
+  };
+};
+
+const isSameRosterSnapshot = (current, next) => {
+  if (!current || !next) return false;
+  if (Number(current.roster_size) !== Number(next.roster_size)) return false;
+  if (Number(current.marked_count) !== Number(next.marked_count)) return false;
+
+  const currentStudents = current.students || [];
+  const nextStudents = next.students || [];
+  if (currentStudents.length !== nextStudents.length) return false;
+
+  return currentStudents.every((student, index) => {
+    const candidate = nextStudents[index];
+    return Number(student.student_id) === Number(candidate?.student_id)
+      && student.status === candidate?.status
+      && student.marked_at === candidate?.marked_at
+      && student.marked_by === candidate?.marked_by
+      && Boolean(student.is_fraud) === Boolean(candidate?.is_fraud)
+      && student.fraud_reason === candidate?.fraud_reason;
+  });
+};
+
 const AttendanceLiveTable = ({ token, session }) => {
-  const lessonId = Number(session?.lesson_id || session?.id || 0);
+  const lessonId = Number(session?.lesson_id || session?.session_id || session?.id || 0);
   const [snapshot, setSnapshot] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -81,6 +129,14 @@ const AttendanceLiveTable = ({ token, session }) => {
 
   const mountedRef = useRef(true);
   const requestInFlightRef = useRef(false);
+  const statusInteractionRef = useRef(false);
+  const pendingRefreshRef = useRef(false);
+  const refreshQueuedRef = useRef(false);
+  const pendingStatusesRef = useRef(new Map());
+  const statusSequenceRef = useRef(0);
+  const lessonIdRef = useRef(lessonId);
+  const latestLoadRosterRef = useRef(null);
+  lessonIdRef.current = lessonId;
 
   useEffect(() => {
     mountedRef.current = true;
@@ -90,14 +146,27 @@ const AttendanceLiveTable = ({ token, session }) => {
   }, []);
 
   const loadRoster = useCallback(async (silent = false) => {
-    if (!lessonId || requestInFlightRef.current) return;
+    if (!lessonId || lessonIdRef.current !== lessonId) return;
+    if (requestInFlightRef.current) {
+      refreshQueuedRef.current = true;
+      return;
+    }
+    if (silent && statusInteractionRef.current) {
+      pendingRefreshRef.current = true;
+      return;
+    }
 
     requestInFlightRef.current = true;
     if (!silent && mountedRef.current) setLoading(true);
     try {
       const payload = await api.getAttendanceSessionRoster(token, lessonId);
-      if (!mountedRef.current) return;
-      setSnapshot(payload);
+      if (!mountedRef.current || lessonIdRef.current !== lessonId) return;
+      if (silent && statusInteractionRef.current) {
+        pendingRefreshRef.current = true;
+        return;
+      }
+      const nextSnapshot = mergePendingStatuses(payload, pendingStatusesRef.current);
+      setSnapshot((current) => (isSameRosterSnapshot(current, nextSnapshot) ? current : nextSnapshot));
       setError("");
     } catch (err) {
       if (mountedRef.current) {
@@ -106,10 +175,30 @@ const AttendanceLiveTable = ({ token, session }) => {
     } finally {
       requestInFlightRef.current = false;
       if (mountedRef.current) setLoading(false);
+      if (refreshQueuedRef.current && mountedRef.current) {
+        refreshQueuedRef.current = false;
+        window.setTimeout(() => latestLoadRosterRef.current?.(true), 0);
+      }
     }
   }, [lessonId, token]);
+  latestLoadRosterRef.current = loadRoster;
+
+  const handleStatusInteractionStart = useCallback(() => {
+    statusInteractionRef.current = true;
+  }, []);
+
+  const handleStatusInteractionEnd = useCallback(() => {
+    statusInteractionRef.current = false;
+    if (pendingRefreshRef.current) {
+      pendingRefreshRef.current = false;
+      loadRoster(true);
+    }
+  }, [loadRoster]);
 
   useEffect(() => {
+    pendingStatusesRef.current.clear();
+    pendingRefreshRef.current = false;
+    statusInteractionRef.current = false;
     setSnapshot(null);
     setLoading(true);
     setError("");
@@ -133,15 +222,31 @@ const AttendanceLiveTable = ({ token, session }) => {
       setError("Нельзя изменить статус: у студента зафиксирована попытка мошенничества (антифрод)");
       return;
     }
+    const sequence = statusSequenceRef.current + 1;
+    statusSequenceRef.current = sequence;
+    pendingStatusesRef.current.set(Number(studentId), {
+      status,
+      sequence,
+      confirmed: false,
+      markedAt: new Date().toISOString()
+    });
     setUpdatingStudentId(Number(studentId));
     setError("");
     setSnapshot((current) => updateSnapshotStudent(current, studentId, status));
 
     try {
       await api.updateAttendanceStatus(token, lessonId, studentId, status);
+      const pending = pendingStatusesRef.current.get(Number(studentId));
+      if (pending?.sequence === sequence) {
+        pendingStatusesRef.current.set(Number(studentId), { ...pending, confirmed: true });
+      }
       await loadRoster(true);
     } catch (err) {
       if (mountedRef.current) {
+        const pending = pendingStatusesRef.current.get(Number(studentId));
+        if (pending?.sequence === sequence) {
+          pendingStatusesRef.current.delete(Number(studentId));
+        }
         setError(api.getErrorMessage(err, "Не удалось сохранить новый статус"));
         await loadRoster(true);
       }
@@ -208,6 +313,9 @@ const AttendanceLiveTable = ({ token, session }) => {
             value={getValue()}
             aria-label={`Статус посещаемости: ${row.original.student_name}`}
             disabled={Number(updatingStudentId) === Number(row.original.student_id)}
+            onFocus={handleStatusInteractionStart}
+            onPointerDown={handleStatusInteractionStart}
+            onBlur={handleStatusInteractionEnd}
             onChange={(event) => handleStatusChange(row.original.student_id, event.target.value)}
           >
             {STATUS_OPTIONS.map((option) => (
@@ -234,7 +342,7 @@ const AttendanceLiveTable = ({ token, session }) => {
         );
       }
     }
-  ], [handleStatusChange, updatingStudentId]);
+  ], [handleStatusChange, handleStatusInteractionEnd, handleStatusInteractionStart, updatingStudentId]);
 
   const table = useReactTable({
     data: visibleStudents,
@@ -345,4 +453,4 @@ const AttendanceLiveTable = ({ token, session }) => {
   );
 };
 
-export default AttendanceLiveTable;
+export default React.memo(AttendanceLiveTable);

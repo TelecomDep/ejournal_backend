@@ -2,18 +2,9 @@ import React, { useEffect, useMemo, useState } from 'react';
 import QRCode from '../../components/QRCode';
 import api from '../../services/api';
 import AttendanceLiveTable from '../components/AttendanceLiveTable';
-
-const gradeTypes = [
-  { value: 'current', label: 'Текущая работа' },
-  { value: 'laboratory', label: 'Лабораторная' },
-  { value: 'test', label: 'Тест' },
-  { value: 'exam', label: 'Экзамен' },
-  { value: 'project', label: 'Проект' }
-];
+import TeacherGradebook from '../components/TeacherGradebook';
 
 const formatDateTime = (value) => (value ? new Date(value).toLocaleString('ru-RU') : 'не указан');
-
-const formatDateForAPI = (value) => (value ? new Date(`${value}T23:59:00`).toISOString() : undefined);
 
 const asNumber = (value) => {
   const parsed = Number(value);
@@ -58,40 +49,6 @@ const ProgressCell = ({ value }) => {
     </div>
   );
 };
-
-const SubjectBars = ({ items }) => {
-  if (!items?.length) {
-    return <p className="teacher-empty">Нет данных для диаграммы.</p>;
-  }
-  return (
-    <div className="teacher-bars">
-      {items.map((item) => {
-        const pct = Math.max(0, Math.min(100, Math.round(Number(item.percent || item.score || 0))));
-        return (
-          <div className="teacher-bar-row" key={item.subject_id || item.subject_name}>
-            <span title={item.subject_name}>{item.subject_name || `Предмет ${item.subject_id}`}</span>
-            <div className="teacher-bar-track">
-              <div className={`teacher-bar-fill is-${pctTone(pct)}`} style={{ width: `${pct}%` }} />
-            </div>
-            <strong>{pct}%</strong>
-          </div>
-        );
-      })}
-    </div>
-  );
-};
-
-const TeacherSteps = ({ items }) => (
-  <div className="teacher-steps">
-    {items.map((item, index) => (
-      <div className="teacher-step" key={item.title}>
-        <span>{index + 1}</span>
-        <strong>{item.title}</strong>
-        <p>{item.text}</p>
-      </div>
-    ))}
-  </div>
-);
 
 const TeacherPage = ({ token, section = 'attendance' }) => {
   const [subjects, setSubjects] = useState([]);
@@ -178,27 +135,6 @@ const TeacherPage = ({ token, section = 'attendance' }) => {
   const [statsLoading, setStatsLoading] = useState(false);
   const [statsResult, setStatsResult] = useState(null);
 
-  const [gradeSelection, setGradeSelection] = useState({ subjectId: 0, groupId: 0, studentId: 0 });
-  const [roster, setRoster] = useState([]);
-  const [rosterLoading, setRosterLoading] = useState(false);
-  const [gradeItemsResult, setGradeItemsResult] = useState(null);
-  const [gradesLoading, setGradesLoading] = useState(false);
-  const [studentSheet, setStudentSheet] = useState(null);
-  const [studentRadar, setStudentRadar] = useState([]);
-  const [radarLoading, setRadarLoading] = useState(false);
-  const [itemForm, setItemForm] = useState({
-    title: 'Лабораторная работа 1',
-    maxScore: 10,
-    itemType: 'laboratory',
-    deadline: ''
-  });
-  const [gradeForm, setGradeForm] = useState({
-    itemId: '',
-    score: 0,
-    comment: '',
-    sessionDate: ''
-  });
-
   const clearFeedback = () => {
     setError('');
     setMessage('');
@@ -225,11 +161,6 @@ const TeacherPage = ({ token, section = 'attendance' }) => {
           setStatsSelection((current) => ({
             subjectId: current.subjectId || subjectId,
             groupId: current.groupId || groupId
-          }));
-          setGradeSelection((current) => ({
-            subjectId: current.subjectId || subjectId,
-            groupId: current.groupId || groupId,
-            studentId: current.studentId || 0
           }));
         }
       })
@@ -276,103 +207,6 @@ const TeacherPage = ({ token, section = 'attendance' }) => {
     [subjects, statsSelection.subjectId]
   );
   const statsGroups = useMemo(() => groupsOf(statsSubject), [statsSubject]);
-  const gradeSubject = useMemo(
-    () => subjects.find((subject) => Number(subject.subject_id) === Number(gradeSelection.subjectId)),
-    [subjects, gradeSelection.subjectId]
-  );
-  const gradeGroups = useMemo(() => groupsOf(gradeSubject), [gradeSubject]);
-  const gradeItems = gradeItemsResult?.items || [];
-  const gradeItemsTotal = useMemo(
-    () => gradeItems.reduce((sum, item) => sum + Number(item.max_score || 0), 0),
-    [gradeItems]
-  );
-  const selectedStudent = useMemo(
-    () => roster.find((student) => Number(student.student_id) === Number(gradeSelection.studentId)),
-    [roster, gradeSelection.studentId]
-  );
-
-  useEffect(() => {
-    if (!gradeSelection.subjectId || !gradeSelection.groupId) {
-      setRoster([]);
-      return undefined;
-    }
-
-    let active = true;
-    setRosterLoading(true);
-    api.getGroupStats(token, gradeSelection.groupId, gradeSelection.subjectId)
-      .then((response) => {
-        if (!active) return;
-        const students = Array.isArray(response?.students) ? response.students : [];
-        setRoster(students);
-        setGradeSelection((current) => {
-          const stillValid = students.some((student) => Number(student.student_id) === Number(current.studentId));
-          return {
-            ...current,
-            studentId: stillValid ? current.studentId : (students[0]?.student_id || 0)
-          };
-        });
-      })
-      .catch(() => {
-        if (active) setRoster([]);
-      })
-      .finally(() => {
-        if (active) setRosterLoading(false);
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [token, gradeSelection.subjectId, gradeSelection.groupId]);
-
-  const loadGradeItems = async (subjectId = gradeSelection.subjectId, silent = false) => {
-    if (!silent) clearFeedback();
-    if (!subjectId) return;
-    setGradesLoading(true);
-    try {
-      const response = await api.getTeacherGradeItems(token, asNumber(subjectId));
-      setGradeItemsResult(response);
-      setGradeForm((current) => {
-        const items = response?.items || [];
-        const stillValid = items.some((item) => String(item.item_id) === String(current.itemId));
-        return stillValid ? current : { ...current, itemId: items[0] ? String(items[0].item_id) : '' };
-      });
-    } catch (err) {
-      setError(api.getErrorMessage(err, 'Не удалось загрузить контрольные точки'));
-    } finally {
-      setGradesLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (gradeSelection.subjectId) {
-      loadGradeItems(gradeSelection.subjectId, true);
-    }
-  }, [gradeSelection.subjectId]);
-
-  useEffect(() => {
-    const studentId = asNumber(gradeSelection.studentId);
-    if (!token || studentId <= 0) {
-      setStudentRadar([]);
-      return undefined;
-    }
-
-    let active = true;
-    setRadarLoading(true);
-    api.getTeacherStudentPerformanceRadar(token, studentId)
-      .then((response) => {
-        if (active) setStudentRadar(Array.isArray(response?.subjects) ? response.subjects : []);
-      })
-      .catch(() => {
-        if (active) setStudentRadar([]);
-      })
-      .finally(() => {
-        if (active) setRadarLoading(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, [token, gradeSelection.studentId]);
-
   const updateSessionSubject = (subjectId) => {
     const selected = subjects.find((subject) => Number(subject.subject_id) === subjectId);
     const groups = groupsOf(selected);
@@ -511,93 +345,9 @@ const TeacherPage = ({ token, section = 'attendance' }) => {
     }
   };
 
-  const createGradeItem = async (event) => {
-    event.preventDefault();
-    clearFeedback();
-    const title = itemForm.title.trim();
-    if (!gradeSelection.subjectId || !title) {
-      setError('Выберите предмет и введите название работы.');
-      return;
-    }
-
-    setGradesLoading(true);
-    try {
-      await api.createGradeItem(token, {
-        subject_id: asNumber(gradeSelection.subjectId),
-        title,
-        max_score: asNumber(itemForm.maxScore),
-        item_type: itemForm.itemType,
-        deadline: formatDateForAPI(itemForm.deadline)
-      });
-      setMessage(`Контрольная точка «${title}» добавлена.`);
-      await loadGradeItems(gradeSelection.subjectId, true);
-    } catch (err) {
-      setError(api.getErrorMessage(err, 'Не удалось добавить контрольную точку'));
-    } finally {
-      setGradesLoading(false);
-    }
-  };
-
-  const saveGrade = async (event) => {
-    event.preventDefault();
-    clearFeedback();
-    if (!gradeSelection.studentId || !gradeForm.itemId) {
-      setError('Выберите студента и контрольную точку.');
-      return;
-    }
-
-    setGradesLoading(true);
-    try {
-      const payload = {
-        student_id: asNumber(gradeSelection.studentId),
-        item_id: asNumber(gradeForm.itemId),
-        score: asNumber(gradeForm.score)
-      };
-      if (gradeForm.comment.trim()) payload.comment = gradeForm.comment.trim();
-      await api.saveStudentGrade(token, payload);
-      setMessage('Оценка сохранена.');
-      if (studentSheet && Number(studentSheet.student_id) === payload.student_id) {
-        await loadStudentSheet(null, true);
-      }
-    } catch (err) {
-      setError(api.getErrorMessage(err, 'Не удалось сохранить оценку'));
-    } finally {
-      setGradesLoading(false);
-    }
-  };
-
-  const loadStudentSheet = async (event, silent = false) => {
-    if (event) event.preventDefault();
-    if (!silent) clearFeedback();
-    if (!gradeSelection.studentId || !gradeSelection.subjectId) {
-      setError('Выберите предмет, группу и студента.');
-      return;
-    }
-
-    setGradesLoading(true);
-    try {
-      const response = await api.getTeacherStudentGrades(
-        token,
-        asNumber(gradeSelection.studentId),
-        asNumber(gradeSelection.subjectId)
-      );
-      setStudentSheet(response);
-    } catch (err) {
-      setError(api.getErrorMessage(err, 'Не удалось загрузить ведомость студента'));
-    } finally {
-      setGradesLoading(false);
-    }
-  };
-
   const selectStatsSubject = (subjectId) => {
     const subject = subjects.find((item) => Number(item.subject_id) === subjectId);
     setStatsSelection({ subjectId, groupId: groupsOf(subject)[0]?.id || 0 });
-  };
-
-  const selectGradeSubject = (subjectId) => {
-    const subject = subjects.find((item) => Number(item.subject_id) === subjectId);
-    setGradeSelection({ subjectId, groupId: groupsOf(subject)[0]?.id || 0, studentId: 0 });
-    setStudentSheet(null);
   };
 
   const noSubjects = !subjectsLoading && subjects.length === 0;
@@ -852,186 +602,7 @@ const TeacherPage = ({ token, section = 'attendance' }) => {
       )}
 
       {section === 'grades' && (
-        <div className="teacher-section-card">
-          <header className="teacher-section-head">
-            <div>
-              <span>Оценки</span>
-              <h1>БРС: работы и баллы</h1>
-              <p>Сначала создайте работу с максимальным баллом, затем выберите студента и поставьте ему результат.</p>
-            </div>
-          </header>
-
-          <TeacherSteps
-            items={[
-              { title: 'Выберите контекст', text: 'Предмет, учебную группу и студента, которому нужно поставить баллы.' },
-              { title: 'Создайте работу', text: 'Лабораторная, тест, проект или другая контрольная точка с максимумом баллов.' },
-              { title: 'Поставьте результат', text: 'Выберите работу из списка, внесите баллы и при необходимости добавьте комментарий.' }
-            ]}
-          />
-
-          <div className="teacher-form-grid">
-            <label>
-              Предмет
-              <select
-                value={gradeSelection.subjectId}
-                onChange={(event) => selectGradeSubject(asNumber(event.target.value))}
-                disabled={subjectsLoading || noSubjects}
-              >
-                <option value="">{subjectsLoading ? 'Загрузка...' : 'Выберите предмет'}</option>
-                {subjects.map((subject) => (
-                  <option key={subject.subject_id} value={subject.subject_id}>{subject.subject_name}</option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Учебная группа
-              <select
-                value={gradeSelection.groupId}
-                onChange={(event) => {
-                  setGradeSelection((current) => ({ ...current, groupId: asNumber(event.target.value), studentId: 0 }));
-                  setStudentSheet(null);
-                }}
-                disabled={!gradeGroups.length}
-              >
-                <option value="">{gradeGroups.length ? 'Выберите группу' : 'Нет групп'}</option>
-                {gradeGroups.map((group) => (
-                  <option key={group.id} value={group.id}>{group.name}</option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Студент
-              <select
-                value={gradeSelection.studentId}
-                onChange={(event) => {
-                  setGradeSelection((current) => ({ ...current, studentId: asNumber(event.target.value) }));
-                  setStudentSheet(null);
-                }}
-                disabled={rosterLoading || !roster.length}
-              >
-                <option value="">{rosterLoading ? 'Загрузка...' : 'Выберите студента'}</option>
-                {roster.map((student) => (
-                  <option key={student.student_id} value={student.student_id}>{student.student_name}</option>
-                ))}
-              </select>
-            </label>
-          </div>
-
-          <div className="teacher-grade-layout">
-            <form className="teacher-tool-card" onSubmit={createGradeItem}>
-              <h2>1. Создать работу</h2>
-              <p className="teacher-muted">Работа появится в списке ниже и станет доступна для выставления баллов студентам.</p>
-              <label>
-                Название
-                <input value={itemForm.title} onChange={(event) => setItemForm((current) => ({ ...current, title: event.target.value }))} required />
-              </label>
-              <label>
-                Максимум баллов
-                <input type="number" min="1" max="100" value={itemForm.maxScore} onChange={(event) => setItemForm((current) => ({ ...current, maxScore: asNumber(event.target.value) }))} required />
-              </label>
-              <label>
-                Тип работы
-                <select value={itemForm.itemType} onChange={(event) => setItemForm((current) => ({ ...current, itemType: event.target.value }))}>
-                  {gradeTypes.map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}
-                </select>
-              </label>
-              <label>
-                Срок сдачи
-                <input type="date" value={itemForm.deadline} onChange={(event) => setItemForm((current) => ({ ...current, deadline: event.target.value }))} />
-              </label>
-              <button type="submit" className="teacher-primary" disabled={gradesLoading || !gradeSelection.subjectId}>Добавить</button>
-            </form>
-
-            <form className="teacher-tool-card" onSubmit={saveGrade}>
-              <h2>2. Поставить баллы студенту</h2>
-              <p className="teacher-muted">{selectedStudent ? selectedStudent.student_name : 'Выберите студента в панели выше'}</p>
-              <label>
-                Контрольная точка
-                <select value={gradeForm.itemId} onChange={(event) => setGradeForm((current) => ({ ...current, itemId: event.target.value }))} required>
-                  <option value="">Выберите работу</option>
-                  {gradeItems.map((item) => <option key={item.item_id} value={item.item_id}>{item.title} · {item.max_score} б.</option>)}
-                </select>
-              </label>
-              <label>
-                Баллы
-                <input type="number" min="0" value={gradeForm.score} onChange={(event) => setGradeForm((current) => ({ ...current, score: asNumber(event.target.value) }))} required />
-              </label>
-              <label>
-                Дата занятия
-                <input type="date" value={gradeForm.sessionDate} onChange={(event) => setGradeForm((current) => ({ ...current, sessionDate: event.target.value }))} />
-              </label>
-              <label>
-                Комментарий
-                <textarea value={gradeForm.comment} onChange={(event) => setGradeForm((current) => ({ ...current, comment: event.target.value }))} />
-              </label>
-              <button type="submit" className="teacher-primary" disabled={gradesLoading || !gradeItems.length || !gradeSelection.studentId}>Сохранить оценку</button>
-            </form>
-          </div>
-
-          <div className="teacher-grade-dashboard">
-            <section className="teacher-panel">
-              <div className="teacher-panel-head">
-                <h2>Работы предмета</h2>
-                <span>{gradeItemsTotal}/100 баллов</span>
-              </div>
-              <div className="teacher-work-list">
-                {gradeItems.length ? gradeItems.map((item) => (
-                  <button
-                    type="button"
-                    className={String(item.item_id) === String(gradeForm.itemId) ? 'is-selected' : ''}
-                    key={item.item_id}
-                    onClick={() => setGradeForm((current) => ({ ...current, itemId: String(item.item_id) }))}
-                  >
-                    <span>{item.title}</span>
-                    <strong>{item.max_score} б.</strong>
-                    <small>{formatDateTime(item.deadline)}</small>
-                  </button>
-                )) : <p className="teacher-empty">Контрольные точки пока не загружены.</p>}
-              </div>
-            </section>
-
-            <section className="teacher-panel">
-              <div className="teacher-panel-head">
-                <h2>Ведомость студента</h2>
-                <button type="button" className="teacher-secondary" onClick={loadStudentSheet} disabled={gradesLoading || !gradeSelection.studentId}>Показать</button>
-              </div>
-              {radarLoading ? <p className="teacher-empty">Загрузка диаграммы...</p> : <SubjectBars items={studentRadar} />}
-              {studentSheet ? (
-                <>
-                  <div className="teacher-stat-grid is-three">
-                    <StatCard label="Набрано" value={studentSheet.summary?.current_score || 0} />
-                    <StatCard label="Максимум" value={studentSheet.summary?.total_max || 0} />
-                    <StatCard label="Ожидалось к сроку" value={studentSheet.summary?.passed_max || 0} />
-                  </div>
-                  <div className="teacher-table-wrap">
-                    <table className="teacher-table">
-                      <thead>
-                        <tr>
-                          <th>Работа</th>
-                          <th>Баллы</th>
-                          <th>Максимум</th>
-                          <th>Дата</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {studentSheet.grades?.length ? studentSheet.grades.map((grade) => (
-                          <tr key={grade.item_id}>
-                            <td>{grade.title}</td>
-                            <td>{grade.score}</td>
-                            <td>{grade.max_score}</td>
-                            <td>{formatDateTime(grade.graded_at)}</td>
-                          </tr>
-                        )) : <tr><td colSpan={4}>Оценок пока нет</td></tr>}
-                      </tbody>
-                    </table>
-                  </div>
-                </>
-              ) : (
-                <p className="teacher-empty">Выберите студента и нажмите «Показать».</p>
-              )}
-            </section>
-          </div>
-        </div>
+        <TeacherGradebook token={token} subjects={subjects} subjectsLoading={subjectsLoading} />
       )}
     </section>
   );

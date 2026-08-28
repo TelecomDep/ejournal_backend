@@ -14,7 +14,7 @@ http {
 
     map $http_host $https_redirect_host {
         default $host;
-        ~^(?<local_host>localhost|127\.0\.0\.1):9000$ $local_host:9001;
+        ~^(?<local_host>localhost|127\.0\.0\.1):(9000|9999)$ $local_host:9001;
     }
 
     server {
