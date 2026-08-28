@@ -451,7 +451,7 @@ const TeacherGradebook = ({ token, subjects, subjectsLoading }) => {
               min="1"
               max="100"
               value={lessonForm.maxScore}
-              onChange={(event) => setLessonForm((current) => ({ ...current, maxScore: event.target.value }))}
+              onChange={(event) => setLessonForm((current) => ({ ...current, maxScore: asNumber(event.target.value) }))}
               required
             />
           </label>
