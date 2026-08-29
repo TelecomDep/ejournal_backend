@@ -40,6 +40,30 @@ const getLessonTypeLabel = (value) => (
   LESSON_TYPES.find((type) => type.value === value)?.label || 'Занятие'
 );
 
+const ATTENDANCE_STATUS_OPTIONS = [
+  { value: 'present', code: 'Пусто', label: 'Присутствовал' },
+  { value: 'absent', code: 'Н', label: 'Отсутствовал' },
+  { value: 'excused', code: 'Б', label: 'Болел' }
+];
+
+const isAttendanceItem = (item) => item?.item_type === 'attendance_auto';
+
+const normalizeAttendanceStatus = (status) => {
+  if (status === 'late') return 'present';
+  if (status === 'absent' || status === 'excused' || status === 'present') return status;
+  return '';
+};
+
+const getAttendanceCode = (status) => {
+  if (status === 'absent') return 'Н';
+  if (status === 'excused') return 'Б';
+  return '\u00A0';
+};
+
+const getAttendanceLabel = (status) => (
+  ATTENDANCE_STATUS_OPTIONS.find((option) => option.value === status)?.label || 'Статус не выставлен'
+);
+
 const getGradeTone = (score, maxScore, hasGrade) => {
   if (!hasGrade) return 'is-empty';
   const percent = maxScore > 0 ? (Number(score) / Number(maxScore)) * 100 : 0;
@@ -59,6 +83,28 @@ const getGradePoint = (sheets, studentId, itemId) => (
 );
 
 const hasRecordedGrade = (grade) => Boolean(grade?.grade_id || grade?.graded_at);
+
+const getAttendanceStatus = (grade, item) => {
+  const status = normalizeAttendanceStatus(grade?.attendance_status);
+  if (status) return status;
+  if (!hasRecordedGrade(grade)) return '';
+  return Number(grade.score) >= Number(item.max_score) ? 'present' : 'absent';
+};
+
+const hasRecordedCell = (grade, item) => (
+  isAttendanceItem(item) ? Boolean(getAttendanceStatus(grade, item)) : hasRecordedGrade(grade)
+);
+
+const getCellTone = (grade, item) => {
+  if (!isAttendanceItem(item)) {
+    return getGradeTone(grade?.score, item.max_score, hasRecordedGrade(grade));
+  }
+  const status = getAttendanceStatus(grade, item);
+  if (status === 'present') return 'is-high';
+  if (status === 'excused') return 'is-mid';
+  if (status === 'absent') return 'is-low';
+  return 'is-empty';
+};
 
 const mapSettledWithConcurrency = async (values, limit, worker) => {
   const results = new Array(values.length);
@@ -232,7 +278,7 @@ const TeacherGradebook = ({ token, subjects, subjectsLoading }) => {
     let filledCells = 0;
     roster.forEach((student) => {
       items.forEach((item) => {
-        if (hasRecordedGrade(getGradePoint(sheets, student.student_id, item.item_id))) {
+        if (hasRecordedCell(getGradePoint(sheets, student.student_id, item.item_id), item)) {
           filledCells += 1;
         }
       });
@@ -299,12 +345,52 @@ const TeacherGradebook = ({ token, subjects, subjectsLoading }) => {
   const openCellEditor = (student, item) => {
     const grade = getGradePoint(sheets, student.student_id, item.item_id);
     setEditingCell({ studentId: Number(student.student_id), itemId: Number(item.item_id) });
-    setDraftScore(hasRecordedGrade(grade) ? String(grade.score) : '');
+    setDraftScore(isAttendanceItem(item)
+      ? (getAttendanceStatus(grade, item) || 'present')
+      : (hasRecordedGrade(grade) ? String(grade.score) : ''));
     setFeedback({ type: '', text: '' });
   };
 
   const saveCell = async (event, student, item) => {
     event.preventDefault();
+
+    if (isAttendanceItem(item)) {
+      const status = normalizeAttendanceStatus(draftScore) || 'present';
+      const previousGrade = getGradePoint(sheets, student.student_id, item.item_id);
+      const sessionId = Number(previousGrade?.attendance_session_id || 0);
+      if (!sessionId) {
+        setFeedback({ type: 'error', text: 'Для этой отметки не найдено занятие посещаемости.' });
+        return;
+      }
+
+      const cellKey = `${student.student_id}:${item.item_id}`;
+      setSavingCell(cellKey);
+      setSheets((current) => ({
+        ...current,
+        [student.student_id]: replaceGradePoint(current[student.student_id], item, {
+          ...previousGrade,
+          attendance_status: status,
+          attendance_session_id: sessionId,
+          graded_at: new Date().toISOString()
+        })
+      }));
+
+      try {
+        await api.updateAttendanceStatus(token, sessionId, Number(student.student_id), status);
+        setEditingCell(null);
+        setFeedback({ type: 'success', text: `${student.student_name}: ${getAttendanceLabel(status)}.` });
+      } catch (err) {
+        setSheets((current) => ({
+          ...current,
+          [student.student_id]: replaceGradePoint(current[student.student_id], item, previousGrade)
+        }));
+        setFeedback({ type: 'error', text: api.getErrorMessage(err, 'Не удалось сохранить посещаемость') });
+      } finally {
+        setSavingCell('');
+      }
+      return;
+    }
+
     const score = Number(draftScore);
     const maxScore = Number(item.max_score || 0);
     if (!Number.isInteger(score) || score < 0 || score > maxScore) {
@@ -520,7 +606,10 @@ const TeacherGradebook = ({ token, subjects, subjectsLoading }) => {
                     <th key={item.item_id} scope="col">
                       <span className="gradebook-lesson-number">{String(index + 1).padStart(2, '0')}</span>
                       <strong title={item.title}>{item.title}</strong>
-                      <small>{formatLessonDate(item.deadline || item.created_at)} · до {item.max_score}</small>
+                      <small>
+                        {formatLessonDate(item.deadline || item.created_at)}
+                        {isAttendanceItem(item) ? ' · посещаемость' : ` · до ${item.max_score}`}
+                      </small>
                     </th>
                   ))}
                   <th className="gradebook-total-head" scope="col">
@@ -534,6 +623,7 @@ const TeacherGradebook = ({ token, subjects, subjectsLoading }) => {
                   let scoreTotal = 0;
                   let maxTotal = 0;
                   items.forEach((item) => {
+                    if (isAttendanceItem(item)) return;
                     const grade = getGradePoint(sheets, student.student_id, item.item_id);
                     maxTotal += Number(item.max_score || 0);
                     if (hasRecordedGrade(grade)) scoreTotal += Number(grade.score || 0);
@@ -554,6 +644,7 @@ const TeacherGradebook = ({ token, subjects, subjectsLoading }) => {
                       {items.map((item) => {
                         const grade = getGradePoint(sheets, student.student_id, item.item_id);
                         const hasGrade = hasRecordedGrade(grade);
+                        const attendanceStatus = isAttendanceItem(item) ? getAttendanceStatus(grade, item) : '';
                         const isEditing = editingCell?.studentId === Number(student.student_id)
                           && editingCell?.itemId === Number(item.item_id);
                         const cellKey = `${student.student_id}:${item.item_id}`;
@@ -561,7 +652,7 @@ const TeacherGradebook = ({ token, subjects, subjectsLoading }) => {
                         return (
                           <td
                             key={item.item_id}
-                            className={`gradebook-grade-cell ${getGradeTone(grade?.score, item.max_score, hasGrade)} ${isEditing ? 'is-editing' : ''}`}
+                            className={`gradebook-grade-cell ${getCellTone(grade, item)} ${isEditing ? 'is-editing' : ''}`}
                           >
                             {isEditing ? (
                               <form
@@ -573,24 +664,42 @@ const TeacherGradebook = ({ token, subjects, subjectsLoading }) => {
                               >
                                 <div className="gradebook-editor-title">
                                   <strong>{student.student_name}</strong>
-                                  <span>{item.title} · максимум {item.max_score}</span>
+                                  <span>{isAttendanceItem(item) ? `${item.title} · посещаемость` : `${item.title} · максимум ${item.max_score}`}</span>
                                 </div>
-                                <input
-                                  type="number"
-                                  min="0"
-                                  max={item.max_score}
-                                  step="1"
-                                  value={draftScore}
-                                  onChange={(event) => setDraftScore(event.target.value)}
-                                  aria-label={`Оценка для ${student.student_name}`}
-                                  autoFocus
-                                  required
-                                />
-                                <div className="gradebook-quick-scores">
-                                  {getQuickScores(item.max_score).map((score) => (
-                                    <button key={score} type="button" onClick={() => setDraftScore(String(score))}>{score}</button>
-                                  ))}
-                                </div>
+                                {isAttendanceItem(item) ? (
+                                  <div className="gradebook-attendance-options" role="radiogroup" aria-label={`Посещаемость для ${student.student_name}`}>
+                                    {ATTENDANCE_STATUS_OPTIONS.map((option) => (
+                                      <button
+                                        key={option.value}
+                                        type="button"
+                                        className={draftScore === option.value ? 'is-selected' : ''}
+                                        onClick={() => setDraftScore(option.value)}
+                                      >
+                                        <strong>{option.code}</strong>
+                                        <span>{option.label}</span>
+                                      </button>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      max={item.max_score}
+                                      step="1"
+                                      value={draftScore}
+                                      onChange={(event) => setDraftScore(event.target.value)}
+                                      aria-label={`Оценка для ${student.student_name}`}
+                                      autoFocus
+                                      required
+                                    />
+                                    <div className="gradebook-quick-scores">
+                                      {getQuickScores(item.max_score).map((score) => (
+                                        <button key={score} type="button" onClick={() => setDraftScore(String(score))}>{score}</button>
+                                      ))}
+                                    </div>
+                                  </>
+                                )}
                                 <div className="gradebook-editor-actions">
                                   <button type="button" onClick={() => setEditingCell(null)}>Отмена</button>
                                   <button type="submit" disabled={savingCell === cellKey}>Сохранить</button>
@@ -601,10 +710,12 @@ const TeacherGradebook = ({ token, subjects, subjectsLoading }) => {
                                 type="button"
                                 className="gradebook-cell-button"
                                 onClick={() => openCellEditor(student, item)}
-                                aria-label={`${student.student_name}, ${item.title}: ${hasGrade ? `${grade.score} из ${item.max_score}` : 'оценки нет'}`}
+                                aria-label={isAttendanceItem(item)
+                                  ? `${student.student_name}, ${item.title}: ${getAttendanceLabel(attendanceStatus)}`
+                                  : `${student.student_name}, ${item.title}: ${hasGrade ? `${grade.score} из ${item.max_score}` : 'оценки нет'}`}
                               >
-                                <strong>{hasGrade ? grade.score : '—'}</strong>
-                                <small>{hasGrade ? `из ${item.max_score}` : 'поставить'}</small>
+                                <strong>{isAttendanceItem(item) ? getAttendanceCode(attendanceStatus) : (hasGrade ? grade.score : '—')}</strong>
+                                <small>{isAttendanceItem(item) ? '\u00A0' : (hasGrade ? `из ${item.max_score}` : 'поставить')}</small>
                               </button>
                             )}
                           </td>
@@ -630,7 +741,7 @@ const TeacherGradebook = ({ token, subjects, subjectsLoading }) => {
       </section>
 
       <p className="gradebook-hint">
-        Подсказка: откройте ячейку одним кликом, введите оценку и нажмите Enter. Изменение сохраняется сразу.
+        Посещаемость: пусто — присутствовал, Н — отсутствовал, Б — болел. Остальные занятия оцениваются баллами.
       </p>
     </div>
   );

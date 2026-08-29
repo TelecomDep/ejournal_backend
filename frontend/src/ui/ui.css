@@ -10532,6 +10532,45 @@
   color: #24499d;
 }
 
+.gradebook-attendance-options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.gradebook-attendance-options button {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  min-height: 42px;
+  padding: 6px 4px;
+  border: 1px solid #d9e1ef;
+  border-radius: 8px;
+  background: #f5f7fb;
+  color: #30415f;
+  font: inherit;
+  cursor: pointer;
+}
+
+.gradebook-attendance-options button strong {
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.gradebook-attendance-options button span {
+  overflow: hidden;
+  font-size: 9px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+}
+
+.gradebook-attendance-options button.is-selected {
+  border-color: #3154d4;
+  background: #edf3ff;
+  color: #24499d;
+  box-shadow: 0 0 0 1px #3154d4;
+}
+
 .gradebook-editor-actions {
   display: grid;
   grid-template-columns: 1fr 1.25fr;

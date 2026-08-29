@@ -256,7 +256,7 @@ func (r *GradeRepository) UpsertGrade(ctx context.Context, grade Grade, actorUse
 		 DO UPDATE SET
 		     score = EXCLUDED.score,
 		     teacher_id = EXCLUDED.teacher_id,
-		     session_id = EXCLUDED.session_id,
+		     session_id = COALESCE(EXCLUDED.session_id, grades.session_id),
 		     comment = EXCLUDED.comment,
 		     deleted_at = NULL,
 		     deleted_by_user_id = NULL,
@@ -551,9 +551,28 @@ func (r *GradeRepository) GetStudentGradesBySubject(ctx context.Context, student
 	rows, err := r.pool.Query(
 		ctx,
 		`SELECT g.grade_id, gi.item_id, gi.title, gi.max_score, gi.item_type, gi.deadline,
-		        COALESCE(g.score, 0) AS score, g.updated_at AS graded_at
+		        COALESCE(g.score, 0) AS score, g.updated_at AS graded_at,
+		        COALESCE(linked_att.session_id, fallback_att.session_id) AS attendance_session_id,
+		        COALESCE(linked_att.status, fallback_att.status, '') AS attendance_status
 		 FROM grade_items gi
 		 LEFT JOIN grades g ON g.item_id = gi.item_id AND g.student_id = $1 AND g.deleted_at IS NULL
+		 LEFT JOIN attendance_session_students linked_att
+		        ON gi.item_type = 'attendance_auto'
+		       AND linked_att.session_id = g.session_id
+		       AND linked_att.student_id = $1
+		 LEFT JOIN LATERAL (
+		     SELECT ass.session_id, ass.status
+		     FROM attendance_session_students ass
+		     JOIN attendance_sessions session ON session.session_id = ass.session_id
+		     WHERE gi.item_type = 'attendance_auto'
+		       AND ass.student_id = $1
+		       AND session.subject_id = gi.subject_id
+		       AND session.semester_id = gi.semester_id
+		     ORDER BY ABS(EXTRACT(EPOCH FROM (session.created_at - COALESCE(gi.deadline, session.created_at)))),
+		              session.created_at DESC,
+		              session.session_id DESC
+		     LIMIT 1
+		 ) fallback_att ON linked_att.session_id IS NULL
 		 WHERE gi.subject_id = $2 AND gi.semester_id = $3 AND gi.deleted_at IS NULL
 		 ORDER BY gi.deadline NULLS LAST, gi.created_at, gi.item_id`,
 		studentID,
@@ -581,9 +600,20 @@ func (r *GradeRepository) GetStudentGradesBySubject(ctx context.Context, student
 
 func scanStudentGradePoint(row pgx.Row) (StudentGradePoint, error) {
 	var point StudentGradePoint
-	var gradeID sql.NullInt32
+	var gradeID, attendanceSessionID sql.NullInt32
 	var deadline, gradedAt sql.NullTime
-	err := row.Scan(&gradeID, &point.ItemID, &point.Title, &point.MaxScore, &point.ItemType, &deadline, &point.Score, &gradedAt)
+	err := row.Scan(
+		&gradeID,
+		&point.ItemID,
+		&point.Title,
+		&point.MaxScore,
+		&point.ItemType,
+		&deadline,
+		&point.Score,
+		&gradedAt,
+		&attendanceSessionID,
+		&point.AttendanceStatus,
+	)
 	if err != nil {
 		return StudentGradePoint{}, fmt.Errorf("scan student grade point: %w", err)
 	}
@@ -595,6 +625,9 @@ func scanStudentGradePoint(row pgx.Row) (StudentGradePoint, error) {
 	}
 	if gradedAt.Valid {
 		point.GradedAt = &gradedAt.Time
+	}
+	if attendanceSessionID.Valid {
+		point.AttendanceSessionID = &attendanceSessionID.Int32
 	}
 	return point, nil
 }
