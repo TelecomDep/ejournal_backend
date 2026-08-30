@@ -1926,7 +1926,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/teacher/attendance-link": {
+        "/api/teaching/attendance-link": {
             "post": {
                 "security": [
                     {
@@ -1989,7 +1989,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/teacher/attendance/group": {
+        "/api/teaching/attendance/group": {
             "post": {
                 "security": [
                     {
@@ -2052,7 +2052,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/teacher/attendance/mark": {
+        "/api/teaching/attendance/mark": {
             "post": {
                 "security": [
                     {
@@ -2115,7 +2115,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/teacher/attendance/session": {
+        "/api/teaching/attendance/session": {
             "post": {
                 "security": [
                     {
@@ -2178,7 +2178,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/teacher/attendance/session/active": {
+        "/api/teaching/attendance/session/active": {
             "get": {
                 "security": [
                     {
@@ -2221,7 +2221,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/teacher/attendance/session/marked-count": {
+        "/api/teaching/attendance/session/marked-count": {
             "get": {
                 "security": [
                     {
@@ -2273,7 +2273,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/teacher/attendance/session/roster": {
+        "/api/teaching/attendance/session/roster": {
             "get": {
                 "security": [
                     {
@@ -2325,7 +2325,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/teacher/attendance/session/timer": {
+        "/api/teaching/attendance/session/timer": {
             "get": {
                 "security": [
                     {
@@ -2377,7 +2377,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/teacher/attendance/student/history": {
+        "/api/teaching/attendance/student/history": {
             "post": {
                 "security": [
                     {
@@ -2440,7 +2440,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/teacher/grades": {
+        "/api/teaching/grades": {
             "post": {
                 "security": [
                     {
@@ -2503,7 +2503,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/teacher/grades/items": {
+        "/api/teaching/grades/items": {
             "post": {
                 "security": [
                     {
@@ -2566,7 +2566,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/teacher/grades/items/list": {
+        "/api/teaching/grades/items/list": {
             "post": {
                 "security": [
                     {
@@ -2629,7 +2629,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/teacher/grades/items/{item_id}": {
+        "/api/teaching/grades/items/{item_id}": {
             "delete": {
                 "security": [
                     {
@@ -2704,7 +2704,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/teacher/grades/items/{item_id}/restore": {
+        "/api/teaching/grades/items/{item_id}/restore": {
             "post": {
                 "security": [
                     {
@@ -2768,7 +2768,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/teacher/grades/student": {
+        "/api/teaching/grades/student": {
             "post": {
                 "security": [
                     {
@@ -2831,7 +2831,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/teacher/grades/{grade_id}": {
+        "/api/teaching/grades/{grade_id}": {
             "delete": {
                 "security": [
                     {
@@ -2906,7 +2906,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/teacher/grades/{grade_id}/restore": {
+        "/api/teaching/grades/{grade_id}/restore": {
             "post": {
                 "security": [
                     {
@@ -2970,7 +2970,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/teacher/group/performance": {
+        "/api/teaching/group/performance": {
             "post": {
                 "security": [
                     {
@@ -3033,7 +3033,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/teacher/schedule/day": {
+        "/api/teaching/schedule/day": {
             "get": {
                 "security": [
                     {
@@ -3090,7 +3090,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/teacher/student/performance/radar": {
+        "/api/teaching/student/performance/radar": {
             "post": {
                 "security": [
                     {
@@ -3153,7 +3153,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/teacher/subjects": {
+        "/api/teaching/subjects": {
             "get": {
                 "security": [
                     {

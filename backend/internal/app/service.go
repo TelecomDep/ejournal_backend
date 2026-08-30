@@ -617,7 +617,7 @@ func (s *Service) profileByToken(token string) Response {
 				result["nfc_tag"] = nfcID.String
 			}
 		}
-	case "teacher":
+	case "teacher", "head":
 		var teacherID int32
 		var teacherName sql.NullString
 		var lecternID sql.NullInt32
@@ -1098,7 +1098,7 @@ func (s *Service) createAttendanceLinkByTeacher(sessionToken string, data Attend
 	if err != nil {
 		return Response{OK: false, Error: err.Error()}
 	}
-	if teacherUser.Role != "teacher" {
+	if !isTeachingRole(teacherUser.Role) {
 		return Response{OK: false, Error: "forbidden: teacher role required"}
 	}
 	teacherProfile, err := s.teacherProfileByUser(teacherUser)
@@ -1130,7 +1130,7 @@ func (s *Service) createAttendanceLinkByTeacher(sessionToken string, data Attend
 					"attendance can be started no earlier than 15 minutes before class start (%s)",
 					formatAPITime(nearestLesson.StartAt),
 				),
-				}
+			}
 		}
 	}
 
@@ -1358,7 +1358,7 @@ func (s *Service) attendanceByGroupForTeacher(sessionToken string, data Attendan
 	if err != nil {
 		return Response{OK: false, Error: err.Error()}
 	}
-	if teacherUser.Role != "teacher" {
+	if !isTeachingRole(teacherUser.Role) {
 		return Response{OK: false, Error: "forbidden: teacher role required"}
 	}
 	teacherProfile, err := s.teacherProfileByUser(teacherUser)
@@ -1452,7 +1452,7 @@ func (s *Service) groupPerformanceForTeacher(sessionToken string, data GroupPerf
 	if err != nil {
 		return Response{OK: false, Error: err.Error()}
 	}
-	if teacherUser.Role != "teacher" {
+	if !isTeachingRole(teacherUser.Role) {
 		return Response{OK: false, Error: "forbidden: teacher role required"}
 	}
 	teacherProfile, err := s.teacherProfileByUser(teacherUser)
@@ -1575,7 +1575,7 @@ func (s *Service) attendanceSessionByTeacher(ctx context.Context, sessionToken s
 	if err != nil {
 		return db.AttendanceSession{}, false, Response{OK: false, Error: err.Error()}
 	}
-	if teacherUser.Role != "teacher" {
+	if !isTeachingRole(teacherUser.Role) {
 		return db.AttendanceSession{}, false, Response{OK: false, Error: "forbidden: teacher role required"}
 	}
 	teacherProfile, err := s.teacherProfileByUser(teacherUser)
@@ -1799,7 +1799,7 @@ func (s *Service) finishAttendanceSessionByTeacher(sessionToken string, data Att
 	if err != nil {
 		return Response{OK: false, Error: err.Error()}
 	}
-	if teacherUser.Role != RoleTeacher && teacherUser.Role != RoleAdmin {
+	if !isTeachingRole(teacherUser.Role) && teacherUser.Role != RoleAdmin {
 		return Response{OK: false, Error: "forbidden: teacher role required"}
 	}
 
@@ -1811,7 +1811,7 @@ func (s *Service) finishAttendanceSessionByTeacher(sessionToken string, data Att
 		sessionID = data.LessonID
 	}
 
-	if teacherUser.Role == RoleTeacher {
+	if isTeachingRole(teacherUser.Role) {
 		teacherProfile, err := s.teacherProfileByUser(teacherUser)
 		if err != nil {
 			return Response{OK: false, Error: err.Error()}
@@ -1943,7 +1943,7 @@ func (s *Service) activeAttendanceSessionForTeacher(sessionToken string) Respons
 	if err != nil {
 		return Response{OK: false, Error: err.Error()}
 	}
-	if teacherUser.Role != "teacher" {
+	if !isTeachingRole(teacherUser.Role) {
 		return Response{OK: false, Error: "forbidden: teacher role required"}
 	}
 	teacherProfile, err := s.teacherProfileByUser(teacherUser)
@@ -2185,7 +2185,7 @@ func (s *Service) attendanceHistoryForTeacherStudent(sessionToken string, data T
 	if err != nil {
 		return Response{OK: false, Error: err.Error()}
 	}
-	if teacherUser.Role != "teacher" {
+	if !isTeachingRole(teacherUser.Role) {
 		return Response{OK: false, Error: "forbidden: teacher role required"}
 	}
 	teacherProfile, err := s.teacherProfileByUser(teacherUser)
@@ -2247,7 +2247,7 @@ func (s *Service) teacherSubjects(sessionToken string) Response {
 	if err != nil {
 		return Response{OK: false, Error: err.Error()}
 	}
-	if teacherUser.Role != "teacher" {
+	if !isTeachingRole(teacherUser.Role) {
 		return Response{OK: false, Error: "forbidden: teacher role required"}
 	}
 

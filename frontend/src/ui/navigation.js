@@ -44,6 +44,18 @@ const STAFF_NAV = [
   { key: 'profile', label: 'Профиль', title: 'Профиль', route: '/profile', icon: '○' }
 ];
 
+const TEACHING_STAFF_NAV = [
+  { key: 'dashboard', label: 'Главная', title: 'Главная', route: '/dashboard', icon: '⌂' },
+  { key: 'schedule', label: 'Расписание', title: 'Расписание', route: '/schedule', icon: '□' },
+  { key: 'attendance', label: 'Посещаемость', title: 'Посещаемость группы', route: '/teacher/attendance', icon: '✓' },
+  { key: 'grades', label: 'Оценки', title: 'Ведомость оценок', route: '/teacher/grades', icon: '◇' },
+  { key: 'stats', label: 'Статистика групп', title: 'Статистика группы', route: '/teacher/stats', icon: '▥' },
+  { key: 'overview', label: 'Сводка', title: 'Сводка по охвату', route: '/staff/overview', icon: '▥' },
+  { key: 'analytics', label: 'Аналитика кафедры', title: 'Аналитика', route: '/staff/analytics', icon: '▥' },
+  { key: 'reports', label: 'Отчёты', title: 'Формирование отчётов', route: '/staff/reports', icon: '□' },
+  { key: 'profile', label: 'Профиль', title: 'Профиль', route: '/profile', icon: '○' }
+];
+
 const STAFF_ROLES = ['admin', 'head', 'dean'];
 
 export const getRoleLabel = (role) => ROLE_LABELS[role] || 'Пользователь';
@@ -51,6 +63,9 @@ export const getRoleLabel = (role) => ROLE_LABELS[role] || 'Пользовате
 export const getNavigationForRole = (role) => {
   if (role === 'admin') {
     return ADMIN_NAV;
+  }
+  if (role === 'head') {
+    return TEACHING_STAFF_NAV;
   }
   if (STAFF_ROLES.includes(role)) {
     return STAFF_NAV;

@@ -2482,7 +2482,7 @@ paths:
       summary: Get student's schedule for a day
       tags:
       - schedule
-  /api/teacher/attendance-link:
+  /api/teaching/attendance-link:
     post:
       consumes:
       - application/json
@@ -2523,7 +2523,7 @@ paths:
       summary: Create attendance session link
       tags:
       - attendance
-  /api/teacher/attendance/group:
+  /api/teaching/attendance/group:
     post:
       consumes:
       - application/json
@@ -2564,7 +2564,7 @@ paths:
       summary: Get attendance stats by group
       tags:
       - attendance
-  /api/teacher/attendance/mark:
+  /api/teaching/attendance/mark:
     post:
       consumes:
       - application/json
@@ -2605,7 +2605,7 @@ paths:
       summary: Manually correct a student's attendance status
       tags:
       - attendance
-  /api/teacher/attendance/session:
+  /api/teaching/attendance/session:
     post:
       consumes:
       - application/json
@@ -2646,7 +2646,7 @@ paths:
       summary: Create attendance session link
       tags:
       - attendance
-  /api/teacher/attendance/session/active:
+  /api/teaching/attendance/session/active:
     get:
       description: Returns current teacher attendance session that has not expired
         yet.
@@ -2674,7 +2674,7 @@ paths:
       summary: Get active attendance session
       tags:
       - attendance
-  /api/teacher/attendance/session/marked-count:
+  /api/teaching/attendance/session/marked-count:
     get:
       description: Returns how many students have marked attendance in a teacher-owned
         session.
@@ -2708,7 +2708,7 @@ paths:
       summary: Get attendance marked count
       tags:
       - attendance
-  /api/teacher/attendance/session/roster:
+  /api/teaching/attendance/session/roster:
     get:
       description: Returns every student in a teacher-owned attendance session with
         the current status and mark time.
@@ -2742,7 +2742,7 @@ paths:
       summary: Get the live attendance roster
       tags:
       - attendance
-  /api/teacher/attendance/session/timer:
+  /api/teaching/attendance/session/timer:
     get:
       description: Returns remaining seconds for a teacher-owned attendance session.
       parameters:
@@ -2775,7 +2775,7 @@ paths:
       summary: Get attendance session timer
       tags:
       - attendance
-  /api/teacher/attendance/student/history:
+  /api/teaching/attendance/student/history:
     post:
       consumes:
       - application/json
@@ -2816,7 +2816,7 @@ paths:
       summary: Get a student's attendance history for a subject
       tags:
       - attendance
-  /api/teacher/grades:
+  /api/teaching/grades:
     post:
       consumes:
       - application/json
@@ -2856,7 +2856,7 @@ paths:
       summary: Create or update student grade
       tags:
       - grades
-  /api/teacher/grades/{grade_id}:
+  /api/teaching/grades/{grade_id}:
     delete:
       consumes:
       - application/json
@@ -2905,7 +2905,7 @@ paths:
       summary: Delete student grade
       tags:
       - grades
-  /api/teacher/grades/{grade_id}/restore:
+  /api/teaching/grades/{grade_id}/restore:
     post:
       description: Restores a soft-deleted grade in the open semester.
       parameters:
@@ -2946,7 +2946,7 @@ paths:
       summary: Restore student grade
       tags:
       - grades
-  /api/teacher/grades/items:
+  /api/teaching/grades/items:
     post:
       consumes:
       - application/json
@@ -2986,7 +2986,7 @@ paths:
       summary: Create grade item
       tags:
       - grades
-  /api/teacher/grades/items/{item_id}:
+  /api/teaching/grades/items/{item_id}:
     delete:
       consumes:
       - application/json
@@ -3035,7 +3035,7 @@ paths:
       summary: Delete grade item
       tags:
       - grades
-  /api/teacher/grades/items/{item_id}/restore:
+  /api/teaching/grades/items/{item_id}/restore:
     post:
       description: Restores a soft-deleted grade item and its cascade-deleted grades
         in the open semester.
@@ -3077,7 +3077,7 @@ paths:
       summary: Restore grade item
       tags:
       - grades
-  /api/teacher/grades/items/list:
+  /api/teaching/grades/items/list:
     post:
       consumes:
       - application/json
@@ -3117,7 +3117,7 @@ paths:
       summary: List grade items by subject
       tags:
       - grades
-  /api/teacher/grades/student:
+  /api/teaching/grades/student:
     post:
       consumes:
       - application/json
@@ -3157,7 +3157,7 @@ paths:
       summary: Get student grades by subject
       tags:
       - grades
-  /api/teacher/group/performance:
+  /api/teaching/group/performance:
     post:
       consumes:
       - application/json
@@ -3198,7 +3198,7 @@ paths:
       summary: Get a group performance overview for a subject
       tags:
       - attendance
-  /api/teacher/schedule/day:
+  /api/teaching/schedule/day:
     get:
       description: Returns the current teacher's lessons and groups for a given date,
         restricted to the current or next calendar week. Defaults to today if date
@@ -3236,7 +3236,7 @@ paths:
       summary: Get teacher's schedule for a day
       tags:
       - schedule
-  /api/teacher/student/performance/radar:
+  /api/teaching/student/performance/radar:
     post:
       consumes:
       - application/json
@@ -3277,7 +3277,7 @@ paths:
       summary: Get a student's performance radar (teacher)
       tags:
       - grades
-  /api/teacher/subjects:
+  /api/teaching/subjects:
     get:
       description: Returns subjects (and groups) assigned to current teacher from
         schedule.

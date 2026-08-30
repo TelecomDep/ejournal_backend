@@ -19,6 +19,10 @@ const (
 	RoleAdmin          = "admin"           // Главный системный администратор
 )
 
+func isTeachingRole(role string) bool {
+	return role == RoleTeacher || role == RoleHead
+}
+
 type RolePermissions struct {
 	Role                 string `json:"role"`
 	Title                string `json:"title"`

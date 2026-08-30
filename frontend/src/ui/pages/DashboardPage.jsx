@@ -9,6 +9,8 @@ const getDisplayName = (user) => (
 const roleTitle = (role) => {
   if (role === 'teacher') return 'Рабочая панель преподавателя';
   if (role === 'admin') return 'Панель администратора';
+  if (role === 'head') return 'Панель заведующего кафедрой';
+  if (role === 'dean') return 'Панель декана';
   if (STAFF_ROLES.includes(role)) return 'Сводная панель';
   return 'Личный кабинет студента';
 };
@@ -89,6 +91,15 @@ const getQuickCards = (role) => {
       { icon: 'attendance', title: 'Уведомления', text: 'Сообщения пользователям', to: '/admin/notifications' },
       { icon: 'grades', title: 'Отчёты', text: 'Excel и PDF по семестрам', to: '/staff/reports' },
       { icon: 'analytics', title: 'Антифрод', text: 'Журнал и рейтинг нарушений', to: '/staff/antifraud' }
+    ];
+  }
+
+  if (role === 'head') {
+    return [
+      { icon: 'attendance', title: 'Открыть пару', text: 'Отметить посещаемость студентов', to: '/teacher/attendance' },
+      { icon: 'grades', title: 'Оценки', text: 'Работы и баллы студентов', to: '/teacher/grades' },
+      { icon: 'schedule', title: 'Расписание', text: 'Пары на выбранный день', to: '/schedule' },
+      { icon: 'staff', title: 'Сводка', text: 'Группы, студенты и преподаватели', to: '/staff/overview' }
     ];
   }
 

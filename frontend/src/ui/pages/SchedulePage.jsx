@@ -92,7 +92,7 @@ const getLessonType = (lesson) => {
 };
 
 const SchedulePage = ({ user, token }) => {
-  const isTeacher = user?.role === 'teacher';
+  const isTeacher = ['teacher', 'head'].includes(user?.role);
   const canViewSchedule = user?.role === 'student' || isTeacher;
   const allowedDays = useMemo(buildAllowedDays, []);
   const todayISO = toISODate(new Date());
@@ -161,7 +161,7 @@ const SchedulePage = ({ user, token }) => {
       <section className="schedule-page">
         <h1>Расписание</h1>
         <div className="schedule-empty-role">
-          Расписание доступно студентам и преподавателям.
+          Расписание доступно студентам, преподавателям и заведующим кафедрой.
         </div>
       </section>
     );

@@ -39,6 +39,35 @@ func New(cfg config.AppConfig, svc *app.Service) *Server {
 	}
 }
 
+// registerTeachingRoutes exposes teaching operations independently of a user's
+// organisational role. The legacy /api/teacher prefix is registered as an
+// alias during the transition to /api/teaching.
+func (s *Server) registerTeachingRoutes(router fiber.Router) {
+	router.Post("/attendance-link", s.teacherAttendanceLinkHandler)
+	router.Post("/attendance/session", s.teacherAttendanceLinkHandler)
+	router.Get("/attendance/session/marked-count", s.teacherAttendanceMarkedCountHandler)
+	router.Get("/attendance/session/roster", s.teacherAttendanceSessionRosterHandler)
+	router.Get("/attendance/session/timer", s.teacherAttendanceSessionTimerHandler)
+	router.Get("/attendance/session/active", s.teacherActiveAttendanceSessionHandler)
+	router.Post("/attendance/session/finish", s.teacherFinishAttendanceSessionHandler)
+	router.Post("/lesson/finish", s.teacherFinishAttendanceSessionHandler)
+	router.Post("/attendance/mark", s.teacherAttendanceMarkHandler)
+	router.Get("/subjects", s.teacherSubjectsHandler)
+	router.Post("/attendance/group", s.teacherAttendanceByGroupHandler)
+	router.Post("/group/performance", s.teacherGroupPerformanceHandler)
+	router.Post("/attendance/student/history", s.teacherAttendanceStudentHistoryHandler)
+	router.Get("/schedule/day", s.teacherScheduleDayHandler)
+	router.Post("/grades/items", s.teacherCreateGradeItemHandler)
+	router.Post("/grades/items/list", s.teacherGradeItemsBySubjectHandler)
+	router.Delete("/grades/items/:item_id", s.teacherDeleteGradeItemHandler)
+	router.Post("/grades/items/:item_id/restore", s.teacherRestoreGradeItemHandler)
+	router.Post("/grades", s.teacherUpsertGradeHandler)
+	router.Delete("/grades/:grade_id", s.teacherDeleteGradeHandler)
+	router.Post("/grades/:grade_id/restore", s.teacherRestoreGradeHandler)
+	router.Post("/grades/student", s.teacherStudentGradesBySubjectHandler)
+	router.Post("/student/performance/radar", s.teacherStudentPerformanceRadarHandler)
+}
+
 func (s *Server) Start() {
 	trustedProxies := strings.FieldsFunc(s.cfg.TrustedProxies, func(r rune) bool { return r == ',' || r == ' ' })
 	fiberApp := fiber.New(fiber.Config{
@@ -132,19 +161,8 @@ func (s *Server) Start() {
 	fiberApp.Get("/api/admin/system/maintenance", s.adminSystemMaintenanceGetHandler)
 	fiberApp.Post("/api/admin/system/maintenance", s.adminSystemMaintenanceSetHandler)
 
-	fiberApp.Post("/api/teacher/attendance-link", s.teacherAttendanceLinkHandler)
-	fiberApp.Post("/api/teacher/attendance/session", s.teacherAttendanceLinkHandler)
-	fiberApp.Get("/api/teacher/attendance/session/marked-count", s.teacherAttendanceMarkedCountHandler)
-	fiberApp.Get("/api/teacher/attendance/session/roster", s.teacherAttendanceSessionRosterHandler)
-	fiberApp.Get("/api/teacher/attendance/session/timer", s.teacherAttendanceSessionTimerHandler)
-	fiberApp.Get("/api/teacher/attendance/session/active", s.teacherActiveAttendanceSessionHandler)
-	fiberApp.Post("/api/teacher/attendance/session/finish", s.teacherFinishAttendanceSessionHandler)
-	fiberApp.Post("/api/teacher/lesson/finish", s.teacherFinishAttendanceSessionHandler)
-	fiberApp.Post("/api/teacher/attendance/mark", s.teacherAttendanceMarkHandler)
-	fiberApp.Get("/api/teacher/subjects", s.teacherSubjectsHandler)
-	fiberApp.Post("/api/teacher/attendance/group", s.teacherAttendanceByGroupHandler)
-	fiberApp.Post("/api/teacher/group/performance", s.teacherGroupPerformanceHandler)
-	fiberApp.Post("/api/teacher/attendance/student/history", s.teacherAttendanceStudentHistoryHandler)
+	s.registerTeachingRoutes(fiberApp.Group("/api/teaching"))
+	s.registerTeachingRoutes(fiberApp.Group("/api/teacher"))
 	fiberApp.Post("/api/student/attendance/confirm", s.studentAttendanceConfirmHandler)
 	fiberApp.Post("/api/student/mark-attendance", s.androidStudentAttendanceMarkHandler)
 	fiberApp.Get("/api/student/attendance/active-session", s.studentActiveAttendanceSessionHandler)
@@ -153,7 +171,6 @@ func (s *Server) Start() {
 	fiberApp.Get("/api/student/attendance/summary", s.studentAttendanceSummaryHandler)
 	fiberApp.Get("/api/student/schedule/day", s.studentScheduleDayHandler)
 	fiberApp.Get("/api/student/ratings/group", s.generalRatingHandler)
-	fiberApp.Get("/api/teacher/schedule/day", s.teacherScheduleDayHandler)
 	fiberApp.Get("/api/staff/overview", s.staffOverviewHandler)
 	fiberApp.Get("/api/staff/overview/students", s.staffStudentsPageHandler)
 	fiberApp.Get("/api/staff/analytics", s.staffAnalyticsHandler)
@@ -167,18 +184,9 @@ func (s *Server) Start() {
 	fiberApp.Delete("/api/user/device-token", s.deleteDeviceTokenHandler)
 	fiberApp.Post("/api/attachments/upload", s.uploadAttachmentHandler)
 	fiberApp.Get("/api/attachments/:id", s.getAttachmentHandler)
-	fiberApp.Post("/api/teacher/grades/items", s.teacherCreateGradeItemHandler)
-	fiberApp.Post("/api/teacher/grades/items/list", s.teacherGradeItemsBySubjectHandler)
-	fiberApp.Delete("/api/teacher/grades/items/:item_id", s.teacherDeleteGradeItemHandler)
-	fiberApp.Post("/api/teacher/grades/items/:item_id/restore", s.teacherRestoreGradeItemHandler)
-	fiberApp.Post("/api/teacher/grades", s.teacherUpsertGradeHandler)
-	fiberApp.Delete("/api/teacher/grades/:grade_id", s.teacherDeleteGradeHandler)
-	fiberApp.Post("/api/teacher/grades/:grade_id/restore", s.teacherRestoreGradeHandler)
-	fiberApp.Post("/api/teacher/grades/student", s.teacherStudentGradesBySubjectHandler)
 	fiberApp.Post("/api/student/grades", s.studentGradesBySubjectHandler)
 	fiberApp.Get("/api/student/performance/radar", s.studentPerformanceRadarHandler)
 	fiberApp.Get("/api/student/grades/all", s.studentAllGradesHandler)
-	fiberApp.Post("/api/teacher/student/performance/radar", s.teacherStudentPerformanceRadarHandler)
 	fiberApp.Post("/api/user/agreements/decision", s.userAgreementDecisionHandler)
 	fiberApp.Get("/api/user/agreements/current", s.currentUserAgreementHandler)
 	fiberApp.Get("/swagger/*", swagger.HandlerDefault)
@@ -1072,8 +1080,8 @@ func (s *Server) staffPerformanceReportPDFHandler(c *fiber.Ctx) error {
 // @Failure 401 {object} app.Response
 // @Failure 403 {object} app.Response
 // @Failure 500 {object} app.Response
-// @Router /api/teacher/attendance-link [post]
-// @Router /api/teacher/attendance/session [post]
+// @Router /api/teaching/attendance-link [post]
+// @Router /api/teaching/attendance/session [post]
 func (s *Server) teacherAttendanceLinkHandler(c *fiber.Ctx) error {
 	token := c.Get("Authorization")
 	if token == "" {
@@ -1196,7 +1204,7 @@ func (s *Server) studentAttendanceConfirmHandler(c *fiber.Ctx) error {
 // @Failure 401 {object} app.Response
 // @Failure 403 {object} app.Response
 // @Failure 500 {object} app.Response
-// @Router /api/teacher/attendance/group [post]
+// @Router /api/teaching/attendance/group [post]
 func (s *Server) teacherAttendanceByGroupHandler(c *fiber.Ctx) error {
 	token := c.Get("Authorization")
 	if token == "" {
@@ -1250,7 +1258,7 @@ func (s *Server) teacherAttendanceByGroupHandler(c *fiber.Ctx) error {
 // @Failure 401 {object} app.Response
 // @Failure 403 {object} app.Response
 // @Failure 404 {object} app.Response
-// @Router /api/teacher/attendance/student/history [post]
+// @Router /api/teaching/attendance/student/history [post]
 func (s *Server) teacherAttendanceStudentHistoryHandler(c *fiber.Ctx) error {
 	var body app.TeacherAttendanceStudentHistoryData
 	return s.gradeActionHandler(c, "http-teacher-attendance-student-history", "teacher_attendance_student_history", &body)
@@ -1269,7 +1277,7 @@ func (s *Server) teacherAttendanceStudentHistoryHandler(c *fiber.Ctx) error {
 // @Failure 401 {object} app.Response
 // @Failure 403 {object} app.Response
 // @Failure 404 {object} app.Response
-// @Router /api/teacher/group/performance [post]
+// @Router /api/teaching/group/performance [post]
 func (s *Server) teacherGroupPerformanceHandler(c *fiber.Ctx) error {
 	var body app.GroupPerformanceData
 	return s.gradeActionHandler(c, "http-teacher-group-performance", "teacher_group_performance", &body)
@@ -1286,7 +1294,7 @@ func (s *Server) teacherGroupPerformanceHandler(c *fiber.Ctx) error {
 // @Failure 400 {object} app.Response
 // @Failure 401 {object} app.Response
 // @Failure 403 {object} app.Response
-// @Router /api/teacher/attendance/session/marked-count [get]
+// @Router /api/teaching/attendance/session/marked-count [get]
 func (s *Server) teacherAttendanceMarkedCountHandler(c *fiber.Ctx) error {
 	body := app.AttendanceSessionData{LessonID: int32(c.QueryInt("lesson_id", 0))}
 	return s.teacherAttendanceReadHandler(c, "http-teacher-attendance-marked-count", "teacher_attendance_marked_count", body)
@@ -1303,7 +1311,7 @@ func (s *Server) teacherAttendanceMarkedCountHandler(c *fiber.Ctx) error {
 // @Failure 400 {object} app.Response
 // @Failure 401 {object} app.Response
 // @Failure 403 {object} app.Response
-// @Router /api/teacher/attendance/session/roster [get]
+// @Router /api/teaching/attendance/session/roster [get]
 func (s *Server) teacherAttendanceSessionRosterHandler(c *fiber.Ctx) error {
 	body := app.AttendanceSessionData{LessonID: int32(c.QueryInt("lesson_id", 0))}
 	return s.teacherAttendanceReadHandler(c, "http-teacher-attendance-session-roster", "teacher_attendance_session_roster", body)
@@ -1320,7 +1328,7 @@ func (s *Server) teacherAttendanceSessionRosterHandler(c *fiber.Ctx) error {
 // @Failure 400 {object} app.Response
 // @Failure 401 {object} app.Response
 // @Failure 403 {object} app.Response
-// @Router /api/teacher/attendance/session/timer [get]
+// @Router /api/teaching/attendance/session/timer [get]
 func (s *Server) teacherAttendanceSessionTimerHandler(c *fiber.Ctx) error {
 	body := app.AttendanceSessionData{LessonID: int32(c.QueryInt("lesson_id", 0))}
 	return s.teacherAttendanceReadHandler(c, "http-teacher-attendance-session-timer", "teacher_attendance_session_timer", body)
@@ -1336,7 +1344,7 @@ func (s *Server) teacherAttendanceSessionTimerHandler(c *fiber.Ctx) error {
 // @Failure 400 {object} app.Response
 // @Failure 401 {object} app.Response
 // @Failure 403 {object} app.Response
-// @Router /api/teacher/attendance/session/active [get]
+// @Router /api/teaching/attendance/session/active [get]
 func (s *Server) teacherActiveAttendanceSessionHandler(c *fiber.Ctx) error {
 	return s.teacherAttendanceReadHandler(c, "http-teacher-active-attendance-session", "teacher_active_attendance_session", nil)
 }
@@ -1412,7 +1420,7 @@ func (s *Server) teacherAttendanceReadHandler(c *fiber.Ctx, requestID, action st
 // @Failure 401 {object} app.Response
 // @Failure 403 {object} app.Response
 // @Failure 404 {object} app.Response
-// @Router /api/teacher/attendance/mark [post]
+// @Router /api/teaching/attendance/mark [post]
 func (s *Server) teacherAttendanceMarkHandler(c *fiber.Ctx) error {
 	token := c.Get("Authorization")
 	if token == "" {
@@ -1465,7 +1473,7 @@ func (s *Server) teacherAttendanceMarkHandler(c *fiber.Ctx) error {
 // @Failure 401 {object} app.Response
 // @Failure 403 {object} app.Response
 // @Failure 500 {object} app.Response
-// @Router /api/teacher/subjects [get]
+// @Router /api/teaching/subjects [get]
 func (s *Server) teacherSubjectsHandler(c *fiber.Ctx) error {
 	token := c.Get("Authorization")
 	if token == "" {
@@ -1614,7 +1622,7 @@ func (s *Server) studentScheduleDayHandler(c *fiber.Ctx) error {
 // @Failure 401 {object} app.Response
 // @Failure 403 {object} app.Response
 // @Failure 500 {object} app.Response
-// @Router /api/teacher/schedule/day [get]
+// @Router /api/teaching/schedule/day [get]
 func (s *Server) teacherScheduleDayHandler(c *fiber.Ctx) error {
 	return s.scheduleDayHandler(c, "http-teacher-schedule-day", "teacher_schedule_day")
 }
@@ -1679,7 +1687,7 @@ func studentAcademicReadHTTPStatus(resp app.Response) int {
 // @Failure 401 {object} app.Response
 // @Failure 403 {object} app.Response
 // @Failure 404 {object} app.Response
-// @Router /api/teacher/grades/items [post]
+// @Router /api/teaching/grades/items [post]
 func (s *Server) teacherCreateGradeItemHandler(c *fiber.Ctx) error {
 	var body app.GradeItemCreateData
 	return s.gradeActionHandler(c, "http-teacher-create-grade-item", "teacher_create_grade_item", &body)
@@ -1698,7 +1706,7 @@ func (s *Server) teacherCreateGradeItemHandler(c *fiber.Ctx) error {
 // @Failure 401 {object} app.Response
 // @Failure 403 {object} app.Response
 // @Failure 404 {object} app.Response
-// @Router /api/teacher/grades/items/list [post]
+// @Router /api/teaching/grades/items/list [post]
 func (s *Server) teacherGradeItemsBySubjectHandler(c *fiber.Ctx) error {
 	var body app.GradeSubjectData
 	return s.gradeActionHandler(c, "http-teacher-grade-items", "teacher_grade_items_by_subject", &body)
@@ -1717,7 +1725,7 @@ func (s *Server) teacherGradeItemsBySubjectHandler(c *fiber.Ctx) error {
 // @Failure 401 {object} app.Response
 // @Failure 403 {object} app.Response
 // @Failure 404 {object} app.Response
-// @Router /api/teacher/grades [post]
+// @Router /api/teaching/grades [post]
 func (s *Server) teacherUpsertGradeHandler(c *fiber.Ctx) error {
 	var body app.GradeUpsertData
 	return s.gradeActionHandler(c, "http-teacher-upsert-grade", "teacher_upsert_grade", &body)
@@ -1738,7 +1746,7 @@ func (s *Server) teacherUpsertGradeHandler(c *fiber.Ctx) error {
 // @Failure 403 {object} app.Response
 // @Failure 404 {object} app.Response
 // @Failure 409 {object} app.Response
-// @Router /api/teacher/grades/{grade_id} [delete]
+// @Router /api/teaching/grades/{grade_id} [delete]
 func (s *Server) teacherDeleteGradeHandler(c *fiber.Ctx) error {
 	gradeID, err := c.ParamsInt("grade_id")
 	if err != nil || gradeID <= 0 {
@@ -1761,7 +1769,7 @@ func (s *Server) teacherDeleteGradeHandler(c *fiber.Ctx) error {
 // @Failure 403 {object} app.Response
 // @Failure 404 {object} app.Response
 // @Failure 409 {object} app.Response
-// @Router /api/teacher/grades/{grade_id}/restore [post]
+// @Router /api/teaching/grades/{grade_id}/restore [post]
 func (s *Server) teacherRestoreGradeHandler(c *fiber.Ctx) error {
 	gradeID, err := c.ParamsInt("grade_id")
 	if err != nil || gradeID <= 0 {
@@ -1786,7 +1794,7 @@ func (s *Server) teacherRestoreGradeHandler(c *fiber.Ctx) error {
 // @Failure 403 {object} app.Response
 // @Failure 404 {object} app.Response
 // @Failure 409 {object} app.Response
-// @Router /api/teacher/grades/items/{item_id} [delete]
+// @Router /api/teaching/grades/items/{item_id} [delete]
 func (s *Server) teacherDeleteGradeItemHandler(c *fiber.Ctx) error {
 	itemID, err := c.ParamsInt("item_id")
 	if err != nil || itemID <= 0 {
@@ -1809,7 +1817,7 @@ func (s *Server) teacherDeleteGradeItemHandler(c *fiber.Ctx) error {
 // @Failure 403 {object} app.Response
 // @Failure 404 {object} app.Response
 // @Failure 409 {object} app.Response
-// @Router /api/teacher/grades/items/{item_id}/restore [post]
+// @Router /api/teaching/grades/items/{item_id}/restore [post]
 func (s *Server) teacherRestoreGradeItemHandler(c *fiber.Ctx) error {
 	itemID, err := c.ParamsInt("item_id")
 	if err != nil || itemID <= 0 {
@@ -1832,7 +1840,7 @@ func (s *Server) teacherRestoreGradeItemHandler(c *fiber.Ctx) error {
 // @Failure 401 {object} app.Response
 // @Failure 403 {object} app.Response
 // @Failure 404 {object} app.Response
-// @Router /api/teacher/grades/student [post]
+// @Router /api/teaching/grades/student [post]
 func (s *Server) teacherStudentGradesBySubjectHandler(c *fiber.Ctx) error {
 	var body app.TeacherStudentGradesData
 	return s.gradeActionHandler(c, "http-teacher-student-grades", "teacher_student_grades_by_subject", &body)
@@ -1948,7 +1956,7 @@ func (s *Server) studentAllGradesHandler(c *fiber.Ctx) error {
 // @Failure 401 {object} app.Response
 // @Failure 403 {object} app.Response
 // @Failure 404 {object} app.Response
-// @Router /api/teacher/student/performance/radar [post]
+// @Router /api/teaching/student/performance/radar [post]
 func (s *Server) teacherStudentPerformanceRadarHandler(c *fiber.Ctx) error {
 	var body app.TeacherStudentRadarData
 	return s.gradeActionHandler(c, "http-teacher-student-performance-radar", "teacher_student_performance_radar", &body)

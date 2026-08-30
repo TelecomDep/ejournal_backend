@@ -92,7 +92,7 @@ function App() {
         }
         sessionStorage.removeItem('ejournal_pending_invite');
         setPendingInvite('');
-        navigate(userData.role === 'teacher' ? '/teacher/attendance' : '/attendance');
+        navigate(['teacher', 'head'].includes(userData.role) ? '/teacher/attendance' : '/attendance');
       });
 
     return () => {

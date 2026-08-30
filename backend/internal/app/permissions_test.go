@@ -31,6 +31,25 @@ func TestRolePermissionsHierarchy(t *testing.T) {
 	}
 }
 
+func TestIsTeachingRole(t *testing.T) {
+	tests := []struct {
+		role string
+		want bool
+	}{
+		{role: RoleTeacher, want: true},
+		{role: RoleHead, want: true},
+		{role: RoleDean, want: false},
+		{role: RoleAdmin, want: false},
+		{role: RoleStudent, want: false},
+	}
+
+	for _, test := range tests {
+		if got := isTeachingRole(test.role); got != test.want {
+			t.Errorf("isTeachingRole(%q) = %v, want %v", test.role, got, test.want)
+		}
+	}
+}
+
 func TestUpdateRolePermissions(t *testing.T) {
 	role := RoleTeacher
 	original, _ := GetRolePermissions(role)

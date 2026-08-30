@@ -93,10 +93,13 @@ func validate_admin_user_create(data AdminUserCreateData) error {
 	}
 
 	switch data.Role {
-	case RoleStudent, RoleTeacher:
+	case RoleStudent, RoleTeacher, RoleHead:
 		if data.FullName == "" {
-			return errors.New("full_name is required for student or teacher")
+			return errors.New("full_name is required for student, teacher or head")
 		}
+	}
+
+	switch data.Role {
 	case RoleHead, RoleSecretary, RoleProgramCreator:
 		if data.LecternID <= 0 {
 			return errors.New("lectern_id is required for head, secretary or program_creator")
@@ -245,7 +248,27 @@ func create_admin_role_data(ctx context.Context, tx pgx.Tx, user_id int32, data 
 			strings.TrimSpace(data.JobTitle),
 		)
 		return err
-	case RoleHead, RoleSecretary, RoleProgramCreator:
+	case RoleHead:
+		if _, err := tx.Exec(
+			ctx,
+			`INSERT INTO org_scopes (user_id, lectern_id)
+			 VALUES ($1, $2)`,
+			user_id,
+			data.LecternID,
+		); err != nil {
+			return err
+		}
+		_, err := tx.Exec(
+			ctx,
+			`INSERT INTO teachers (role, user_id, name, lectern_id, job_title)
+			 VALUES ('teacher', $1, $2, $3, COALESCE(NULLIF($4, ''), 'Заведующий кафедрой'))`,
+			user_id,
+			strings.TrimSpace(data.FullName),
+			data.LecternID,
+			strings.TrimSpace(data.JobTitle),
+		)
+		return err
+	case RoleSecretary, RoleProgramCreator:
 		_, err := tx.Exec(
 			ctx,
 			`INSERT INTO org_scopes (user_id, lectern_id)
@@ -340,7 +363,11 @@ func check_admin_role_target(data AdminUserUpdateData, role string) error {
 		if data.TeacherID <= 0 {
 			return errors.New("teacher_id is required when role changes to teacher")
 		}
-	case RoleHead, RoleSecretary, RoleProgramCreator:
+	case RoleHead:
+		if data.LecternID <= 0 {
+			return errors.New("lectern_id is required for lectern-scoped role")
+		}
+	case RoleSecretary, RoleProgramCreator:
 		if data.LecternID <= 0 {
 			return errors.New("lectern_id is required for lectern-scoped role")
 		}
@@ -386,7 +413,37 @@ func bind_admin_role(ctx context.Context, tx pgx.Tx, user_id int32, role string,
 		if cmd.RowsAffected() == 0 {
 			return errors.New("teacher profile not found or already used")
 		}
-	case RoleHead, RoleSecretary, RoleProgramCreator:
+	case RoleHead:
+		if _, err := tx.Exec(
+			ctx,
+			`INSERT INTO org_scopes (user_id, lectern_id)
+			 VALUES ($1, $2)`,
+			user_id,
+			data.LecternID,
+		); err != nil {
+			return err
+		}
+		cmd, err := tx.Exec(
+			ctx,
+			`UPDATE teachers SET lectern_id = $2 WHERE user_id = $1`,
+			user_id,
+			data.LecternID,
+		)
+		if err != nil {
+			return err
+		}
+		if cmd.RowsAffected() == 0 {
+			_, err = tx.Exec(
+				ctx,
+				`INSERT INTO teachers (role, user_id, name, lectern_id, job_title)
+				 SELECT 'teacher', id, login, $2, 'Заведующий кафедрой'
+				 FROM users WHERE id = $1`,
+				user_id,
+				data.LecternID,
+			)
+		}
+		return err
+	case RoleSecretary, RoleProgramCreator:
 		_, err := tx.Exec(
 			ctx,
 			`INSERT INTO org_scopes (user_id, lectern_id)
@@ -538,8 +595,10 @@ func (s *Service) admin_user_update(token string, data AdminUserUpdateData) Resp
 		if _, err := tx.Exec(ctx, `UPDATE students SET user_id = NULL WHERE user_id = $1`, current.ID); err != nil {
 			return Response{OK: false, Error: "failed to detach old student profile"}
 		}
-		if _, err := tx.Exec(ctx, `UPDATE teachers SET user_id = NULL WHERE user_id = $1`, current.ID); err != nil {
-			return Response{OK: false, Error: "failed to detach old teacher profile"}
+		if role != RoleHead {
+			if _, err := tx.Exec(ctx, `UPDATE teachers SET user_id = NULL WHERE user_id = $1`, current.ID); err != nil {
+				return Response{OK: false, Error: "failed to detach old teacher profile"}
+			}
 		}
 		if _, err := tx.Exec(ctx, `DELETE FROM org_scopes WHERE user_id = $1`, current.ID); err != nil {
 			return Response{OK: false, Error: "failed to clear old user scope"}
@@ -1216,4 +1275,3 @@ func (s *Service) admin_revoke_invite(token string, data AdminRevokeInviteData) 
 
 	return Response{OK: true, Result: map[string]any{"invite_id": data.InviteID, "status": "revoked"}}
 }
-

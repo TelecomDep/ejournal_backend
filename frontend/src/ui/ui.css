@@ -785,6 +785,18 @@
   cursor: not-allowed;
 }
 
+.consent-decision-row {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.consent-decision-row > small {
+  display: block;
+  color: #65718a;
+  line-height: 1.5;
+}
+
 .twofa-setup {
   display: grid;
   grid-template-columns: 224px minmax(0, 1fr);
@@ -6272,6 +6284,12 @@
     line-height: 1.35;
   }
 
+  .consent-decision-row {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 10px;
+  }
+
   .twofa-setup {
     grid-template-columns: 1fr;
     padding: 18px;
@@ -10059,7 +10077,9 @@
 .gradebook-lesson-form input,
 .gradebook-lesson-form select {
   width: 100%;
+  height: 42px;
   min-height: 42px;
+  box-sizing: border-box;
   padding: 0 12px;
   border: 1px solid #dbe4f7;
   border-radius: 9px;
@@ -10080,6 +10100,9 @@
 }
 
 .gradebook-add-button {
+  height: 42px;
+  min-height: 42px;
+  box-sizing: border-box;
   white-space: nowrap;
 }
 
@@ -10231,7 +10254,7 @@
 
 .gradebook-table {
   width: max-content;
-  min-width: 100%;
+  min-width: 0;
   border-collapse: separate;
   border-spacing: 0;
   background: #ffffff;
@@ -10242,7 +10265,8 @@
 
 .gradebook-table th,
 .gradebook-table td {
-  height: 58px;
+  box-sizing: border-box;
+  height: 42px;
   padding: 0;
   border-right: 1px solid #e5eaf4;
   border-bottom: 1px solid #e5eaf4;
@@ -10253,10 +10277,12 @@
   position: sticky;
   top: 0;
   z-index: 4;
-  width: 116px;
-  min-width: 116px;
-  height: 88px;
-  padding: 11px 9px;
+  width: 52px;
+  min-width: 52px;
+  max-width: 52px;
+  height: 74px;
+  padding: 7px 4px;
+  overflow: hidden;
   background: #edf3ff;
   box-shadow: 0 1px 0 #d7e0f0;
   color: #365078;
@@ -10271,17 +10297,17 @@
 }
 
 .gradebook-table thead th > strong {
-  margin-top: 7px;
+  margin-top: 5px;
   color: #182746;
-  font-size: 12px;
+  font-size: 10px;
   line-height: 1.25;
   white-space: nowrap;
 }
 
 .gradebook-table thead th > small {
-  margin-top: 5px;
+  margin-top: 3px;
   color: #6e7f9c;
-  font-size: 10px;
+  font-size: 8px;
   font-weight: 700;
   white-space: nowrap;
 }
@@ -10289,7 +10315,7 @@
 .gradebook-lesson-number {
   display: inline-block;
   color: #3154b8;
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 900;
   letter-spacing: 0.08em;
 }
@@ -10298,14 +10324,14 @@
 .gradebook-table .gradebook-student-cell {
   position: sticky;
   left: 0;
-  width: 260px;
-  min-width: 260px;
-  max-width: 260px;
+  width: 210px;
+  min-width: 210px;
+  max-width: 210px;
 }
 
 .gradebook-table .gradebook-student-head {
   z-index: 7;
-  padding: 14px 16px;
+  padding: 10px 12px;
   background: #173b93;
   color: #ffffff;
 }
@@ -10316,14 +10342,14 @@
 }
 
 .gradebook-student-head > span {
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 850;
 }
 
 .gradebook-student-head > small {
-  margin-top: 6px;
+  margin-top: 4px;
   color: rgba(255, 255, 255, 0.68);
-  font-size: 10px;
+  font-size: 9px;
 }
 
 .gradebook-table .gradebook-student-cell {
@@ -10336,22 +10362,22 @@
 
 .gradebook-student-inner {
   display: grid;
-  grid-template-columns: 26px minmax(0, 1fr);
+  grid-template-columns: 22px minmax(0, 1fr);
   align-items: center;
-  gap: 10px;
-  min-height: 58px;
-  padding: 8px 14px;
+  gap: 8px;
+  min-height: 42px;
+  padding: 5px 10px;
 }
 
 .gradebook-student-inner > span {
   display: grid;
-  width: 26px;
-  height: 26px;
+  width: 22px;
+  height: 22px;
   place-items: center;
   border-radius: 7px;
   background: #eef3ff;
   color: #45629a;
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 850;
 }
 
@@ -10369,13 +10395,13 @@
 
 .gradebook-student-cell strong {
   color: #1a2948;
-  font-size: 12px;
+  font-size: 10px;
 }
 
 .gradebook-student-cell small {
-  margin-top: 3px;
+  margin-top: 2px;
   color: #8490a5;
-  font-size: 10px;
+  font-size: 8px;
   font-weight: 650;
 }
 
@@ -10385,8 +10411,9 @@
 
 .gradebook-grade-cell {
   position: relative;
-  width: 116px;
-  min-width: 116px;
+  width: 52px;
+  min-width: 52px;
+  max-width: 52px;
   background: #ffffff;
   text-align: center;
 }
@@ -10398,7 +10425,7 @@
 
 .gradebook-cell-button {
   width: 100%;
-  height: 58px;
+  height: 42px;
   display: grid;
   place-content: center;
   gap: 2px;
@@ -10422,13 +10449,13 @@
 
 .gradebook-cell-button strong {
   color: #172746;
-  font-size: 17px;
+  font-size: 14px;
   line-height: 1;
 }
 
 .gradebook-cell-button small {
   color: #71809a;
-  font-size: 9px;
+  font-size: 8px;
   font-weight: 700;
 }
 
@@ -10604,14 +10631,15 @@
 .gradebook-table .gradebook-total-cell {
   position: sticky;
   right: 0;
-  width: 96px;
-  min-width: 96px;
+  width: 72px;
+  min-width: 72px;
+  max-width: 72px;
   border-right: 0;
 }
 
 .gradebook-table .gradebook-total-head {
   z-index: 7;
-  padding: 14px 12px;
+  padding: 10px 7px;
   background: #dfe9ff;
 }
 
@@ -10622,7 +10650,7 @@
 
 .gradebook-table .gradebook-total-head > span {
   color: #173b93;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 850;
 }
 
@@ -10640,12 +10668,12 @@
 
 .gradebook-total-cell strong {
   color: #172746;
-  font-size: 13px;
+  font-size: 11px;
 }
 
 .gradebook-total-cell strong span {
   color: #7e8ba1;
-  font-size: 10px;
+  font-size: 8px;
   font-weight: 700;
 }
 
@@ -10839,15 +10867,16 @@
 
   .gradebook-table .gradebook-student-head,
   .gradebook-table .gradebook-student-cell {
-    width: 190px;
-    min-width: 190px;
-    max-width: 190px;
+    width: 165px;
+    min-width: 165px;
+    max-width: 165px;
   }
 
   .gradebook-table thead th,
   .gradebook-grade-cell {
-    width: 102px;
-    min-width: 102px;
+    width: 48px;
+    min-width: 48px;
+    max-width: 48px;
   }
 
   .gradebook-table .gradebook-total-head,

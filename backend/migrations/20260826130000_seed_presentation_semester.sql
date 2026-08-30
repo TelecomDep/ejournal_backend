@@ -281,6 +281,16 @@ BEGIN
     INSERT INTO org_scopes (user_id, faculty_id)
     VALUES (v_dean_user_id, v_faculty_id);
 
+    -- head_test supervises the presentation department as a whole. This
+    -- scope is independent from the subjects the same user teaches personally.
+    DELETE FROM org_scopes
+    WHERE user_id = (SELECT id FROM users WHERE login = 'head_test')
+      AND lectern_id IS NOT NULL;
+    INSERT INTO org_scopes (user_id, lectern_id)
+    SELECT u.id, v_lectern_id
+    FROM users u
+    WHERE u.login = 'head_test';
+
     INSERT INTO notification_settings (user_id, grades, schedule, attendance, system)
     SELECT id, TRUE, TRUE, TRUE, TRUE
     FROM users

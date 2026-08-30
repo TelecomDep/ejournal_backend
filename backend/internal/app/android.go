@@ -136,7 +136,7 @@ func (s *Service) createLessonForAndroid(sessionToken string, data AndroidLesson
 	if err != nil {
 		return Response{OK: false, Error: err.Error()}
 	}
-	if teacherUser.Role != "teacher" {
+	if !isTeachingRole(teacherUser.Role) {
 		return Response{OK: false, Error: "forbidden: teacher role required"}
 	}
 
@@ -239,7 +239,7 @@ func (s *Service) attendanceLinkForExistingLessonByTeacher(sessionToken string, 
 	if err != nil {
 		return Response{OK: false, Error: err.Error()}
 	}
-	if teacherUser.Role != "teacher" {
+	if !isTeachingRole(teacherUser.Role) {
 		return Response{OK: false, Error: "forbidden: teacher role required"}
 	}
 	teacherProfile, err := s.teacherProfileByUser(teacherUser)

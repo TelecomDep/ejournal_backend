@@ -210,7 +210,7 @@ const renderPage = (
   if (activeItem.key === 'analytics' && user?.role === 'student') {
     return <AnalyticsPage user={user} token={token} />;
   }
-  if (user?.role === 'teacher' && ['attendance', 'stats', 'grades'].includes(activeItem.key)) {
+  if (['teacher', 'head'].includes(user?.role) && ['attendance', 'stats', 'grades'].includes(activeItem.key)) {
     const section = activeItem.key === 'stats' ? 'statistics' : activeItem.key;
     return <TeacherPage token={token} section={section} />;
   }

@@ -150,14 +150,22 @@ const RoleSpecificCreateFields = ({ form, onChange, onSelectChange, catalogs = {
   }
   if (form.role === 'head') {
     return (
-      <Field label="Кафедра" required wide>
-        <SearchableSelect
-          options={(catalogs.lecterns || []).map((l) => ({ id: l.id, name: l.name, sub: l.faculty_name ? `Факультет: ${l.faculty_name}` : '' }))}
-          value={form.lectern_id}
-          onChange={(id) => onSelectChange('lectern_id', id)}
-          placeholder="Выберите кафедру..."
-        />
-      </Field>
+      <>
+        <Field label="ФИО" required wide>
+          <input name="full_name" value={form.full_name} onChange={onChange} autoComplete="name" placeholder="Петров Петр Петрович" />
+        </Field>
+        <Field label="Кафедра" required wide>
+          <SearchableSelect
+            options={(catalogs.lecterns || []).map((l) => ({ id: l.id, name: l.name, sub: l.faculty_name ? `Факультет: ${l.faculty_name}` : '' }))}
+            value={form.lectern_id}
+            onChange={(id) => onSelectChange('lectern_id', id)}
+            placeholder="Выберите кафедру..."
+          />
+        </Field>
+        <Field label="Преподавательская должность">
+          <input name="job_title" value={form.job_title} onChange={onChange} placeholder="Заведующий кафедрой" />
+        </Field>
+      </>
     );
   }
   if (form.role === 'dean') {
@@ -520,7 +528,7 @@ const AdminUsersPage = ({ token, currentUser }) => {
     if (!form.login.trim()) return 'Введите логин';
     if (form.password.trim().length < 8) return 'Пароль должен содержать не менее 8 символов';
     if (form.email && !form.email.includes('@')) return 'Введите корректный email';
-    if (['student', 'teacher'].includes(form.role) && !form.full_name.trim()) return 'Введите ФИО';
+    if (['student', 'teacher', 'head'].includes(form.role) && !form.full_name.trim()) return 'Введите ФИО';
     if (form.role === 'head' && !numberOrUndefined(form.lectern_id)) return 'Выберите кафедру';
     if (form.role === 'dean' && !numberOrUndefined(form.faculty_id)) return 'Выберите факультет';
     return '';
