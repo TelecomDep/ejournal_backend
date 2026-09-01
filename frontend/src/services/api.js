@@ -3,6 +3,7 @@ import axios from 'axios';
 const DEFAULT_BACKEND_URL = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8888';
 const BACKEND_URL = (import.meta.env.VITE_BACKEND_URL || DEFAULT_BACKEND_URL).replace(/\/$/, '');
 const TEACHING_API_URL = `${BACKEND_URL}/api/teaching`;
+const ATTENDANCE_REQUEST_TIMEOUT_MS = 10000;
 
 function unwrapApiResponse(data) {
   if (data && typeof data === 'object' && Object.prototype.hasOwnProperty.call(data, 'ok')) {
@@ -205,7 +206,8 @@ const api = {
     try {
       const response = await axios.get(`${TEACHING_API_URL}/attendance/session/roster`, {
         headers: authHeaders(token),
-        params: { lesson_id: Number(lessonId) }
+        params: { lesson_id: Number(lessonId) },
+        timeout: ATTENDANCE_REQUEST_TIMEOUT_MS
       });
       return unwrapApiResponse(response.data);
     } catch (error) {
@@ -223,7 +225,7 @@ const api = {
           student_id: Number(studentId),
           status
         },
-        { headers: authHeaders(token) }
+        { headers: authHeaders(token), timeout: ATTENDANCE_REQUEST_TIMEOUT_MS }
       );
       return unwrapApiResponse(response.data);
     } catch (error) {
@@ -995,7 +997,7 @@ const api = {
       const response = await axios.post(
         `${TEACHING_API_URL}/attendance/session/finish`,
         { session_id: numId, lesson_id: numId },
-        { headers: authHeaders(token) }
+        { headers: authHeaders(token), timeout: ATTENDANCE_REQUEST_TIMEOUT_MS }
       );
       return unwrapApiResponse(response.data);
     } catch (error) {

@@ -123,48 +123,38 @@ const AttendanceLiveTable = ({ token, session }) => {
   const [snapshot, setSnapshot] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [search, setSearch] = useState("");
+  const [studentSearch, setStudentSearch] = useState("");
+  const [groupFilter, setGroupFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [updatingStudentId, setUpdatingStudentId] = useState(0);
 
   const mountedRef = useRef(true);
   const requestInFlightRef = useRef(false);
   const statusInteractionRef = useRef(false);
-  const pendingRefreshRef = useRef(false);
-  const refreshQueuedRef = useRef(false);
+  const interactionSafetyTimerRef = useRef(0);
   const pendingStatusesRef = useRef(new Map());
   const statusSequenceRef = useRef(0);
   const lessonIdRef = useRef(lessonId);
-  const latestLoadRosterRef = useRef(null);
   lessonIdRef.current = lessonId;
 
   useEffect(() => {
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
+      window.clearTimeout(interactionSafetyTimerRef.current);
     };
   }, []);
 
   const loadRoster = useCallback(async (silent = false) => {
     if (!lessonId || lessonIdRef.current !== lessonId) return;
-    if (requestInFlightRef.current) {
-      refreshQueuedRef.current = true;
-      return;
-    }
-    if (silent && statusInteractionRef.current) {
-      pendingRefreshRef.current = true;
-      return;
-    }
-
+    if (requestInFlightRef.current) return;
+    if (silent && statusInteractionRef.current) return;
     requestInFlightRef.current = true;
     if (!silent && mountedRef.current) setLoading(true);
     try {
       const payload = await api.getAttendanceSessionRoster(token, lessonId);
       if (!mountedRef.current || lessonIdRef.current !== lessonId) return;
-      if (silent && statusInteractionRef.current) {
-        pendingRefreshRef.current = true;
-        return;
-      }
+      if (silent && statusInteractionRef.current) return;
       const nextSnapshot = mergePendingStatuses(payload, pendingStatusesRef.current);
       setSnapshot((current) => (isSameRosterSnapshot(current, nextSnapshot) ? current : nextSnapshot));
       setError("");
@@ -175,30 +165,24 @@ const AttendanceLiveTable = ({ token, session }) => {
     } finally {
       requestInFlightRef.current = false;
       if (mountedRef.current) setLoading(false);
-      if (refreshQueuedRef.current && mountedRef.current) {
-        refreshQueuedRef.current = false;
-        window.setTimeout(() => latestLoadRosterRef.current?.(true), 0);
-      }
     }
   }, [lessonId, token]);
-  latestLoadRosterRef.current = loadRoster;
+
+  const handleStatusInteractionEnd = useCallback(() => {
+    window.clearTimeout(interactionSafetyTimerRef.current);
+    statusInteractionRef.current = false;
+  }, []);
 
   const handleStatusInteractionStart = useCallback(() => {
     statusInteractionRef.current = true;
-  }, []);
-
-  const handleStatusInteractionEnd = useCallback(() => {
-    statusInteractionRef.current = false;
-    if (pendingRefreshRef.current) {
-      pendingRefreshRef.current = false;
-      loadRoster(true);
-    }
-  }, [loadRoster]);
+    window.clearTimeout(interactionSafetyTimerRef.current);
+    interactionSafetyTimerRef.current = window.setTimeout(handleStatusInteractionEnd, 15000);
+  }, [handleStatusInteractionEnd]);
 
   useEffect(() => {
     pendingStatusesRef.current.clear();
-    pendingRefreshRef.current = false;
     statusInteractionRef.current = false;
+    window.clearTimeout(interactionSafetyTimerRef.current);
     setSnapshot(null);
     setLoading(true);
     setError("");
@@ -255,18 +239,25 @@ const AttendanceLiveTable = ({ token, session }) => {
     }
   }, [lessonId, loadRoster, snapshot?.students, token]);
 
+  const availableGroups = useMemo(() => (
+    Array.from(new Set(
+      (snapshot?.students || [])
+        .map((student) => String(student.group_name || "").trim())
+        .filter(Boolean)
+    )).sort((left, right) => left.localeCompare(right, "ru-RU"))
+  ), [snapshot?.students]);
+
   const visibleStudents = useMemo(() => {
-    const query = search.trim().toLocaleLowerCase("ru-RU");
+    const studentQuery = studentSearch.trim().toLocaleLowerCase("ru-RU");
     return (snapshot?.students || []).filter((student) => {
       if (statusFilter === "marked" && (student.status === "absent" || student.is_fraud)) return false;
       if (statusFilter === "unmarked" && student.status !== "absent" && !student.is_fraud) return false;
       if (statusFilter === "fraud" && !student.is_fraud) return false;
-      if (!query) return true;
-      return `${student.student_name || ""} ${student.group_name || ""}`
-        .toLocaleLowerCase("ru-RU")
-        .includes(query);
+      if (studentQuery && !(student.student_name || "").toLocaleLowerCase("ru-RU").includes(studentQuery)) return false;
+      if (groupFilter !== "all" && String(student.group_name || "") !== groupFilter) return false;
+      return true;
     });
-  }, [search, snapshot?.students, statusFilter]);
+  }, [groupFilter, snapshot?.students, statusFilter, studentSearch]);
 
   const columns = useMemo(() => [
     {
@@ -316,7 +307,11 @@ const AttendanceLiveTable = ({ token, session }) => {
             onFocus={handleStatusInteractionStart}
             onPointerDown={handleStatusInteractionStart}
             onBlur={handleStatusInteractionEnd}
-            onChange={(event) => handleStatusChange(row.original.student_id, event.target.value)}
+            onChange={(event) => {
+              const nextStatus = event.target.value;
+              handleStatusInteractionEnd();
+              handleStatusChange(row.original.student_id, nextStatus);
+            }}
           >
             {STATUS_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>{option.label}</option>
@@ -376,13 +371,22 @@ const AttendanceLiveTable = ({ token, session }) => {
 
         <div className="attendance-live-filters">
           <label>
-            <span>Поиск</span>
+            <span>ФИО</span>
             <input
               type="search"
-              value={search}
-              placeholder="ФИО или группа"
-              onChange={(event) => setSearch(event.target.value)}
+              value={studentSearch}
+              placeholder="Найти студента"
+              onChange={(event) => setStudentSearch(event.target.value)}
             />
+          </label>
+          <label>
+            <span>Группа</span>
+            <select value={groupFilter} onChange={(event) => setGroupFilter(event.target.value)}>
+              <option value="all">Все группы</option>
+              {availableGroups.map((groupName) => (
+                <option key={groupName} value={groupName}>{groupName}</option>
+              ))}
+            </select>
           </label>
           <label>
             <span>Показать</span>

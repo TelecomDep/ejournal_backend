@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import QRCode from '../../components/QRCode';
 import api from '../../services/api';
 import AttendanceLiveTable from '../components/AttendanceLiveTable';
@@ -48,6 +48,18 @@ const ProgressCell = ({ value }) => {
       <strong>{pct}%</strong>
     </div>
   );
+};
+
+const getFullscreenElement = () => document.fullscreenElement || document.webkitFullscreenElement;
+
+const leaveFullscreen = async () => {
+  const exitFullscreen = document.exitFullscreen || document.webkitExitFullscreen;
+  if (!getFullscreenElement() || !exitFullscreen) return;
+  try {
+    await Promise.resolve(exitFullscreen.call(document));
+  } catch {
+    // The CSS fullscreen fallback is closed by local state below.
+  }
 };
 
 const TeacherPage = ({ token, section = 'attendance' }) => {
@@ -117,11 +129,18 @@ const TeacherPage = ({ token, section = 'attendance' }) => {
   }, [token]);
 
   const handleFinishSession = async () => {
+    const sessionId = Number(sessionResult?.session_id || sessionResult?.lesson_id || sessionResult?.id || 0);
+    if (!Number.isFinite(sessionId) || sessionId <= 0) {
+      setError('Не удалось определить идентификатор активного занятия. Обновите страницу и повторите попытку.');
+      return;
+    }
     if (!window.confirm('Завершить занятие досрочно? Новые отметки студентов станут недоступны.')) return;
     setFinishingSession(true);
     clearFeedback();
     try {
-      await api.finishAttendanceSession(token, sessionResult?.session_id || sessionResult?.lesson_id);
+      await api.finishAttendanceSession(token, sessionId);
+      setQrExpanded(false);
+      await leaveFullscreen();
       setMessage('Занятие завершено. Новые отметки студентов недоступны.');
       saveActiveSession(null);
     } catch (err) {
@@ -284,6 +303,8 @@ const TeacherPage = ({ token, section = 'attendance' }) => {
   const [dynamicNonce, setDynamicNonce] = useState(() => Math.random().toString(36).substring(2, 10));
   const [dynamicTs, setDynamicTs] = useState(() => Math.floor(Date.now() / 1000));
   const [countdown, setCountdown] = useState(4);
+  const [qrExpanded, setQrExpanded] = useState(false);
+  const qrWorkspaceRef = useRef(null);
 
   useEffect(() => {
     if (!sessionResult?.join_url) return;
@@ -309,6 +330,57 @@ const TeacherPage = ({ token, section = 'attendance' }) => {
     const separator = activeJoinUrl.includes("?") ? "&" : "?";
     return `${activeJoinUrl}${separator}ts=${dynamicTs}&nonce=${dynamicNonce}`;
   }, [activeJoinUrl, dynamicTs, dynamicNonce]);
+
+  useEffect(() => {
+    if (!qrExpanded) return undefined;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const closeOnEscape = (event) => {
+      if (event.key !== 'Escape') return;
+      setQrExpanded(false);
+      leaveFullscreen();
+    };
+    window.addEventListener('keydown', closeOnEscape);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [qrExpanded]);
+
+  useEffect(() => {
+    const syncFullscreenState = () => {
+      if (!getFullscreenElement()) setQrExpanded(false);
+    };
+    document.addEventListener('fullscreenchange', syncFullscreenState);
+    document.addEventListener('webkitfullscreenchange', syncFullscreenState);
+    return () => {
+      document.removeEventListener('fullscreenchange', syncFullscreenState);
+      document.removeEventListener('webkitfullscreenchange', syncFullscreenState);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!activeJoinUrl) setQrExpanded(false);
+  }, [activeJoinUrl]);
+
+  const expandQr = async () => {
+    setQrExpanded(true);
+    const requestFullscreen = qrWorkspaceRef.current?.requestFullscreen || qrWorkspaceRef.current?.webkitRequestFullscreen;
+    if (requestFullscreen) {
+      try {
+        await Promise.resolve(requestFullscreen.call(qrWorkspaceRef.current));
+      } catch {
+        // CSS fallback keeps the QR expanded when native fullscreen is unavailable.
+      }
+    }
+  };
+
+  const closeExpandedQr = async () => {
+    setQrExpanded(false);
+    await leaveFullscreen();
+  };
 
   const copyAttendanceLink = async () => {
     if (!activeJoinUrl) return;
@@ -467,14 +539,41 @@ const TeacherPage = ({ token, section = 'attendance' }) => {
               <div className={`teacher-result-grid ${activeJoinUrl ? 'teacher-result-grid--qr' : 'teacher-result-grid--session'}`}>
                 {activeJoinUrl ? (
                   <>
-                    <div className="teacher-qr-card">
-                      <QRCode value={dynamicQrUrl} size={220} />
-                      <div className="teacher-qr-dynamic-badge">
-                        <span className="teacher-qr-pulse" />
-                        <span>Динамический QR: ротация через {countdown} сек</span>
+                    <div
+                      ref={qrWorkspaceRef}
+                      className={`teacher-qr-workspace ${qrExpanded ? 'is-expanded' : ''}`}
+                      role={qrExpanded ? 'dialog' : undefined}
+                      aria-modal={qrExpanded ? 'true' : undefined}
+                      aria-label={qrExpanded ? 'QR-код и ручная отметка посещаемости на весь экран' : undefined}
+                    >
+                      {qrExpanded && <div className="teacher-qr-editor"><AttendanceLiveTable token={token} session={sessionResult} /></div>}
+                      <div className="teacher-qr-card">
+                        {qrExpanded && (
+                          <button
+                            type="button"
+                            className="teacher-qr-close-button"
+                            onClick={closeExpandedQr}
+                            aria-label="Закрыть полноэкранный QR-код"
+                          >
+                            <span aria-hidden="true">×</span> Закрыть
+                          </button>
+                        )}
+                        <QRCode value={dynamicQrUrl} size={220} />
+                        <button
+                          type="button"
+                          className="teacher-qr-expand-button"
+                          onClick={expandQr}
+                          aria-label="Развернуть QR-код на весь экран"
+                        >
+                          <span aria-hidden="true">⛶</span> Развернуть
+                        </button>
+                        <div className="teacher-qr-dynamic-badge">
+                          <span className="teacher-qr-pulse" />
+                          <span>Динамический QR: ротация через {countdown} сек</span>
+                        </div>
+                        <strong>QR для проектора / экрана</strong>
+                        <p>Код автоматически меняется каждые 4 секунды с защитой от фото и пересылки.</p>
                       </div>
-                      <strong>QR для проектора / экрана</strong>
-                      <p>Код автоматически меняется каждые 4 секунды с защитой от фото и пересылки.</p>
                     </div>
                     <div className="teacher-link-card">
                       <span>Ссылка для студентов</span>
@@ -504,7 +603,6 @@ const TeacherPage = ({ token, section = 'attendance' }) => {
                 </div>
               </div>
 
-              <AttendanceLiveTable token={token} session={sessionResult} />
             </>
           )}
         </div>
