@@ -1923,7 +1923,7 @@
                 }
             }
         },
-        "/api/teacher/attendance-link": {
+        "/api/teaching/attendance-link": {
             "post": {
                 "security": [
                     {
@@ -1986,7 +1986,7 @@
                 }
             }
         },
-        "/api/teacher/attendance/group": {
+        "/api/teaching/attendance/group": {
             "post": {
                 "security": [
                     {
@@ -2049,7 +2049,7 @@
                 }
             }
         },
-        "/api/teacher/attendance/mark": {
+        "/api/teaching/attendance/mark": {
             "post": {
                 "security": [
                     {
@@ -2112,7 +2112,7 @@
                 }
             }
         },
-        "/api/teacher/attendance/session": {
+        "/api/teaching/attendance/session": {
             "post": {
                 "security": [
                     {
@@ -2175,7 +2175,7 @@
                 }
             }
         },
-        "/api/teacher/attendance/session/active": {
+        "/api/teaching/attendance/session/active": {
             "get": {
                 "security": [
                     {
@@ -2218,7 +2218,7 @@
                 }
             }
         },
-        "/api/teacher/attendance/session/marked-count": {
+        "/api/teaching/attendance/session/marked-count": {
             "get": {
                 "security": [
                     {
@@ -2270,7 +2270,7 @@
                 }
             }
         },
-        "/api/teacher/attendance/session/roster": {
+        "/api/teaching/attendance/session/roster": {
             "get": {
                 "security": [
                     {
@@ -2322,7 +2322,7 @@
                 }
             }
         },
-        "/api/teacher/attendance/session/timer": {
+        "/api/teaching/attendance/session/timer": {
             "get": {
                 "security": [
                     {
@@ -2374,7 +2374,7 @@
                 }
             }
         },
-        "/api/teacher/attendance/student/history": {
+        "/api/teaching/attendance/student/history": {
             "post": {
                 "security": [
                     {
@@ -2437,7 +2437,7 @@
                 }
             }
         },
-        "/api/teacher/grades": {
+        "/api/teaching/grades": {
             "post": {
                 "security": [
                     {
@@ -2500,7 +2500,7 @@
                 }
             }
         },
-        "/api/teacher/grades/items": {
+        "/api/teaching/grades/items": {
             "post": {
                 "security": [
                     {
@@ -2563,7 +2563,7 @@
                 }
             }
         },
-        "/api/teacher/grades/items/list": {
+        "/api/teaching/grades/items/list": {
             "post": {
                 "security": [
                     {
@@ -2626,7 +2626,7 @@
                 }
             }
         },
-        "/api/teacher/grades/items/{item_id}": {
+        "/api/teaching/grades/items/{item_id}": {
             "delete": {
                 "security": [
                     {
@@ -2701,7 +2701,7 @@
                 }
             }
         },
-        "/api/teacher/grades/items/{item_id}/restore": {
+        "/api/teaching/grades/items/{item_id}/restore": {
             "post": {
                 "security": [
                     {
@@ -2765,7 +2765,7 @@
                 }
             }
         },
-        "/api/teacher/grades/student": {
+        "/api/teaching/grades/student": {
             "post": {
                 "security": [
                     {
@@ -2828,7 +2828,7 @@
                 }
             }
         },
-        "/api/teacher/grades/{grade_id}": {
+        "/api/teaching/grades/{grade_id}": {
             "delete": {
                 "security": [
                     {
@@ -2903,7 +2903,7 @@
                 }
             }
         },
-        "/api/teacher/grades/{grade_id}/restore": {
+        "/api/teaching/grades/{grade_id}/restore": {
             "post": {
                 "security": [
                     {
@@ -2967,7 +2967,7 @@
                 }
             }
         },
-        "/api/teacher/group/performance": {
+        "/api/teaching/group/performance": {
             "post": {
                 "security": [
                     {
@@ -3030,7 +3030,7 @@
                 }
             }
         },
-        "/api/teacher/schedule/day": {
+        "/api/teaching/schedule/day": {
             "get": {
                 "security": [
                     {
@@ -3087,7 +3087,7 @@
                 }
             }
         },
-        "/api/teacher/student/performance/radar": {
+        "/api/teaching/student/performance/radar": {
             "post": {
                 "security": [
                     {
@@ -3150,7 +3150,7 @@
                 }
             }
         },
-        "/api/teacher/subjects": {
+        "/api/teaching/subjects": {
             "get": {
                 "security": [
                     {

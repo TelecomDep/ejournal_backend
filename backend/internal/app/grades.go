@@ -193,7 +193,7 @@ func (s *Service) createGradeItemByTeacher(sessionToken string, data GradeItemCr
 	if err != nil {
 		return Response{OK: false, Error: err.Error()}
 	}
-	if teacherUser.Role != "teacher" {
+	if !isTeachingRole(teacherUser.Role) {
 		return Response{OK: false, Error: "forbidden: teacher role required"}
 	}
 
@@ -244,7 +244,7 @@ func (s *Service) gradeItemsBySubjectForTeacher(sessionToken string, data GradeS
 	if err != nil {
 		return Response{OK: false, Error: err.Error()}
 	}
-	if teacherUser.Role != "teacher" {
+	if !isTeachingRole(teacherUser.Role) {
 		return Response{OK: false, Error: "forbidden: teacher role required"}
 	}
 
@@ -284,7 +284,7 @@ func (s *Service) upsertGradeByTeacher(sessionToken string, data GradeUpsertData
 	if err != nil {
 		return Response{OK: false, Error: err.Error()}
 	}
-	if teacherUser.Role != "teacher" {
+	if !isTeachingRole(teacherUser.Role) {
 		return Response{OK: false, Error: "forbidden: teacher role required"}
 	}
 
@@ -386,7 +386,7 @@ func (s *Service) ensureGradeItemOwnerAccess(ctx context.Context, user User, ite
 	if user.Role == RoleAdmin {
 		return Response{OK: true}
 	}
-	if user.Role != RoleTeacher {
+	if !isTeachingRole(user.Role) {
 		return Response{OK: false, Error: "forbidden: teacher or admin role required"}
 	}
 	if item.CreatedByTeacherID == nil {
@@ -611,7 +611,7 @@ func (s *Service) gradesBySubjectForTeacher(sessionToken string, data TeacherStu
 	if err != nil {
 		return Response{OK: false, Error: err.Error()}
 	}
-	if teacherUser.Role != "teacher" {
+	if !isTeachingRole(teacherUser.Role) {
 		return Response{OK: false, Error: "forbidden: teacher role required"}
 	}
 
@@ -859,7 +859,7 @@ func (s *Service) teacherStudentPerformanceRadar(sessionToken string, data Teach
 	if err != nil {
 		return Response{OK: false, Error: err.Error()}
 	}
-	if teacherUser.Role != "teacher" {
+	if !isTeachingRole(teacherUser.Role) {
 		return Response{OK: false, Error: "forbidden: teacher role required"}
 	}
 	if data.StudentID <= 0 {

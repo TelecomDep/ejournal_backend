@@ -580,17 +580,19 @@ const SecurityPanel = ({ user, token }) => {
 
       <div className="security-section-divider" />
 
-      <button
-        type="button"
-        className="consent-revoke-button"
-		disabled={Boolean(agreementAction)}
-		onClick={() => updateAgreement(agreement?.accepted ? 'declined' : 'accepted')}
-      >
-		{agreement?.accepted
-		  ? 'Отозвать согласие на обработку персональных данных'
-		  : 'Дать согласие на обработку персональных данных'}
-      </button>
-	  <small>При отказе сервис продолжит работать, но ФИО в общем рейтинге будет скрыто.</small>
+      <div className="consent-decision-row">
+        <button
+          type="button"
+          className="consent-revoke-button"
+          disabled={Boolean(agreementAction)}
+          onClick={() => updateAgreement(agreement?.accepted ? 'declined' : 'accepted')}
+        >
+          {agreement?.accepted
+            ? 'Отозвать согласие на обработку персональных данных'
+            : 'Дать согласие на обработку персональных данных'}
+        </button>
+        <small>При отказе сервис продолжит работать, но ФИО в общем рейтинге будет скрыто.</small>
+      </div>
     </section>
   );
 };

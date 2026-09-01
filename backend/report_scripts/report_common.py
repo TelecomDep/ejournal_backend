@@ -123,7 +123,7 @@ def attendance_mark(activity: dict) -> str:
     status = activity.get("attendance_status")
     code = activity.get("attendance_code")
     if status == "absent" or code == "О":
-        return "П"
+        return "Н"
     if status == "sick_with_certificate" or code == "Б":
         return "Б"
     return ""

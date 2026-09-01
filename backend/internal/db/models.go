@@ -226,14 +226,16 @@ type Grade struct {
 }
 
 type StudentGradePoint struct {
-	GradeID  *int32     `json:"grade_id,omitempty"`
-	ItemID   int32      `json:"item_id"`
-	Title    string     `json:"title"`
-	MaxScore int32      `json:"max_score"`
-	ItemType string     `json:"item_type"`
-	Deadline *time.Time `json:"deadline,omitempty"`
-	Score    int32      `json:"score"`
-	GradedAt *time.Time `json:"graded_at,omitempty"`
+	GradeID             *int32     `json:"grade_id,omitempty"`
+	ItemID              int32      `json:"item_id"`
+	Title               string     `json:"title"`
+	MaxScore            int32      `json:"max_score"`
+	ItemType            string     `json:"item_type"`
+	Deadline            *time.Time `json:"deadline,omitempty"`
+	Score               int32      `json:"score"`
+	GradedAt            *time.Time `json:"graded_at,omitempty"`
+	AttendanceSessionID *int32     `json:"attendance_session_id,omitempty"`
+	AttendanceStatus    string     `json:"attendance_status,omitempty"`
 }
 
 type PredictionStats struct {

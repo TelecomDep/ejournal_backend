@@ -2380,7 +2380,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/teacher/attendance-link": {
+    "/api/teaching/attendance-link": {
         parameters: {
             query?: never;
             header?: never;
@@ -2455,7 +2455,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/teacher/attendance/group": {
+    "/api/teaching/attendance/group": {
         parameters: {
             query?: never;
             header?: never;
@@ -2535,7 +2535,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/teacher/attendance/mark": {
+    "/api/teaching/attendance/mark": {
         parameters: {
             query?: never;
             header?: never;
@@ -2615,7 +2615,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/teacher/attendance/session": {
+    "/api/teaching/attendance/session": {
         parameters: {
             query?: never;
             header?: never;
@@ -2690,7 +2690,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/teacher/attendance/session/active": {
+    "/api/teaching/attendance/session/active": {
         parameters: {
             query?: never;
             header?: never;
@@ -2756,7 +2756,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/teacher/attendance/session/marked-count": {
+    "/api/teaching/attendance/session/marked-count": {
         parameters: {
             query?: never;
             header?: never;
@@ -2825,7 +2825,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/teacher/attendance/session/roster": {
+    "/api/teaching/attendance/session/roster": {
         parameters: {
             query?: never;
             header?: never;
@@ -2894,7 +2894,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/teacher/attendance/session/timer": {
+    "/api/teaching/attendance/session/timer": {
         parameters: {
             query?: never;
             header?: never;
@@ -2963,7 +2963,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/teacher/attendance/student/history": {
+    "/api/teaching/attendance/student/history": {
         parameters: {
             query?: never;
             header?: never;
@@ -3043,7 +3043,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/teacher/grades": {
+    "/api/teaching/grades": {
         parameters: {
             query?: never;
             header?: never;
@@ -3123,7 +3123,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/teacher/grades/items": {
+    "/api/teaching/grades/items": {
         parameters: {
             query?: never;
             header?: never;
@@ -3203,7 +3203,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/teacher/grades/items/list": {
+    "/api/teaching/grades/items/list": {
         parameters: {
             query?: never;
             header?: never;
@@ -3278,7 +3278,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/teacher/grades/items/{item_id}": {
+    "/api/teaching/grades/items/{item_id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -3370,7 +3370,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/teacher/grades/items/{item_id}/restore": {
+    "/api/teaching/grades/items/{item_id}/restore": {
         parameters: {
             query?: never;
             header?: never;
@@ -3457,7 +3457,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/teacher/grades/student": {
+    "/api/teaching/grades/student": {
         parameters: {
             query?: never;
             header?: never;
@@ -3537,7 +3537,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/teacher/grades/{grade_id}": {
+    "/api/teaching/grades/{grade_id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -3629,7 +3629,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/teacher/grades/{grade_id}/restore": {
+    "/api/teaching/grades/{grade_id}/restore": {
         parameters: {
             query?: never;
             header?: never;
@@ -3716,7 +3716,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/teacher/group/performance": {
+    "/api/teaching/group/performance": {
         parameters: {
             query?: never;
             header?: never;
@@ -3796,7 +3796,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/teacher/schedule/day": {
+    "/api/teaching/schedule/day": {
         parameters: {
             query?: never;
             header?: never;
@@ -3874,7 +3874,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/teacher/student/performance/radar": {
+    "/api/teaching/student/performance/radar": {
         parameters: {
             query?: never;
             header?: never;
@@ -3954,7 +3954,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/teacher/subjects": {
+    "/api/teaching/subjects": {
         parameters: {
             query?: never;
             header?: never;

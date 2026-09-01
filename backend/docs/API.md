@@ -255,15 +255,17 @@ Authorization: Bearer <jwt_token>
 
 ---
 
-## 3. Посещаемость — преподаватель
+## 3. Посещаемость — ведущий занятия
 
-### POST `/api/teacher/attendance-link` — создать сессию посещаемости
+Маршруты `/api/teaching/*` доступны ролям `teacher` и `head` при наличии личного преподавательского профиля и назначения на дисциплину. Старый префикс `/api/teacher/*` временно сохранён как совместимый алиас.
 
-Алиас: `POST /api/teacher/attendance/session` (то же самое).
+### POST `/api/teaching/attendance-link` — создать сессию посещаемости
+
+Алиас: `POST /api/teaching/attendance/session` (то же самое).
 
 Преподаватель создаёт сессию и получает ссылку/QR для отметки. Если `subject_id` / `group_ids` не переданы — берутся из ближайшей пары в расписании.
 
-**Auth:** Bearer (teacher).
+**Auth:** Bearer (`teacher` или `head`).
 
 **Тело запроса:**
 
@@ -305,7 +307,7 @@ Authorization: Bearer <jwt_token>
 
 ---
 
-### GET `/api/teacher/attendance/session/active` — активная сессия
+### GET `/api/teaching/attendance/session/active` — активная сессия
 
 Возвращает не истёкшую сессию текущего преподавателя (для восстановления экрана после перезагрузки).
 
@@ -343,7 +345,7 @@ Authorization: Bearer <jwt_token>
 
 ---
 
-### GET `/api/teacher/attendance/session/timer` — таймер сессии
+### GET `/api/teaching/attendance/session/timer` — таймер сессии
 
 **Auth:** Bearer (teacher).
 
@@ -367,7 +369,7 @@ Authorization: Bearer <jwt_token>
 
 ---
 
-### GET `/api/teacher/attendance/session/marked-count` — сколько отметилось
+### GET `/api/teaching/attendance/session/marked-count` — сколько отметилось
 
 **Auth:** Bearer (teacher).
 
@@ -390,7 +392,7 @@ Authorization: Bearer <jwt_token>
 
 ---
 
-### GET `/api/teacher/attendance/session/roster` — живая таблица занятия
+### GET `/api/teaching/attendance/session/roster` — живая таблица занятия
 
 Возвращает полный состав текущей сессии с актуальным статусом каждого студента. Интерфейс преподавателя опрашивает endpoint раз в 2 секунды, поэтому самостоятельные отметки появляются в таблице без перезагрузки страницы.
 
@@ -430,7 +432,7 @@ Authorization: Bearer <jwt_token>
 
 ---
 
-### POST `/api/teacher/attendance/mark` — ручная правка посещения
+### POST `/api/teaching/attendance/mark` — ручная правка посещения
 
 Преподаватель вручную ставит статус студенту в своей сессии (поверх само-отметки).
 
@@ -450,7 +452,7 @@ Authorization: Bearer <jwt_token>
 
 ---
 
-### GET `/api/teacher/subjects` — предметы преподавателя
+### GET `/api/teaching/subjects` — предметы преподавателя
 
 Возвращает предметы и группы текущего преподавателя из расписания. Используйте для выпадающих списков.
 
@@ -462,7 +464,7 @@ Authorization: Bearer <jwt_token>
 
 ---
 
-### POST `/api/teacher/attendance/group` — статистика посещаемости группы
+### POST `/api/teaching/attendance/group` — статистика посещаемости группы
 
 **Auth:** Bearer (teacher).
 
@@ -501,7 +503,7 @@ Authorization: Bearer <jwt_token>
 
 ---
 
-### POST `/api/teacher/attendance/student/history` — история посещений студента
+### POST `/api/teaching/attendance/student/history` — история посещений студента
 
 Детальная история студента по конкретному предмету.
 
@@ -530,7 +532,7 @@ Authorization: Bearer <jwt_token>
 
 ---
 
-### POST `/api/teacher/group/performance` — сводка по группе (посещаемость + оценки)
+### POST `/api/teaching/group/performance` — сводка по группе (посещаемость + оценки)
 
 Комбинированный отчёт по каждому студенту группы по предмету.
 
@@ -659,7 +661,7 @@ Authorization: Bearer <jwt_token>
 
 ## 5. Оценки — преподаватель
 
-### POST `/api/teacher/grades/items` — создать контрольную точку
+### POST `/api/teaching/grades/items` — создать контрольную точку
 
 **Auth:** Bearer (teacher).
 
@@ -679,7 +681,7 @@ Authorization: Bearer <jwt_token>
 
 ---
 
-### POST `/api/teacher/grades/items/list` — список контрольных точек предмета
+### POST `/api/teaching/grades/items/list` — список контрольных точек предмета
 
 **Auth:** Bearer (teacher).
 
@@ -695,7 +697,7 @@ Authorization: Bearer <jwt_token>
 
 ---
 
-### POST `/api/teacher/grades` — поставить/обновить оценку
+### POST `/api/teaching/grades` — поставить/обновить оценку
 
 Upsert: если оценка по этой точке у студента уже есть — обновляется.
 
@@ -717,7 +719,7 @@ Upsert: если оценка по этой точке у студента уж�
 
 ---
 
-### POST `/api/teacher/grades/student` — ведомость студента по предмету
+### POST `/api/teaching/grades/student` — ведомость студента по предмету
 
 **Auth:** Bearer (teacher).
 
@@ -736,7 +738,7 @@ Upsert: если оценка по этой точке у студента уж�
 
 ---
 
-### POST `/api/teacher/student/performance/radar` — радар успеваемости студента
+### POST `/api/teaching/student/performance/radar` — радар успеваемости студента
 
 Точка на радаре по каждому предмету студента, которого ведёт преподаватель.
 
@@ -827,7 +829,7 @@ Upsert: если оценка по этой точке у студента уж�
 
 ---
 
-### GET `/api/teacher/schedule/day` — расписание преподавателя на день
+### GET `/api/teaching/schedule/day` — расписание преподавателя на день
 
 Пары текущего преподавателя на дату с предметом, группой, типом занятия,
 аудиторией и подгруппой. Доступна только текущая и следующая календарная неделя.
@@ -1033,31 +1035,31 @@ Upsert: если оценка по этой точке у студента уж�
 | POST | `/api/auth/reset-password` | — | Сброс пароля по токену |
 | POST | `/api/user/email` | любая | Привязка email |
 | POST | `/api/user/upload-avatar` | любая | Загрузка аватара (multipart) |
-| POST | `/api/teacher/attendance-link` | teacher | Создать сессию посещаемости (+QR) |
-| POST | `/api/teacher/attendance/session` | teacher | Алиас предыдущей |
-| GET | `/api/teacher/attendance/session/active` | teacher | Активная сессия |
-| GET | `/api/teacher/attendance/session/timer` | teacher | Таймер сессии |
-| GET | `/api/teacher/attendance/session/marked-count` | teacher | Счётчик отметившихся |
-| GET | `/api/teacher/attendance/session/roster` | teacher | Живая таблица отметок по студентам |
-| POST | `/api/teacher/attendance/mark` | teacher | Ручная правка статуса |
-| GET | `/api/teacher/subjects` | teacher | Предметы и группы преподавателя |
-| POST | `/api/teacher/attendance/group` | teacher | Посещаемость по группе |
-| POST | `/api/teacher/attendance/student/history` | teacher | История посещений студента |
-| POST | `/api/teacher/group/performance` | teacher | Сводка группа+предмет |
+| POST | `/api/teaching/attendance-link` | teacher, head | Создать сессию посещаемости (+QR) |
+| POST | `/api/teaching/attendance/session` | teacher, head | Алиас предыдущей |
+| GET | `/api/teaching/attendance/session/active` | teacher, head | Активная сессия |
+| GET | `/api/teaching/attendance/session/timer` | teacher, head | Таймер сессии |
+| GET | `/api/teaching/attendance/session/marked-count` | teacher, head | Счётчик отметившихся |
+| GET | `/api/teaching/attendance/session/roster` | teacher, head | Живая таблица отметок по студентам |
+| POST | `/api/teaching/attendance/mark` | teacher, head | Ручная правка статуса |
+| GET | `/api/teaching/subjects` | teacher, head | Предметы и группы преподавателя |
+| POST | `/api/teaching/attendance/group` | teacher, head | Посещаемость по группе |
+| POST | `/api/teaching/attendance/student/history` | teacher, head | История посещений студента |
+| POST | `/api/teaching/group/performance` | teacher, head | Сводка группа+предмет |
 | POST | `/api/student/attendance/confirm` | student | Подтвердить посещение по токену |
 | POST | `/api/student/mark-attendance` | student | Отметка с Android (гео + device) |
 | GET | `/api/student/attendance/history` | student | История посещений по датам |
 | GET | `/api/student/attendance/summary` | student | Процент посещаемости по семестру и предметам |
-| POST | `/api/teacher/grades/items` | teacher | Создать контрольную точку |
-| POST | `/api/teacher/grades/items/list` | teacher | Список контрольных точек |
-| POST | `/api/teacher/grades` | teacher | Поставить/обновить оценку |
-| POST | `/api/teacher/grades/student` | teacher | Ведомость студента |
-| POST | `/api/teacher/student/performance/radar` | teacher | Радар студента |
+| POST | `/api/teaching/grades/items` | teacher, head | Создать контрольную точку |
+| POST | `/api/teaching/grades/items/list` | teacher, head | Список контрольных точек |
+| POST | `/api/teaching/grades` | teacher, head | Поставить/обновить оценку |
+| POST | `/api/teaching/grades/student` | teacher, head | Ведомость студента |
+| POST | `/api/teaching/student/performance/radar` | teacher, head | Радар студента |
 | POST | `/api/student/grades` | student | Свои оценки по предмету |
 | GET | `/api/student/grades/all` | student | Все оценки разом |
 | GET | `/api/student/performance/radar` | student | Свой радар успеваемости |
 | GET | `/api/student/schedule/day` | student | Расписание на день |
-| GET | `/api/teacher/schedule/day` | teacher | Расписание преподавателя на день |
+| GET | `/api/teaching/schedule/day` | teacher, head | Расписание преподавателя на день |
 | GET | `/api/admin/users` | admin | Список пользователей |
 | GET | `/api/admin/users/:user_id` | admin | Получить пользователя |
 | POST | `/api/admin/users` | admin | Создать пользователя и профиль |

@@ -11,6 +11,11 @@ http {
     absolute_redirect off;
     resolver 127.0.0.11 valid=10s ipv6=off;
 
+    map $http_host $https_redirect_host {
+        default $host;
+        ~^(?<local_host>localhost|127\.0\.0\.1):(9000|9999)$ $local_host:9001;
+    }
+
     # HTTP Server: Redirects all traffic to HTTPS, serves ACME challenges for Certbot
     server {
         listen 80;
@@ -21,7 +26,7 @@ http {
         }
 
         location / {
-            return 301 https://$host$request_uri;
+            return 301 https://$https_redirect_host$request_uri;
         }
     }
 

@@ -10,43 +10,40 @@ export default function QRCode({ value, size = 160 }) {
     qr.addData(value);
     qr.make();
     const count = qr.getModuleCount();
-    const cells = [];
+    const pathParts = [];
     for (let row = 0; row < count; row += 1) {
-      for (let col = 0; col < count; col += 1) {
-        if (qr.isDark(row, col)) {
-          cells.push([row, col]);
+      let runStart = -1;
+      for (let col = 0; col <= count; col += 1) {
+        const isDark = col < count && qr.isDark(row, col);
+        if (isDark && runStart < 0) {
+          runStart = col;
+        } else if (!isDark && runStart >= 0) {
+          const runWidth = col - runStart;
+          pathParts.push(`M${runStart} ${row}h${runWidth}v1h-${runWidth}z`);
+          runStart = -1;
         }
       }
     }
-    return { count, cells };
+    return { count, path: pathParts.join('') };
   }, [value]);
 
   if (!modules) {
     return null;
   }
 
-  const { count, cells } = modules;
-  const cellSize = size / count;
+  const { count, path } = modules;
 
   return (
     <svg
       width={size}
       height={size}
-      viewBox={`0 0 ${size} ${size}`}
+      viewBox={`0 0 ${count} ${count}`}
+      shapeRendering="crispEdges"
       role="img"
       aria-label="QR код для ссылки"
     >
-      <rect width={size} height={size} fill="#ffffff" />
-      {cells.map(([row, col]) => (
-        <rect
-          key={`${row}-${col}`}
-          x={col * cellSize}
-          y={row * cellSize}
-          width={cellSize}
-          height={cellSize}
-          fill="#000000"
-        />
-      ))}
+      <rect width={count} height={count} fill="#ffffff" />
+      <path d={path} fill="#000000" />
     </svg>
   );
 }

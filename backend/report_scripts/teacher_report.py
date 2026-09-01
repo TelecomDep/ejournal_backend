@@ -101,7 +101,7 @@ def build_report(args: argparse.Namespace) -> str:
     report.cell(
         3,
         1,
-        "Лекции: пусто — присутствовал, П — пропуск, Б — болел со справкой. "
+        "Лекции: пусто — присутствовал, Н — отсутствовал, Б — болел. "
         "Лабораторные и практики показаны в 100-балльной шкале; пусто — оценки пока нет.",
     )
     report.cell(3, 1).fill = PatternFill("solid", fgColor=LIGHT_BLUE)
@@ -142,7 +142,7 @@ def build_report(args: argparse.Namespace) -> str:
             cell = report.cell(row, column, value)
             style_data_cell(cell, "left" if column == 2 else "center")
             if lecture_start <= column < lab_start:
-                if value == "П":
+                if value == "Н":
                     cell.fill = PatternFill("solid", fgColor=RED)
                 elif value == "Б":
                     cell.fill = PatternFill("solid", fgColor=YELLOW)

@@ -2,6 +2,8 @@ import axios from 'axios';
 
 const DEFAULT_BACKEND_URL = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8888';
 const BACKEND_URL = (import.meta.env.VITE_BACKEND_URL || DEFAULT_BACKEND_URL).replace(/\/$/, '');
+const TEACHING_API_URL = `${BACKEND_URL}/api/teaching`;
+const ATTENDANCE_REQUEST_TIMEOUT_MS = 10000;
 
 function unwrapApiResponse(data) {
   if (data && typeof data === 'object' && Object.prototype.hasOwnProperty.call(data, 'ok')) {
@@ -128,7 +130,7 @@ const api = {
 
   async getTeacherScheduleDay(token, date) {
     try {
-      const response = await axios.get(`${BACKEND_URL}/api/teacher/schedule/day`, {
+      const response = await axios.get(`${TEACHING_API_URL}/schedule/day`, {
         headers: authHeaders(token),
         params: date ? { date } : {}
       });
@@ -169,7 +171,7 @@ const api = {
   async createAttendanceLink(token, subjectId, groupIds, lessonName, expiresMinutes, lessonType) {
     try {
       const response = await axios.post(
-        `${BACKEND_URL}/api/teacher/attendance-link`,
+        `${TEACHING_API_URL}/attendance-link`,
         {
           subject_id: subjectId,
           group_ids: groupIds,
@@ -190,7 +192,7 @@ const api = {
 
   async getTeacherActiveAttendanceSession(token) {
     try {
-      const response = await axios.get(`${BACKEND_URL}/api/teacher/attendance/session/active`, {
+      const response = await axios.get(`${TEACHING_API_URL}/attendance/session/active`, {
         headers: authHeaders(token)
       });
       return unwrapApiResponse(response.data);
@@ -202,9 +204,10 @@ const api = {
 
   async getAttendanceSessionRoster(token, lessonId) {
     try {
-      const response = await axios.get(`${BACKEND_URL}/api/teacher/attendance/session/roster`, {
+      const response = await axios.get(`${TEACHING_API_URL}/attendance/session/roster`, {
         headers: authHeaders(token),
-        params: { lesson_id: Number(lessonId) }
+        params: { lesson_id: Number(lessonId) },
+        timeout: ATTENDANCE_REQUEST_TIMEOUT_MS
       });
       return unwrapApiResponse(response.data);
     } catch (error) {
@@ -216,13 +219,13 @@ const api = {
   async updateAttendanceStatus(token, lessonId, studentId, status) {
     try {
       const response = await axios.post(
-        `${BACKEND_URL}/api/teacher/attendance/mark`,
+        `${TEACHING_API_URL}/attendance/mark`,
         {
           lesson_id: Number(lessonId),
           student_id: Number(studentId),
           status
         },
-        { headers: authHeaders(token) }
+        { headers: authHeaders(token), timeout: ATTENDANCE_REQUEST_TIMEOUT_MS }
       );
       return unwrapApiResponse(response.data);
     } catch (error) {
@@ -234,7 +237,7 @@ const api = {
   // Teacher: Get assigned subjects and groups
   async getTeacherSubjects(token) {
     try {
-      const response = await axios.get(`${BACKEND_URL}/api/teacher/subjects`, {
+      const response = await axios.get(`${TEACHING_API_URL}/subjects`, {
         headers: authHeaders(token)
       });
       return unwrapApiResponse(response.data);
@@ -275,7 +278,7 @@ const api = {
       }
 
       const response = await axios.post(
-        `${BACKEND_URL}/api/teacher/attendance/group`,
+        `${TEACHING_API_URL}/attendance/group`,
         payload,
         { headers: authHeaders(token) }
       );
@@ -290,7 +293,7 @@ const api = {
   async getGroupPerformance(token, groupId, subjectId) {
     try {
       const response = await axios.post(
-        `${BACKEND_URL}/api/teacher/group/performance`,
+        `${TEACHING_API_URL}/group/performance`,
         {
           group_id: groupId,
           subject_id: subjectId
@@ -324,7 +327,7 @@ const api = {
   async createGradeItem(token, payload) {
     try {
       const response = await axios.post(
-        `${BACKEND_URL}/api/teacher/grades/items`,
+        `${TEACHING_API_URL}/grades/items`,
         payload,
         { headers: authHeaders(token) }
       );
@@ -337,11 +340,14 @@ const api = {
 
   async deleteGradeItem(token, payload) {
     try {
-      const response = await axios.post(
-        `${BACKEND_URL}/api/teacher/grades/items/delete`,
-        payload,
-        { headers: authHeaders(token) }
-      );
+      const itemId = Number(payload?.item_id);
+      if (!Number.isInteger(itemId) || itemId <= 0) {
+        throw new Error('item_id is required');
+      }
+      const response = await axios.delete(`${TEACHING_API_URL}/grades/items/${itemId}`, {
+        headers: authHeaders(token),
+        data: payload
+      });
       return unwrapApiResponse(response.data);
     } catch (error) {
       console.error('Ошибка удаления контрольной точки:', error);
@@ -352,7 +358,7 @@ const api = {
   async getTeacherGradeItems(token, subjectId) {
     try {
       const response = await axios.post(
-        `${BACKEND_URL}/api/teacher/grades/items/list`,
+        `${TEACHING_API_URL}/grades/items/list`,
         { subject_id: subjectId },
         { headers: authHeaders(token) }
       );
@@ -366,7 +372,7 @@ const api = {
   async saveStudentGrade(token, payload) {
     try {
       const response = await axios.post(
-        `${BACKEND_URL}/api/teacher/grades`,
+        `${TEACHING_API_URL}/grades`,
         payload,
         { headers: authHeaders(token) }
       );
@@ -380,7 +386,7 @@ const api = {
   async getTeacherStudentGrades(token, studentId, subjectId) {
     try {
       const response = await axios.post(
-        `${BACKEND_URL}/api/teacher/grades/student`,
+        `${TEACHING_API_URL}/grades/student`,
         {
           student_id: studentId,
           subject_id: subjectId
@@ -423,7 +429,7 @@ const api = {
   async getTeacherStudentPerformanceRadar(token, studentId) {
     try {
       const response = await axios.post(
-        `${BACKEND_URL}/api/teacher/student/performance/radar`,
+        `${TEACHING_API_URL}/student/performance/radar`,
         { student_id: studentId },
         { headers: authHeaders(token) }
       );
@@ -989,9 +995,9 @@ const api = {
     try {
       const numId = sessionId ? Number(sessionId) : undefined;
       const response = await axios.post(
-        `${BACKEND_URL}/api/teacher/attendance/session/finish`,
+        `${TEACHING_API_URL}/attendance/session/finish`,
         { session_id: numId, lesson_id: numId },
-        { headers: authHeaders(token) }
+        { headers: authHeaders(token), timeout: ATTENDANCE_REQUEST_TIMEOUT_MS }
       );
       return unwrapApiResponse(response.data);
     } catch (error) {

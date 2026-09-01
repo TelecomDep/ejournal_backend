@@ -167,7 +167,7 @@ func (s *Service) teacherScheduleForDay(sessionToken string, data StudentSchedul
 	if err != nil {
 		return Response{OK: false, Error: err.Error()}
 	}
-	if teacherUser.Role != RoleTeacher {
+	if !isTeachingRole(teacherUser.Role) {
 		return Response{OK: false, Error: "forbidden: teacher role required"}
 	}
 
