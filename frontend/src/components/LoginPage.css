@@ -310,3 +310,101 @@
 .login-page-footer {
   margin-top: 2rem;
 }
+
+/* --------------------------------------------------------------------------
+   Dark Mode Support for Login Page
+   -------------------------------------------------------------------------- */
+[data-theme="dark"] .login-page {
+  background:
+    radial-gradient(900px 600px at 12% -10%, rgba(59, 130, 246, 0.12), transparent 60%),
+    radial-gradient(800px 600px at 110% 110%, rgba(30, 58, 138, 0.18), transparent 55%),
+    #0f141f;
+}
+
+[data-theme="dark"] .login-card {
+  background: rgba(22, 28, 41, 0.92);
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 30px 70px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+[data-theme="dark"] .login-card h1 {
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .toggle-buttons {
+  background: #141924;
+  border-color: #273144;
+}
+
+[data-theme="dark"] .toggle-indicator {
+  background: #232b3d;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .toggle-buttons button {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .toggle-buttons button.active {
+  color: #60a5fa;
+}
+
+[data-theme="dark"] .login-form label {
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .login-form input[type='text'],
+[data-theme="dark"] .login-form input[type='password'],
+[data-theme="dark"] .login-form select {
+  background: #18202e;
+  border-color: #2e3b52;
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .login-form input[type='text']:focus,
+[data-theme="dark"] .login-form input[type='password']:focus,
+[data-theme="dark"] .login-form select:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+}
+
+[data-theme="dark"] .registration-consent-item {
+  background: #171e2c;
+  border-color: #2a354a;
+}
+
+[data-theme="dark"] .registration-consent-item:hover {
+  background: #1c2538;
+  border-color: #384662;
+}
+
+[data-theme="dark"] .registration-consent-item label {
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .legal-inline-link {
+  color: #60a5fa;
+}
+
+[data-theme="dark"] .legal-inline-link:hover {
+  color: #93c5fd;
+}
+
+[data-theme="dark"] .login-form .forgot-password-button {
+  color: #60a5fa;
+}
+
+[data-theme="dark"] .login-form .forgot-password-button:hover:not(:disabled) {
+  color: #93c5fd;
+}
+
+[data-theme="dark"] .back-to-login-btn {
+  border-color: #2e3b52;
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .back-to-login-btn:hover {
+  background: #1e2638;
+  color: #ffffff;
+}
+

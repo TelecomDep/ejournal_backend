@@ -5,7 +5,8 @@
  */
 
 export const getAppConfig = () => {
-  const runtime = (typeof window !== 'undefined' && window.__APP_CONFIG__) || {};
+  const globalWin = typeof window !== 'undefined' ? /** @type {Record<string, any>} */ (window) : null;
+  const runtime = (globalWin && globalWin.__APP_CONFIG__) || {};
 
   const currentHost = typeof window !== 'undefined' ? window.location.hostname : 'ezachetka.ru';
   const domain = runtime.DOMAIN || import.meta.env.VITE_DOMAIN || currentHost || 'ezachetka.ru';

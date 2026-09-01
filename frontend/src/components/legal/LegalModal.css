@@ -546,3 +546,165 @@ mark.legal-highlight {
     justify-content: center;
   }
 }
+
+/* --------------------------------------------------------------------------
+   Dark Mode Support
+   -------------------------------------------------------------------------- */
+[data-theme="dark"] .legal-modal-dialog {
+  background: #151a24;
+  color: #e2e8f0;
+  border-color: #2a3447;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+[data-theme="dark"] .legal-modal-sidebar {
+  background: #0f131c;
+  border-right-color: #2a3447;
+}
+
+[data-theme="dark"] .legal-sidebar-brand {
+  border-bottom-color: #2a3447;
+}
+
+[data-theme="dark"] .legal-sidebar-brand h3 {
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .legal-sidebar-badge {
+  background: rgba(59, 130, 246, 0.18);
+  color: #60a5fa;
+}
+
+[data-theme="dark"] .legal-sidebar-domain {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .legal-sidebar-btn {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .legal-sidebar-btn:hover {
+  background: #1a2232;
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .legal-sidebar-btn.is-active {
+  background: #1c2538;
+  color: #60a5fa;
+  border-color: #3b82f6;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .legal-sidebar-btn.is-active .legal-sidebar-icon {
+  color: #60a5fa;
+}
+
+[data-theme="dark"] .legal-sidebar-btn-badge {
+  color: #64748b;
+}
+
+[data-theme="dark"] .legal-sidebar-footer {
+  border-top-color: #2a3447;
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .legal-sidebar-footer a {
+  color: #60a5fa;
+}
+
+[data-theme="dark"] .legal-modal-main {
+  background: #151a24;
+}
+
+[data-theme="dark"] .legal-main-header {
+  background: #151a24;
+  border-bottom-color: #242c3d;
+}
+
+[data-theme="dark"] .legal-main-header h2 {
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .legal-main-kicker {
+  color: #60a5fa;
+}
+
+[data-theme="dark"] .legal-main-date {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .legal-action-btn,
+[data-theme="dark"] .legal-close-btn {
+  background: #1d2536;
+  border-color: #2d384e;
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .legal-action-btn:hover,
+[data-theme="dark"] .legal-close-btn:hover {
+  background: #273248;
+  border-color: #3d4c68;
+  color: #ffffff;
+}
+
+[data-theme="dark"] .legal-close-btn:hover {
+  background: #451a1a;
+  border-color: #7f1d1d;
+  color: #f87171;
+}
+
+[data-theme="dark"] .legal-search-toolbar {
+  background: #10141e;
+  border-bottom-color: #242c3d;
+}
+
+[data-theme="dark"] .legal-search-input-wrap {
+  background: #1a2232;
+  border-color: #2d384e;
+}
+
+[data-theme="dark"] .legal-search-input-wrap input {
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .legal-search-stats {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .legal-modal-content-body {
+  color: #cbd5e1;
+  scrollbar-color: #334155 transparent;
+}
+
+[data-theme="dark"] .legal-section-card {
+  background: #1b2230;
+  border-color: #293448;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+[data-theme="dark"] .legal-section-title {
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .legal-section-text p {
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] mark.legal-highlight {
+  background: #854d0e;
+  color: #fef08a;
+}
+
+[data-theme="dark"] .legal-main-footer {
+  background: #10141e;
+  border-top-color: #242c3d;
+}
+
+[data-theme="dark"] .legal-main-footer-meta {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .legal-meta-sep {
+  color: #475569;
+}
+

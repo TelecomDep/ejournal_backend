@@ -13,12 +13,14 @@ export DISPUTE_TIMEFRAME_DAYS="${DISPUTE_TIMEFRAME_DAYS:-7}"
 # 1. Ensure SSL certificates directory and self-signed certificate if Let's Encrypt cert is not present
 SSL_DIR="/etc/letsencrypt/live/${DOMAIN}"
 if [ ! -f "${SSL_DIR}/fullchain.pem" ] || [ ! -f "${SSL_DIR}/privkey.pem" ]; then
-    echo "[Nginx Setup] Certificates for ${DOMAIN} not found. Generating temporary self-signed certificate..."
+    echo "[Nginx Setup] Certificates for ${DOMAIN} not found in ${SSL_DIR}."
     mkdir -p "${SSL_DIR}"
-    openssl req -x509 -nodes -newkey rsa:2048 -days 365 \
-        -keyout "${SSL_DIR}/privkey.pem" \
-        -out "${SSL_DIR}/fullchain.pem" \
-        -subj "/CN=${DOMAIN}" 2>/dev/null || true
+    if command -v openssl >/dev/null 2>&1; then
+        openssl req -x509 -nodes -newkey rsa:2048 -days 365 \
+            -keyout "${SSL_DIR}/privkey.pem" \
+            -out "${SSL_DIR}/fullchain.pem" \
+            -subj "/CN=${DOMAIN}" 2>/dev/null || true
+    fi
 fi
 
 # 2. Ensure .htpasswd file exists for Admin Area protection
