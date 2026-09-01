@@ -50,13 +50,28 @@ const ProgressCell = ({ value }) => {
   );
 };
 
-const getFullscreenElement = () => document.fullscreenElement || document.webkitFullscreenElement;
+/**
+ * Safari still exposes prefixed fullscreen members that are absent from
+ * TypeScript's standard DOM declarations.
+ * @typedef {Document & {
+ *   webkitFullscreenElement?: Element | null,
+ *   webkitExitFullscreen?: () => Promise<void> | void
+ * }} WebkitFullscreenDocument
+ * @typedef {HTMLElement & {
+ *   webkitRequestFullscreen?: () => Promise<void> | void
+ * }} WebkitFullscreenElement
+ */
+
+/** @type {WebkitFullscreenDocument} */
+const fullscreenDocument = document;
+
+const getFullscreenElement = () => fullscreenDocument.fullscreenElement || fullscreenDocument.webkitFullscreenElement;
 
 const leaveFullscreen = async () => {
-  const exitFullscreen = document.exitFullscreen || document.webkitExitFullscreen;
+  const exitFullscreen = fullscreenDocument.exitFullscreen || fullscreenDocument.webkitExitFullscreen;
   if (!getFullscreenElement() || !exitFullscreen) return;
   try {
-    await Promise.resolve(exitFullscreen.call(document));
+    await Promise.resolve(exitFullscreen.call(fullscreenDocument));
   } catch {
     // The CSS fullscreen fallback is closed by local state below.
   }
@@ -367,10 +382,12 @@ const TeacherPage = ({ token, section = 'attendance' }) => {
 
   const expandQr = async () => {
     setQrExpanded(true);
-    const requestFullscreen = qrWorkspaceRef.current?.requestFullscreen || qrWorkspaceRef.current?.webkitRequestFullscreen;
+    /** @type {WebkitFullscreenElement | null} */
+    const qrWorkspace = qrWorkspaceRef.current;
+    const requestFullscreen = qrWorkspace?.requestFullscreen || qrWorkspace?.webkitRequestFullscreen;
     if (requestFullscreen) {
       try {
-        await Promise.resolve(requestFullscreen.call(qrWorkspaceRef.current));
+        await Promise.resolve(requestFullscreen.call(qrWorkspace));
       } catch {
         // CSS fallback keeps the QR expanded when native fullscreen is unavailable.
       }
