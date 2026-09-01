@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import SibLogo from './SibLogo';
+import LegalFooter from './legal/LegalFooter';
 import api from '../services/api';
 import './LoginPage.css';
 
-const LoginPage = ({ onLogin, onRegister, loading, error }) => {
+const LoginPage = ({ onLogin, onRegister, loading, error, onOpenLegal }) => {
   const [view, setView] = useState('login'); // 'login' | 'register' | 'forgot' | 'reset'
   const [login, setLogin] = useState('');
   const [password, setPassword] = useState('');
   const [registrationCode, setRegistrationCode] = useState('');
   const [personalDataConsent, setPersonalDataConsent] = useState(false);
+  const [emailNotificationsConsent, setEmailNotificationsConsent] = useState(false);
   const [twoFaCode, setTwoFaCode] = useState('');
 
   // Password reset fields
@@ -58,8 +60,12 @@ const LoginPage = ({ onLogin, onRegister, loading, error }) => {
     setLocalError('');
     setLocalMessage('');
 
-	if (view === 'register') {
-		onRegister(login.trim(), password, registrationCode.trim(), personalDataConsent);
+    if (view === 'register') {
+      if (!personalDataConsent) {
+        setLocalError('Для регистрации необходимо подтвердить согласие на обработку персональных данных');
+        return;
+      }
+      onRegister(login.trim(), password, registrationCode.trim(), personalDataConsent, emailNotificationsConsent);
     } else if (view === 'login') {
       onLogin(login.trim(), password, twoFaCode.trim());
     } else if (view === 'forgot') {
@@ -82,8 +88,8 @@ const LoginPage = ({ onLogin, onRegister, loading, error }) => {
         setLocalError('Токен сброса пароля обязателен');
         return;
       }
-	  if (newPassword.length < 8) {
-		setLocalError('Пароль должен содержать минимум 8 символов');
+      if (newPassword.length < 8) {
+        setLocalError('Пароль должен содержать минимум 8 символов');
         return;
       }
       if (newPassword !== confirmPassword) {
@@ -157,7 +163,8 @@ const LoginPage = ({ onLogin, onRegister, loading, error }) => {
                     value={login}
                     onChange={(e) => setLogin(e.target.value)}
                     placeholder="Введите логин"
-				  />
+                    required
+                  />
                 </label>
 
                 <label>
@@ -208,33 +215,54 @@ const LoginPage = ({ onLogin, onRegister, loading, error }) => {
                     type="text"
                     value={registrationCode}
                     onChange={(e) => setRegistrationCode(e.target.value)}
-                    placeholder="Введите код из БД"
+                    placeholder="Введите инвайт-код из БД"
                     required
                   />
                 </label>
 
-                <div className="registration-consent">
-                  <input
-                    id="personal-data-consent"
-                    type="checkbox"
-                    checked={personalDataConsent}
-                    onChange={(event) => {
-                      setPersonalDataConsent(event.target.checked);
-                      if (event.target.checked) setLocalError('');
-                    }}
-                  />
-                  <div>
+                <div className="registration-consents-group">
+                  <div className="registration-consent-item">
+                    <input
+                      id="personal-data-consent"
+                      type="checkbox"
+                      checked={personalDataConsent}
+                      onChange={(event) => {
+                        setPersonalDataConsent(event.target.checked);
+                        if (event.target.checked) setLocalError('');
+                      }}
+                      required
+                    />
                     <label htmlFor="personal-data-consent">
-                      Я даю согласие на обработку персональных данных
+                      Я даю согласие на{' '}
+                      <button
+                        type="button"
+                        className="legal-inline-link"
+                        onClick={() => onOpenLegal && onOpenLegal('privacy')}
+                      >
+                        обработку персональных данных
+                      </button>{' '}
+                      (152-ФЗ) и принимаю условия{' '}
+                      <button
+                        type="button"
+                        className="legal-inline-link"
+                        onClick={() => onOpenLegal && onOpenLegal('terms')}
+                      >
+                        Пользовательского соглашения
+                      </button>
+                      <span className="required-star" title="Обязательно">*</span>
                     </label>
-                    <small>Отказ не ограничивает работу сервиса; в общем рейтинге ФИО будет скрыто.</small>
-                    <a
-                      href="/personal-data-consent.pdf"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      Открыть согласие (PDF)
-                    </a>
+                  </div>
+
+                  <div className="registration-consent-item is-optional">
+                    <input
+                      id="email-notifications-consent"
+                      type="checkbox"
+                      checked={emailNotificationsConsent}
+                      onChange={(event) => setEmailNotificationsConsent(event.target.checked)}
+                    />
+                    <label htmlFor="email-notifications-consent">
+                      Я согласен(а) получать системные email-уведомления об успеваемости и расписании (опционально)
+                    </label>
                   </div>
                 </div>
               </>
@@ -314,6 +342,8 @@ const LoginPage = ({ onLogin, onRegister, loading, error }) => {
           )}
         </form>
       </div>
+
+      <LegalFooter onOpenLegal={onOpenLegal} className="login-page-footer" />
     </div>
   );
 };

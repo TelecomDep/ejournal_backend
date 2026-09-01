@@ -68,7 +68,12 @@ services:
       dockerfile: Dockerfile
     container_name: sibsutis_front
     environment:
-      DOMAIN: ${DOMAIN:-lms.signal.qlabs.pro}
+      DOMAIN: ${DOMAIN:-ezachetka.ru}
+      SUPPORT_EMAIL: ${SUPPORT_EMAIL:-support@${DOMAIN:-ezachetka.ru}}
+      ABUSE_EMAIL: ${ABUSE_EMAIL:-support@${DOMAIN:-ezachetka.ru}}
+      FEEDBACK_TELEGRAM: ${FEEDBACK_TELEGRAM:-}
+      ORGANIZATION_NAME: ${ORGANIZATION_NAME:-Электронный журнал ${DOMAIN:-ezachetka.ru}}
+      DISPUTE_TIMEFRAME_DAYS: ${DISPUTE_TIMEFRAME_DAYS:-7}
     depends_on:
       - ejournal-backend
     ports:
@@ -134,7 +139,7 @@ services:
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
-      - '--web.external-url=https://${DOMAIN:-lms.signal.qlabs.pro}:${FRONTEND_HTTPS_PORT:-9001}/prometheus/'
+      - '--web.external-url=https://${DOMAIN:-ezachetka.ru}/prometheus/'
       - '--web.route-prefix=/prometheus/'
     restart: unless-stopped
 
@@ -145,8 +150,8 @@ services:
     environment:
       GF_SECURITY_ADMIN_USER: admin
       GF_SECURITY_ADMIN_PASSWORD: admin
-      GF_SERVER_DOMAIN: ${DOMAIN:-lms.signal.qlabs.pro}
-      GF_SERVER_ROOT_URL: https://${DOMAIN:-lms.signal.qlabs.pro}:${FRONTEND_HTTPS_PORT:-9001}/grafana/
+      GF_SERVER_DOMAIN: ${DOMAIN:-ezachetka.ru}
+      GF_SERVER_ROOT_URL: https://${DOMAIN:-ezachetka.ru}/grafana/
       GF_SERVER_SERVE_FROM_SUB_PATH: "true"
     volumes:
       - grafana-data:/var/lib/grafana

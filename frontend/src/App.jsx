@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import api from './services/api';
 import LoginPage from './components/LoginPage';
 import Workspace from './ui/Workspace';
+import LegalModal from './components/legal/LegalModal';
+import CookieBanner from './components/legal/CookieBanner';
 import useHashRoute from './hooks/useHashRoute';
 import { getJoinInviteToken } from './utils/attendanceJoin';
 
@@ -14,7 +16,14 @@ function App() {
     () => getJoinInviteToken() || sessionStorage.getItem('ejournal_pending_invite') || ''
   );
   const [attendanceNotice, setAttendanceNotice] = useState(null);
+  const [legalModalOpen, setLegalModalOpen] = useState(false);
+  const [legalInitialDoc, setLegalInitialDoc] = useState('privacy');
   const { route, navigate } = useHashRoute();
+
+  const handleOpenLegal = (docId = 'privacy') => {
+    setLegalInitialDoc(docId);
+    setLegalModalOpen(true);
+  };
 
   const handleLogout = () => {
     sessionStorage.removeItem('ejournal_token');
@@ -114,7 +123,7 @@ function App() {
     }
   };
 
-  const handleRegister = async (login, password, registrationCode, personalDataConsent) => {
+  const handleRegister = async (login, password, registrationCode, personalDataConsent, emailConsent = false) => {
     setLoading(true);
     setError('');
     try {
@@ -124,7 +133,7 @@ function App() {
       api.recordAgreementDecision(
         result.token,
         personalDataConsent ? 'accepted' : 'declined',
-        '2026-08-01'
+        '2026-09-01'
       ).catch(() => {
         // Consent logging is best-effort and must not block registration.
       });
@@ -144,6 +153,7 @@ function App() {
         onRegister={handleRegister}
         loading={loading}
         error={error}
+        onOpenLegal={handleOpenLegal}
       />
     );
   } else if (!userData) {
@@ -157,6 +167,7 @@ function App() {
         navigate={navigate}
         onLogout={handleLogout}
         onUserUpdate={handleUserUpdate}
+        onOpenLegal={handleOpenLegal}
       />
     );
   }
@@ -174,6 +185,12 @@ function App() {
         </div>
       )}
       {body}
+      <CookieBanner onOpenLegal={handleOpenLegal} />
+      <LegalModal
+        isOpen={legalModalOpen}
+        onClose={() => setLegalModalOpen(false)}
+        initialDoc={legalInitialDoc}
+      />
     </>
   );
 }

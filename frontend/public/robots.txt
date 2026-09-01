@@ -1,0 +1,15 @@
+# Robots.txt for ezachetka.ru
+User-agent: *
+Allow: /$
+Allow: /#*
+Disallow: /api/
+Disallow: /lessons/
+Disallow: /uploads/
+Disallow: /swagger/
+Disallow: /grafana/
+Disallow: /prometheus/
+Disallow: /azimutt/
+Disallow: /elm/
+Disallow: /dist/
+
+Host: https://ezachetka.ru

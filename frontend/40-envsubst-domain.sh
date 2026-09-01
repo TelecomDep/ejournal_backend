@@ -3,7 +3,12 @@ set -e
 
 rm -f /etc/nginx/conf.d/default.conf
 
-export DOMAIN="${DOMAIN:-lms.signal.qlabs.pro}"
+export DOMAIN="${DOMAIN:-ezachetka.ru}"
+export SUPPORT_EMAIL="${SUPPORT_EMAIL:-support@${DOMAIN}}"
+export ABUSE_EMAIL="${ABUSE_EMAIL:-${SUPPORT_EMAIL}}"
+export FEEDBACK_TELEGRAM="${FEEDBACK_TELEGRAM:-}"
+export ORGANIZATION_NAME="${ORGANIZATION_NAME:-Электронный журнал ${DOMAIN}}"
+export DISPUTE_TIMEFRAME_DAYS="${DISPUTE_TIMEFRAME_DAYS:-7}"
 
 # 1. Ensure SSL certificates directory and self-signed certificate if Let's Encrypt cert is not present
 SSL_DIR="/etc/letsencrypt/live/${DOMAIN}"
@@ -23,8 +28,21 @@ if [ ! -s "${HTPASSWD_FILE}" ]; then
     echo 'admin:{SHA}0DPiKuNIrrVmD8IUCuw1hQxNqZc=' > "${HTPASSWD_FILE}"
 fi
 
-# 3. Process nginx.conf.template
+# 3. Generate dynamic frontend runtime configuration from environment variables
+echo "[Nginx Setup] Generating runtime frontend configuration..."
+cat <<EOF > /usr/share/nginx/html/runtime-config.js
+window.__APP_CONFIG__ = {
+  DOMAIN: "${DOMAIN}",
+  SUPPORT_EMAIL: "${SUPPORT_EMAIL}",
+  ABUSE_EMAIL: "${ABUSE_EMAIL}",
+  FEEDBACK_TELEGRAM: "${FEEDBACK_TELEGRAM}",
+  ORGANIZATION_NAME: "${ORGANIZATION_NAME}",
+  DISPUTE_TIMEFRAME_DAYS: "${DISPUTE_TIMEFRAME_DAYS}"
+};
+EOF
+
+# 4. Process nginx.conf.template
 envsubst '$DOMAIN' < /etc/nginx/nginx.conf.template > /etc/nginx/nginx.conf
 
-# 4. Background auto-reload to pick up updated Let's Encrypt certs
+# 5. Background auto-reload to pick up updated Let's Encrypt certs
 ( while :; do sleep 6h; nginx -s reload 2>/dev/null || true; done ) &

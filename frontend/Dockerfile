@@ -12,6 +12,8 @@ RUN npm run build
 
 FROM nginx:1.30.4-alpine3.24
 
+RUN apk add --no-cache openssl
+
 COPY nginx.conf.template /etc/nginx/nginx.conf.template
 COPY 40-envsubst-domain.sh /docker-entrypoint.d/40-envsubst-domain.sh
 RUN chmod +x /docker-entrypoint.d/40-envsubst-domain.sh

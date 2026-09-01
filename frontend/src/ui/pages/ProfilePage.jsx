@@ -1082,6 +1082,9 @@ const ProfileInfoPanel = ({ user, token, displayName, rows, metrics, onAvatarCha
           </button>
 
           <small className="profile-photo-note">JPEG, PNG или WebP, до 5 MiB</small>
+          <small className="profile-photo-note" style={{ fontSize: '0.74rem', color: '#8590a6', lineHeight: 1.35, marginTop: '4px' }}>
+            Загружая изображение, вы подтверждаете соблюдение авторских прав (ГК РФ) и согласие на обработку ПДн (152-ФЗ).
+          </small>
           {avatarMessage && <span className="profile-photo-message is-success" role="status">{avatarMessage}</span>}
           {avatarError && <span className="profile-photo-message is-error" role="alert">{avatarError}</span>}
         </div>

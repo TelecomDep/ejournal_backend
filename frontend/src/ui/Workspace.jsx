@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import api from '../services/api';
 import SibLogo from '../components/SibLogo';
+import LegalFooter from '../components/legal/LegalFooter';
 import { getNavigationForRole, getRoleLabel } from './navigation';
 import ProfilePage from './pages/ProfilePage';
 import SchedulePage from './pages/SchedulePage';
@@ -223,7 +224,7 @@ const renderPage = (
   );
 };
 
-const Workspace = ({ user, token, route, navigate, onLogout, onUserUpdate }) => {
+const Workspace = ({ user, token, route, navigate, onLogout, onUserUpdate, onOpenLegal }) => {
   const [isNavOpen, setIsNavOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const navItems = getNavigationForRole(user?.role);
@@ -376,6 +377,8 @@ const Workspace = ({ user, token, route, navigate, onLogout, onUserUpdate }) => 
             refreshUnreadCount
           )}
         </main>
+
+        <LegalFooter onOpenLegal={onOpenLegal} className="ui-workspace-legal-footer" />
       </div>
     </div>
   );
