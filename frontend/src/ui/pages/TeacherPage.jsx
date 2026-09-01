@@ -582,7 +582,13 @@ const TeacherPage = ({ token, section = 'attendance' }) => {
                           onClick={expandQr}
                           aria-label="Развернуть QR-код на весь экран"
                         >
-                          <span aria-hidden="true">⛶</span> Развернуть
+                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                            <polyline points="15 3 21 3 21 9" />
+                            <polyline points="9 21 3 21 3 15" />
+                            <line x1="21" y1="3" x2="14" y2="10" />
+                            <line x1="3" y1="21" x2="10" y2="14" />
+                          </svg>
+                          <span>Развернуть</span>
                         </button>
                         <div className="teacher-qr-dynamic-badge">
                           <span className="teacher-qr-pulse" />
@@ -591,10 +597,6 @@ const TeacherPage = ({ token, section = 'attendance' }) => {
                         <strong>QR для проектора / экрана</strong>
                         <p>Код автоматически меняется каждые 4 секунды с защитой от фото и пересылки.</p>
                       </div>
-                    </div>
-                    <div className="teacher-link-card">
-                      <span>Ссылка для студентов</span>
-                      <strong>{activeJoinUrl}</strong>
                     </div>
                   </>
                 ) : (

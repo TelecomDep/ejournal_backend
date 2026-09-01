@@ -376,9 +376,8 @@ const Workspace = ({ user, token, route, navigate, onLogout, onUserUpdate, onOpe
             setUnreadCount,
             refreshUnreadCount
           )}
+          <LegalFooter onOpenLegal={onOpenLegal} className="ui-workspace-legal-footer" />
         </main>
-
-        <LegalFooter onOpenLegal={onOpenLegal} className="ui-workspace-legal-footer" />
       </div>
     </div>
   );
