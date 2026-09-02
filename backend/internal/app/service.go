@@ -85,17 +85,22 @@ type User struct {
 }
 
 type AttendanceCreateData struct {
-	LessonID       int32   `json:"lesson_id,omitempty"`
-	SubjectID      int32   `json:"subject_id,omitempty"`
-	SemesterID     *int32  `json:"semester_id,omitempty"`
-	GroupIDs       []int32 `json:"group_ids,omitempty"`
-	LessonName     string  `json:"lesson_name,omitempty"`
-	LessonType     string  `json:"lesson_type,omitempty"`
-	ExpiresMinutes int     `json:"expires_minutes,omitempty"`
+	LessonID       int32    `json:"lesson_id,omitempty"`
+	SubjectID      int32    `json:"subject_id,omitempty"`
+	SemesterID     *int32   `json:"semester_id,omitempty"`
+	GroupIDs       []int32  `json:"group_ids,omitempty"`
+	LessonName     string   `json:"lesson_name,omitempty"`
+	LessonType     string   `json:"lesson_type,omitempty"`
+	ExpiresMinutes int      `json:"expires_minutes,omitempty"`
+	Lat            *float64 `json:"lat,omitempty"`
+	Lon            *float64 `json:"lon,omitempty"`
 }
 
 type AttendanceConfirmData struct {
-	InviteToken string `json:"invite_token"`
+	InviteToken string   `json:"invite_token"`
+	DeviceID    string   `json:"device_id"`
+	Lat         *float64 `json:"lat,omitempty"`
+	Lon         *float64 `json:"lon,omitempty"`
 }
 
 type AttendanceGroupStatsData struct {
@@ -1152,6 +1157,12 @@ func (s *Service) createAttendanceLinkByTeacher(sessionToken string, data Attend
 	if len(groupIDs) == 0 {
 		return Response{OK: false, Error: "group_ids are required"}
 	}
+	if (data.Lat == nil) != (data.Lon == nil) {
+		return Response{OK: false, Error: "lat and lon must be provided together"}
+	}
+	if data.Lat != nil && !validCoordinates(*data.Lat, *data.Lon) {
+		return Response{OK: false, Error: "invalid lesson coordinates"}
+	}
 	if !isElective && !containsAllGroupIDs(nearestLesson.GroupIDs, groupIDs) {
 		return Response{OK: false, Error: "group_ids do not match nearest scheduled lesson"}
 	}
@@ -1208,8 +1219,8 @@ func (s *Service) createAttendanceLinkByTeacher(sessionToken string, data Attend
 		groupIDs,
 		expiresAt,
 		lessonName,
-		nil,
-		nil,
+		data.Lat,
+		data.Lon,
 	)
 	if err != nil {
 		return Response{OK: false, Error: "failed to create attendance session"}
@@ -1269,6 +1280,15 @@ func (s *Service) confirmAttendanceByStudent(sessionToken string, data Attendanc
 	if student.Role != "student" {
 		return Response{OK: false, Error: "forbidden: student role required"}
 	}
+	if strings.TrimSpace(data.DeviceID) == "" {
+		return Response{OK: false, Error: "device_id is required"}
+	}
+	if data.Lat == nil || data.Lon == nil {
+		return Response{OK: false, Error: "valid lat and lon are required"}
+	}
+	if !validCoordinates(*data.Lat, *data.Lon) {
+		return Response{OK: false, Error: "invalid attendance coordinates"}
+	}
 	studentProfile, err := s.studentProfileByUser(student)
 	if err != nil {
 		return Response{OK: false, Error: err.Error()}
@@ -1306,7 +1326,21 @@ func (s *Service) confirmAttendanceByStudent(sessionToken string, data Attendanc
 	}
 
 	markedAt := time.Now().UTC()
-	markResult, err := s.store.Attendance.MarkStudentPresent(ctx, session.ID, studentProfile.ID, markedAt)
+	fraudReason := ""
+	if session.Lat != nil && session.Lon != nil &&
+		distanceMeters(*session.Lat, *session.Lon, *data.Lat, *data.Lon) > maxAttendanceDistanceMeters {
+		fraudReason = "student is too far from lesson location"
+	}
+	markResult, err := s.store.Attendance.MarkStudentPresentWithDevice(
+		ctx,
+		session.ID,
+		studentProfile.ID,
+		markedAt,
+		data.DeviceID,
+		data.Lat,
+		data.Lon,
+		fraudReason,
+	)
 	if err != nil {
 		return Response{OK: false, Error: "failed to confirm attendance"}
 	}
@@ -1317,15 +1351,20 @@ func (s *Service) confirmAttendanceByStudent(sessionToken string, data Attendanc
 		return Response{OK: false, Error: "attendance already confirmed"}
 	}
 
-	// Recalculate auto attendance grades
-	_ = s.updateAutoAttendanceGrades(ctx, session.SubjectID, session.SemesterID, &studentProfile.ID, session.TeacherID)
-
-	_ = s.create_attendance_result_notification(
-		ctx,
-		studentProfile.ID,
-		session,
-		true,
-	)
+	isFraud := markResult == "fraud" || markResult == "fraud_locked"
+	if isFraud {
+		_ = s.store.Pool().QueryRow(ctx, `SELECT COALESCE(fraud_reason, '')
+			FROM attendance_session_students
+			WHERE session_id = $1 AND student_id = $2`, session.ID, studentProfile.ID).Scan(&fraudReason)
+		if markResult == "fraud" {
+			_ = s.create_attendance_result_notification(ctx, studentProfile.ID, session, false)
+			_ = s.create_fraud_notification(ctx, studentProfile.ID, session, fraudReason)
+		}
+	} else {
+		// Recalculate auto attendance grades only for a legitimate mark.
+		_ = s.updateAutoAttendanceGrades(ctx, session.SubjectID, session.SemesterID, &studentProfile.ID, session.TeacherID)
+		_ = s.create_attendance_result_notification(ctx, studentProfile.ID, session, true)
+	}
 
 	var subjectName string
 	_ = s.store.Pool().QueryRow(ctx, `SELECT name FROM subjects WHERE subject_id = $1`, session.SubjectID).Scan(&subjectName)
@@ -1336,20 +1375,27 @@ func (s *Service) confirmAttendanceByStudent(sessionToken string, data Attendanc
 		subjectName = "Учебное занятие"
 	}
 
+	result := map[string]any{
+		"lesson_id":    claims.LessonID,
+		"student_id":   student.UserID,
+		"teacher_id":   claims.TeacherID,
+		"subject_id":   session.SubjectID,
+		"subject_name": subjectName,
+		"lesson_name":  subjectName,
+		"expires_at":   formatAPITime(session.ExpiresAt),
+		"is_active":    true,
+		"marked_at":    formatAPITime(markedAt),
+		"attendance":   "confirmed",
+		"is_fraud":     isFraud,
+	}
+	if isFraud {
+		result["attendance"] = "fraud"
+		result["fraud_reason"] = fraudReason
+	}
+
 	return Response{
-		OK: true,
-		Result: map[string]any{
-			"lesson_id":    claims.LessonID,
-			"student_id":   student.UserID,
-			"teacher_id":   claims.TeacherID,
-			"subject_id":   session.SubjectID,
-			"subject_name": subjectName,
-			"lesson_name":  subjectName,
-			"expires_at":   formatAPITime(session.ExpiresAt),
-			"is_active":    true,
-			"marked_at":    formatAPITime(markedAt),
-			"attendance":   "confirmed",
-		},
+		OK:     true,
+		Result: result,
 	}
 }
 

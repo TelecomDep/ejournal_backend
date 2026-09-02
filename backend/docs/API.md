@@ -594,8 +594,15 @@ Authorization: Bearer <jwt_token>
 **Тело запроса:**
 
 ```json
-{ "invite_token": "<attendance_invite_jwt>" }
+{
+  "invite_token": "<attendance_invite_jwt>",
+  "device_id": "web-browser-uuid",
+  "lat": 55.0084,
+  "lon": 82.9357
+}
 ```
+
+`device_id`, `lat` и `lon` обязательны. Если пользователь запретил геолокацию или браузер не смог определить координаты, отметка не принимается. Повторное устройство в рамках одной сессии или удалённость более 200 м сохраняются как попытка нарушения и не засчитываются как посещение.
 
 **Ответ 200 (`result`):**
 
@@ -606,7 +613,8 @@ Authorization: Bearer <jwt_token>
   "student_id": "4",
   "teacher_id": "3",
   "subject_id": 2,
-  "marked_at": "2026-04-20T20:13:07+07:00"
+  "marked_at": "2026-04-20T20:13:07+07:00",
+  "is_fraud": false
 }
 ```
 

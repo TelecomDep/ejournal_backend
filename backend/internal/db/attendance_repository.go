@@ -322,6 +322,20 @@ func (r *AttendanceRepository) MarkStudentPresentFromDevice(
 	lat, lon float64,
 	fraudReason string,
 ) (string, error) {
+	return r.MarkStudentPresentWithDevice(ctx, sessionID, studentID, markedAt, deviceID, &lat, &lon, fraudReason)
+}
+
+// MarkStudentPresentWithDevice records a self check-in together with the
+// browser/mobile device identity and optional coordinates. A duplicate device
+// in the same lesson is stored as a fraud attempt instead of a valid mark.
+func (r *AttendanceRepository) MarkStudentPresentWithDevice(
+	ctx context.Context,
+	sessionID, studentID int32,
+	markedAt time.Time,
+	deviceID string,
+	lat, lon *float64,
+	fraudReason string,
+) (string, error) {
 	if sessionID <= 0 {
 		return "", fmt.Errorf("session id is required")
 	}
@@ -345,15 +359,16 @@ func (r *AttendanceRepository) MarkStudentPresentFromDevice(
 	}()
 
 	var currentStatus string
+	var currentFraud bool
 	err = tx.QueryRow(
 		ctx,
-		`SELECT status
+		`SELECT status, is_fraud
 		 FROM attendance_session_students
 		 WHERE session_id = $1 AND student_id = $2
 		 FOR UPDATE`,
 		sessionID,
 		studentID,
-	).Scan(&currentStatus)
+	).Scan(&currentStatus, &currentFraud)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return "not_found", nil
 	}
@@ -362,6 +377,9 @@ func (r *AttendanceRepository) MarkStudentPresentFromDevice(
 	}
 	if currentStatus == "present" {
 		return "already", nil
+	}
+	if currentFraud {
+		return "fraud_locked", nil
 	}
 
 	if fraudReason == "" {

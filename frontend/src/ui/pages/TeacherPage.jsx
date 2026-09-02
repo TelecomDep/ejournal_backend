@@ -3,6 +3,7 @@ import QRCode from '../../components/QRCode';
 import api from '../../services/api';
 import AttendanceLiveTable from '../components/AttendanceLiveTable';
 import TeacherGradebook from '../components/TeacherGradebook';
+import { getBrowserLocation } from '../../utils/attendanceFraud';
 
 const formatDateTime = (value) => (value ? new Date(value).toLocaleString('ru-RU') : 'не указан');
 
@@ -280,13 +281,15 @@ const TeacherPage = ({ token, section = 'attendance' }) => {
 
     setSessionLoading(true);
     try {
+      const location = await getBrowserLocation();
       const response = await api.createAttendanceLink(
         token,
         asNumber(sessionForm.subjectId),
         sessionForm.groupIds,
         sessionForm.lessonName.trim() || 'Занятие',
         asNumber(sessionForm.expiresMinutes),
-        sessionForm.lessonType || 'Практика'
+        sessionForm.lessonType || 'Практика',
+        location
       );
       saveActiveSession(response);
       setMessage('QR и ссылка для отметки посещаемости созданы.');

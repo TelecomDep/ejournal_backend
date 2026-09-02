@@ -6,6 +6,7 @@ import LegalModal from './components/legal/LegalModal';
 import CookieBanner from './components/legal/CookieBanner';
 import useHashRoute from './hooks/useHashRoute';
 import { getJoinInviteToken } from './utils/attendanceJoin';
+import { getBrowserDeviceId, getBrowserLocation } from './utils/attendanceFraud';
 
 function App() {
   const [token, setToken] = useState(() => sessionStorage.getItem('ejournal_token') || '');
@@ -81,10 +82,27 @@ function App() {
     }
 
     let cancelled = false;
-    api.confirmAttendance(token, pendingInvite)
-      .then(() => {
+    (async () => {
+      const location = await getBrowserLocation();
+      if (cancelled) return null;
+      if (!location) {
+        throw new Error('Для отметки посещения необходимо разрешить доступ к геолокации.');
+      }
+      return api.confirmAttendance(token, pendingInvite, {
+        deviceId: getBrowserDeviceId(),
+        ...(location || {})
+      });
+    })()
+      .then((result) => {
         if (!cancelled) {
-          setAttendanceNotice({ type: 'success', text: 'Посещение успешно отмечено!' });
+          if (result?.is_fraud) {
+            const reason = result.fraud_reason === 'student is too far from lesson location'
+              ? 'Вы находитесь слишком далеко от места занятия.'
+              : 'Это устройство уже использовалось для отметки другого студента.';
+            setAttendanceNotice({ type: 'error', text: `Отметка отклонена антифродом. ${reason}` });
+          } else {
+            setAttendanceNotice({ type: 'success', text: 'Посещение успешно отмечено!' });
+          }
         }
       })
       .catch((err) => {

@@ -411,7 +411,7 @@ func (s *Service) markAttendanceForAndroid(sessionToken string, data AndroidAtte
 		return Response{OK: false, Error: "attendance already confirmed"}
 	}
 
-	if markResult == "fraud" {
+	if markResult == "fraud" || markResult == "fraud_locked" {
 		var saved_fraud_reason string
 
 		_ = s.store.Pool().QueryRow(
@@ -424,19 +424,21 @@ func (s *Service) markAttendanceForAndroid(sessionToken string, data AndroidAtte
 			studentProfile.ID,
 		).Scan(&saved_fraud_reason)
 
-		_ = s.create_attendance_result_notification(
-			ctx,
-			studentProfile.ID,
-			session,
-			false,
-		)
+		if markResult == "fraud" {
+			_ = s.create_attendance_result_notification(
+				ctx,
+				studentProfile.ID,
+				session,
+				false,
+			)
 
-		_ = s.create_fraud_notification(
-			ctx,
-			studentProfile.ID,
-			session,
-			saved_fraud_reason,
-		)
+			_ = s.create_fraud_notification(
+				ctx,
+				studentProfile.ID,
+				session,
+				saved_fraud_reason,
+			)
+		}
 	} else {
 		_ = s.create_attendance_result_notification(
 			ctx,
@@ -447,7 +449,7 @@ func (s *Service) markAttendanceForAndroid(sessionToken string, data AndroidAtte
 		_ = s.updateAutoAttendanceGrades(ctx, session.SubjectID, session.SemesterID, &studentProfile.ID, session.TeacherID)
 	}
 
-	result, err := s.studentAndroidResult(ctx, studentUser, markResult == "fraud")
+	result, err := s.studentAndroidResult(ctx, studentUser, markResult == "fraud" || markResult == "fraud_locked")
 	if err != nil {
 		return Response{OK: false, Error: err.Error()}
 	}

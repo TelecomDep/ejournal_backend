@@ -168,17 +168,22 @@ const api = {
   },
 
   // Teacher: Create attendance link
-  async createAttendanceLink(token, subjectId, groupIds, lessonName, expiresMinutes, lessonType) {
+  async createAttendanceLink(token, subjectId, groupIds, lessonName, expiresMinutes, lessonType, location = null) {
     try {
+      const payload = {
+        subject_id: subjectId,
+        group_ids: groupIds,
+        lesson_name: lessonName,
+        lesson_type: lessonType,
+        expires_minutes: expiresMinutes
+      };
+      if (location && Number.isFinite(Number(location.lat)) && Number.isFinite(Number(location.lon))) {
+        payload.lat = Number(location.lat);
+        payload.lon = Number(location.lon);
+      }
       const response = await axios.post(
         `${TEACHING_API_URL}/attendance-link`,
-        {
-          subject_id: subjectId,
-          group_ids: groupIds,
-          lesson_name: lessonName,
-          lesson_type: lessonType,
-          expires_minutes: expiresMinutes
-        },
+        payload,
         {
           headers: authHeaders(token)
         }
@@ -248,13 +253,19 @@ const api = {
   },
 
   // Student: Confirm attendance
-  async confirmAttendance(token, inviteToken) {
+  async confirmAttendance(token, inviteToken, options = {}) {
     try {
+      const payload = {
+        invite_token: inviteToken,
+        device_id: options.deviceId || ''
+      };
+      if (Number.isFinite(Number(options.lat)) && Number.isFinite(Number(options.lon))) {
+        payload.lat = Number(options.lat);
+        payload.lon = Number(options.lon);
+      }
       const response = await axios.post(
         `${BACKEND_URL}/api/student/attendance/confirm`,
-        {
-          invite_token: inviteToken
-        },
+        payload,
         {
           headers: authHeaders(token)
         }
