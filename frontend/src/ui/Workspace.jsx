@@ -9,7 +9,6 @@ import {
   STAFF_ROLES
 } from './navigation';
 import ProfilePage from './pages/ProfilePage';
-import SchedulePage from './pages/SchedulePage';
 import GradesPage from './pages/GradesPage';
 import AttendancePage from './pages/AttendancePage';
 import AnalyticsPage from './pages/AnalyticsPage';
@@ -166,7 +165,7 @@ const renderPage = (
   const activeRole = getActiveRole(user);
 
   if (activeItem.key === 'dashboard') {
-    return <DashboardPage user={user} navigate={navigate} />;
+    return <DashboardPage user={user} token={token} navigate={navigate} />;
   }
   if (activeItem.key === 'overview' && STAFF_ROLES.includes(activeRole)) {
     return <StaffOverviewPage token={token} />;
@@ -205,9 +204,6 @@ const renderPage = (
         onUnreadCountChange={onUnreadCountChange}
       />
     );
-  }
-  if (activeItem.key === 'schedule') {
-    return <SchedulePage user={user} token={token} />;
   }
   if (activeItem.key === 'grades' && activeRole === 'student') {
     return <GradesPage user={user} token={token} />;

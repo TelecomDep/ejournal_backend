@@ -1,5 +1,6 @@
 import React from 'react';
 import { getActiveRole, getRoleLabel, STAFF_ROLES } from '../navigation';
+import SchedulePage from './SchedulePage';
 
 const getDisplayName = (user) => (
   user?.teacher_name || user?.name || user?.login || 'Пользователь'
@@ -96,7 +97,6 @@ const getQuickCards = (role) => {
     return [
       { icon: 'attendance', title: 'Открыть пару', text: 'Отметить посещаемость студентов', to: '/teacher/attendance' },
       { icon: 'grades', title: 'Оценки', text: 'Работы и баллы студентов', to: '/teacher/grades' },
-      { icon: 'schedule', title: 'Расписание', text: 'Пары на выбранный день', to: '/schedule' },
       { icon: 'staff', title: 'Сводка', text: 'Группы, студенты и преподаватели', to: '/staff/overview' }
     ];
   }
@@ -110,14 +110,13 @@ const getQuickCards = (role) => {
   }
 
   return [
-    { icon: 'schedule', title: 'Расписание', text: 'Пары на выбранный день', to: '/schedule' },
     { icon: 'grades', title: 'Оценки', text: 'Баллы и контрольные точки', to: '/grades' },
     { icon: 'attendance', title: 'Посещаемость', text: 'QR-отметки и история', to: '/attendance' },
     { icon: 'analytics', title: 'Аналитика', text: 'Будущая диаграмма прогресса', to: '/analytics' }
   ];
 };
 
-const DashboardPage = ({ user, navigate }) => {
+const DashboardPage = ({ user, token, navigate }) => {
   const role = getActiveRole(user) || 'student';
   const isStaff = STAFF_ROLES.includes(role);
   const name = getDisplayName(user);
@@ -150,6 +149,8 @@ const DashboardPage = ({ user, navigate }) => {
           />
         ))}
       </div>
+
+      <SchedulePage user={{ ...user, role }} token={token} />
     </section>
   );
 };

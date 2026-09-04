@@ -31,6 +31,7 @@ function App() {
     setToken('');
     setUserData(null);
     setError('');
+    navigate('/');
   };
 
   const handleUserUpdate = (updates) => {
@@ -154,6 +155,9 @@ function App() {
       const result = await api.login(login, password, twoFaCode);
       sessionStorage.setItem('ejournal_token', result.token);
       setToken(result.token);
+      if (!pendingInvite) {
+        navigate('/dashboard');
+      }
     } catch (err) {
       setError(api.getErrorMessage(err, 'Не удалось войти'));
     } finally {
@@ -168,6 +172,7 @@ function App() {
       const result = await api.register(login, password, registrationCode);
       sessionStorage.setItem('ejournal_token', result.token);
       setToken(result.token);
+      navigate('/dashboard');
       api.recordAgreementDecision(
         result.token,
         personalDataConsent ? 'accepted' : 'declined',

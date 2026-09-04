@@ -45,6 +45,13 @@ const fraudReasonLabel = (reason) => {
   return reason || "Нарушение антифрода";
 };
 
+const formatCompactStudentName = (value) => {
+  const parts = String(value || "").trim().split(/\s+/).filter(Boolean);
+  if (parts.length < 2) return parts[0] || "Студент";
+  const initials = parts.slice(1).map((part) => `${part.charAt(0).toLocaleUpperCase("ru-RU")}.`).join("");
+  return `${parts[0]} ${initials}`;
+};
+
 const updateSnapshotStudent = (snapshot, studentId, status) => {
   if (!snapshot) return snapshot;
 
@@ -118,7 +125,7 @@ const isSameRosterSnapshot = (current, next) => {
   });
 };
 
-const AttendanceLiveTable = ({ token, session }) => {
+const AttendanceLiveTable = ({ token, session, compactStudentIdentity = false }) => {
   const lessonId = Number(session?.lesson_id || session?.session_id || session?.id || 0);
   const [snapshot, setSnapshot] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -239,6 +246,20 @@ const AttendanceLiveTable = ({ token, session }) => {
     }
   }, [lessonId, loadRoster, snapshot?.students, token]);
 
+  const handleStatusSelectChange = useCallback((event, studentId) => {
+    const select = event.currentTarget;
+    const nextStatus = select.value;
+
+    // Let the browser close its native select popup before React changes and
+    // disables the control. Replacing the focused element synchronously can
+    // freeze Safari's native picker, especially in fullscreen mode.
+    select.blur();
+    window.requestAnimationFrame(() => {
+      handleStatusInteractionEnd();
+      handleStatusChange(studentId, nextStatus);
+    });
+  }, [handleStatusChange, handleStatusInteractionEnd]);
+
   const availableGroups = useMemo(() => (
     Array.from(new Set(
       (snapshot?.students || [])
@@ -265,7 +286,14 @@ const AttendanceLiveTable = ({ token, session }) => {
       header: "Студент",
       cell: ({ row, getValue }) => (
         <div className="attendance-live-student-col">
-          <strong className="attendance-live-name">{getValue()}</strong>
+          <strong className="attendance-live-name">
+            {compactStudentIdentity ? formatCompactStudentName(getValue()) : getValue()}
+          </strong>
+          {compactStudentIdentity && (
+            <small className="attendance-live-student-group">
+              {row.original.group_name ? `Группа ${row.original.group_name}` : "Группа не указана"}
+            </small>
+          )}
           {row.original.is_fraud && (
             <span className="attendance-fraud-tag" title={fraudReasonLabel(row.original.fraud_reason)}>
               ⚠️ ЧИТЕР
@@ -307,11 +335,7 @@ const AttendanceLiveTable = ({ token, session }) => {
             onFocus={handleStatusInteractionStart}
             onPointerDown={handleStatusInteractionStart}
             onBlur={handleStatusInteractionEnd}
-            onChange={(event) => {
-              const nextStatus = event.target.value;
-              handleStatusInteractionEnd();
-              handleStatusChange(row.original.student_id, nextStatus);
-            }}
+            onChange={(event) => handleStatusSelectChange(event, row.original.student_id)}
           >
             {STATUS_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>{option.label}</option>
@@ -337,7 +361,7 @@ const AttendanceLiveTable = ({ token, session }) => {
         );
       }
     }
-  ], [handleStatusChange, handleStatusInteractionEnd, handleStatusInteractionStart, updatingStudentId]);
+  ], [compactStudentIdentity, handleStatusInteractionEnd, handleStatusInteractionStart, handleStatusSelectChange, updatingStudentId]);
 
   const table = useReactTable({
     data: visibleStudents,

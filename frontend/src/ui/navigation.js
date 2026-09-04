@@ -12,7 +12,6 @@ const ROLE_LABELS = {
 
 const STUDENT_NAV = [
   { key: 'dashboard', label: 'Главная', title: 'Главная', route: '/dashboard', icon: '⌂' },
-  { key: 'schedule', label: 'Расписание', title: 'Расписание', route: '/schedule', icon: '□' },
   { key: 'grades', label: 'Оценки', title: 'Оценки', route: '/grades', icon: '◇' },
   { key: 'attendance', label: 'Посещаемость', title: 'Посещаемость', route: '/attendance', icon: '✓' },
   { key: 'analytics', label: 'Аналитика', title: 'Аналитика', route: '/analytics', icon: '▥' },
@@ -21,7 +20,6 @@ const STUDENT_NAV = [
 
 const TEACHER_NAV = [
   { key: 'dashboard', label: 'Главная', title: 'Главная', route: '/dashboard', icon: '⌂' },
-  { key: 'schedule', label: 'Расписание', title: 'Расписание', route: '/schedule', icon: '□' },
   { key: 'attendance', label: 'Посещаемость', title: 'Посещаемость группы', route: '/teacher/attendance', icon: '✓' },
   { key: 'stats', label: 'Аналитика', title: 'Статистика группы', route: '/teacher/stats', icon: '▥' },
   { key: 'grades', label: 'Оценки', title: 'Ведомость оценок', route: '/teacher/grades', icon: '◇' },
@@ -50,7 +48,6 @@ const STAFF_NAV = [
 
 const TEACHING_STAFF_NAV = [
   { key: 'dashboard', label: 'Главная', title: 'Главная', route: '/dashboard', icon: '⌂' },
-  { key: 'schedule', label: 'Расписание', title: 'Расписание', route: '/schedule', icon: '□' },
   { key: 'attendance', label: 'Посещаемость', title: 'Посещаемость группы', route: '/teacher/attendance', icon: '✓' },
   { key: 'grades', label: 'Оценки', title: 'Ведомость оценок', route: '/teacher/grades', icon: '◇' },
   { key: 'stats', label: 'Статистика групп', title: 'Статистика группы', route: '/teacher/stats', icon: '▥' },

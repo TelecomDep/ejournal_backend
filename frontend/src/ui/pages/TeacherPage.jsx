@@ -566,7 +566,11 @@ const TeacherPage = ({ token, section = 'attendance' }) => {
                       aria-modal={qrExpanded ? 'true' : undefined}
                       aria-label={qrExpanded ? 'QR-код и ручная отметка посещаемости на весь экран' : undefined}
                     >
-                      {qrExpanded && <div className="teacher-qr-editor"><AttendanceLiveTable token={token} session={sessionResult} /></div>}
+                      {qrExpanded && (
+                        <div className="teacher-qr-editor">
+                          <AttendanceLiveTable token={token} session={sessionResult} compactStudentIdentity />
+                        </div>
+                      )}
                       <div className="teacher-qr-card">
                         {qrExpanded && (
                           <button
