@@ -26,36 +26,85 @@ type AdminUsersListData struct {
 }
 
 type AdminUserCreateData struct {
-	Login     string `json:"login"`
-	Password  string `json:"password"`
-	Role      string `json:"role"`
-	Email     string `json:"email"`
-	FullName  string `json:"full_name"`
-	GroupID   int32  `json:"group_id"`
-	LecternID int32  `json:"lectern_id"`
-	FacultyID int32  `json:"faculty_id"`
-	JobTitle  string `json:"job_title"`
+	Login       string   `json:"login"`
+	Password    string   `json:"password"`
+	Role        string   `json:"role,omitempty"` // legacy singular role
+	Roles       []string `json:"roles,omitempty"`
+	PrimaryRole string   `json:"primary_role,omitempty"`
+	Email       string   `json:"email"`
+	FullName    string   `json:"full_name"`
+	GroupID     int32    `json:"group_id"`
+	LecternID   int32    `json:"lectern_id"`
+	FacultyID   int32    `json:"faculty_id"`
+	JobTitle    string   `json:"job_title"`
 }
 
 type AdminUserUpdateData struct {
-	UserID    int32   `json:"user_id"`
-	Login     *string `json:"login,omitempty"`
-	Password  *string `json:"password,omitempty"`
-	Role      *string `json:"role,omitempty"`
-	Email     *string `json:"email,omitempty"`
-	Status    *string `json:"status,omitempty"`
-	StudentID int32   `json:"student_id,omitempty"`
-	TeacherID int32   `json:"teacher_id,omitempty"`
-	LecternID int32   `json:"lectern_id,omitempty"`
-	FacultyID int32   `json:"faculty_id,omitempty"`
+	UserID      int32     `json:"user_id"`
+	Login       *string   `json:"login,omitempty"`
+	Password    *string   `json:"password,omitempty"`
+	Role        *string   `json:"role,omitempty"` // legacy alias for replacing the role set
+	Roles       *[]string `json:"roles,omitempty"`
+	PrimaryRole *string   `json:"primary_role,omitempty"`
+	Email       *string   `json:"email,omitempty"`
+	Status      *string   `json:"status,omitempty"`
+	StudentID   int32     `json:"student_id,omitempty"`
+	TeacherID   int32     `json:"teacher_id,omitempty"`
+	LecternID   int32     `json:"lectern_id,omitempty"`
+	FacultyID   int32     `json:"faculty_id,omitempty"`
 }
 
 type AdminUserIDData struct {
 	UserID int32 `json:"user_id"`
 }
 
+// Serializes the "last active administrator" check across concurrent
+// transactions so two admins cannot remove each other's access at once.
+const lastActiveAdminLockKey int64 = 741_903_117
+
 func valid_admin_role(role string) bool {
 	return IsValidRole(role)
+}
+
+func normalize_admin_roles(roles []string) ([]string, error) {
+	result := make([]string, 0, len(roles))
+	seen := make(map[string]struct{}, len(roles))
+	for _, raw := range roles {
+		role := strings.ToLower(strings.TrimSpace(raw))
+		if !valid_admin_role(role) {
+			return nil, errors.New("invalid user role")
+		}
+		if _, exists := seen[role]; exists {
+			continue
+		}
+		seen[role] = struct{}{}
+		result = append(result, role)
+	}
+	if len(result) == 0 {
+		return nil, errors.New("at least one user role is required")
+	}
+	return result, nil
+}
+
+func contains_role(roles []string, wanted string) bool {
+	for _, role := range roles {
+		if role == wanted {
+			return true
+		}
+	}
+	return false
+}
+
+func same_role_set(left, right []string) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for _, role := range left {
+		if !contains_role(right, role) {
+			return false
+		}
+	}
+	return true
 }
 
 func valid_user_status(status string) bool {
@@ -67,10 +116,34 @@ func valid_user_status(status string) bool {
 	}
 }
 
+func normalize_admin_create_roles(data AdminUserCreateData) ([]string, string, error) {
+	rawRoles := data.Roles
+	if rawRoles == nil {
+		rawRoles = []string{data.Role}
+	}
+	roles, err := normalize_admin_roles(rawRoles)
+	if err != nil {
+		return nil, "", err
+	}
+
+	primaryRole := strings.ToLower(strings.TrimSpace(data.PrimaryRole))
+	if primaryRole == "" {
+		legacyRole := strings.ToLower(strings.TrimSpace(data.Role))
+		if contains_role(roles, legacyRole) {
+			primaryRole = legacyRole
+		} else {
+			primaryRole = roles[0]
+		}
+	}
+	if !contains_role(roles, primaryRole) {
+		return nil, "", errors.New("primary role must be one of the assigned roles")
+	}
+	return roles, primaryRole, nil
+}
+
 func validate_admin_user_create(data AdminUserCreateData) error {
 	data.Login = strings.TrimSpace(data.Login)
 	data.Password = strings.TrimSpace(data.Password)
-	data.Role = strings.ToLower(strings.TrimSpace(data.Role))
 	data.FullName = strings.TrimSpace(data.FullName)
 
 	if data.Login == "" {
@@ -82,8 +155,9 @@ func validate_admin_user_create(data AdminUserCreateData) error {
 	if len(data.Password) < 8 {
 		return errors.New("password must be at least 8 characters long")
 	}
-	if !valid_admin_role(data.Role) {
-		return errors.New("invalid user role")
+	roles, _, err := normalize_admin_create_roles(data)
+	if err != nil {
+		return err
 	}
 	if email := strings.ToLower(strings.TrimSpace(data.Email)); email != "" {
 		parsed, err := mail.ParseAddress(email)
@@ -92,22 +166,15 @@ func validate_admin_user_create(data AdminUserCreateData) error {
 		}
 	}
 
-	switch data.Role {
-	case RoleStudent, RoleTeacher, RoleHead:
-		if data.FullName == "" {
-			return errors.New("full_name is required for student, teacher or head")
-		}
+	if (contains_role(roles, RoleStudent) || contains_role(roles, RoleTeacher) || contains_role(roles, RoleHead)) && data.FullName == "" {
+		return errors.New("full_name is required for student, teacher or head")
 	}
 
-	switch data.Role {
-	case RoleHead, RoleSecretary, RoleProgramCreator:
-		if data.LecternID <= 0 {
-			return errors.New("lectern_id is required for head, secretary or program_creator")
-		}
-	case RoleDean, RoleDirector:
-		if data.FacultyID <= 0 {
-			return errors.New("faculty_id is required for dean or director")
-		}
+	if (contains_role(roles, RoleHead) || contains_role(roles, RoleSecretary) || contains_role(roles, RoleProgramCreator)) && data.LecternID <= 0 {
+		return errors.New("lectern_id is required for head, secretary or program_creator")
+	}
+	if (contains_role(roles, RoleDean) || contains_role(roles, RoleDirector)) && data.FacultyID <= 0 {
+		return errors.New("faculty_id is required for dean or director")
 	}
 
 	return nil
@@ -225,70 +292,55 @@ func nullable_id(value int32) any {
 	return value
 }
 
-func create_admin_role_data(ctx context.Context, tx pgx.Tx, user_id int32, data AdminUserCreateData) error {
-	switch data.Role {
-	case RoleStudent:
-		_, err := tx.Exec(
+func create_admin_role_data(ctx context.Context, tx pgx.Tx, user_id int32, roles []string, data AdminUserCreateData) error {
+	if contains_role(roles, RoleStudent) {
+		if _, err := tx.Exec(
 			ctx,
 			`INSERT INTO students (role, user_id, student_name, group_id)
 			 VALUES ('student', $1, $2, $3)`,
 			user_id,
 			strings.TrimSpace(data.FullName),
 			nullable_id(data.GroupID),
-		)
-		return err
-	case RoleTeacher:
-		_, err := tx.Exec(
+		); err != nil {
+			return err
+		}
+	}
+
+	if contains_role(roles, RoleTeacher) || contains_role(roles, RoleHead) {
+		jobTitle := strings.TrimSpace(data.JobTitle)
+		if jobTitle == "" && contains_role(roles, RoleHead) {
+			jobTitle = "Заведующий кафедрой"
+		}
+		if _, err := tx.Exec(
 			ctx,
 			`INSERT INTO teachers (role, user_id, name, lectern_id, job_title)
 			 VALUES ('teacher', $1, $2, $3, NULLIF($4, ''))`,
 			user_id,
 			strings.TrimSpace(data.FullName),
 			nullable_id(data.LecternID),
-			strings.TrimSpace(data.JobTitle),
-		)
-		return err
-	case RoleHead:
-		if _, err := tx.Exec(
-			ctx,
-			`INSERT INTO org_scopes (user_id, lectern_id)
-			 VALUES ($1, $2)`,
-			user_id,
-			data.LecternID,
+			jobTitle,
 		); err != nil {
 			return err
 		}
-		_, err := tx.Exec(
-			ctx,
-			`INSERT INTO teachers (role, user_id, name, lectern_id, job_title)
-			 VALUES ('teacher', $1, $2, $3, COALESCE(NULLIF($4, ''), 'Заведующий кафедрой'))`,
-			user_id,
-			strings.TrimSpace(data.FullName),
-			data.LecternID,
-			strings.TrimSpace(data.JobTitle),
-		)
-		return err
-	case RoleSecretary, RoleProgramCreator:
-		_, err := tx.Exec(
-			ctx,
-			`INSERT INTO org_scopes (user_id, lectern_id)
-			 VALUES ($1, $2)`,
-			user_id,
-			data.LecternID,
-		)
-		return err
-	case RoleDean, RoleDirector:
-		_, err := tx.Exec(
-			ctx,
-			`INSERT INTO org_scopes (user_id, faculty_id)
-			 VALUES ($1, $2)`,
-			user_id,
-			data.FacultyID,
-		)
-		return err
-	default:
-		return nil
 	}
+
+	if contains_role(roles, RoleHead) || contains_role(roles, RoleSecretary) || contains_role(roles, RoleProgramCreator) {
+		if _, err := tx.Exec(ctx,
+			`INSERT INTO org_scopes (user_id, lectern_id) VALUES ($1, $2)`,
+			user_id, data.LecternID,
+		); err != nil {
+			return err
+		}
+	}
+	if contains_role(roles, RoleDean) || contains_role(roles, RoleDirector) {
+		if _, err := tx.Exec(ctx,
+			`INSERT INTO org_scopes (user_id, faculty_id) VALUES ($1, $2)`,
+			user_id, data.FacultyID,
+		); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *Service) admin_user_create(token string, data AdminUserCreateData) Response {
@@ -299,10 +351,13 @@ func (s *Service) admin_user_create(token string, data AdminUserCreateData) Resp
 	if err := validate_admin_user_create(data); err != nil {
 		return Response{OK: false, Error: err.Error()}
 	}
+	roles, primaryRole, err := normalize_admin_create_roles(data)
+	if err != nil {
+		return Response{OK: false, Error: err.Error()}
+	}
 
 	data.Login = strings.TrimSpace(data.Login)
 	data.Email = strings.TrimSpace(data.Email)
-	data.Role = strings.ToLower(strings.TrimSpace(data.Role))
 	hash, err := bcrypt.GenerateFromPassword([]byte(strings.TrimSpace(data.Password)), bcrypt.DefaultCost)
 	if err != nil {
 		return Response{OK: false, Error: "failed to hash password"}
@@ -327,14 +382,27 @@ func (s *Service) admin_user_create(token string, data AdminUserCreateData) Resp
 		 RETURNING id`,
 		data.Login,
 		string(hash),
-		data.Role,
+		primaryRole,
 		data.Email,
 	).Scan(&user_id)
 	if err != nil {
 		return Response{OK: false, Error: admin_user_db_error(err)}
 	}
 
-	if err := create_admin_role_data(ctx, tx, user_id, data); err != nil {
+	for _, assignedRole := range roles {
+		if _, err := tx.Exec(ctx,
+			`INSERT INTO user_roles (user_id, role, is_primary, assigned_by)
+			 VALUES ($1, $2, $3, $4)
+			 ON CONFLICT (user_id, role) DO UPDATE
+			 SET is_primary = EXCLUDED.is_primary,
+			     assigned_by = EXCLUDED.assigned_by`,
+			user_id, assignedRole, assignedRole == primaryRole, actor.ID,
+		); err != nil {
+			return Response{OK: false, Error: admin_user_db_error(err)}
+		}
+	}
+
+	if err := create_admin_role_data(ctx, tx, user_id, roles, data); err != nil {
 		return Response{OK: false, Error: admin_user_db_error(err)}
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -346,7 +414,7 @@ func (s *Service) admin_user_create(token string, data AdminUserCreateData) Resp
 		return Response{OK: false, Error: "user created but failed to load result"}
 	}
 	if err := s.RecordAuditLog(ctx, actor.ID, actor.Login, actor.Role, "user_created", "user", strconv.Itoa(int(user_id)), map[string]any{
-		"login": data.Login, "role": data.Role,
+		"login": data.Login, "roles": roles, "primary_role": primaryRole,
 	}, ""); err != nil {
 		log.Printf("failed to audit admin user creation: %v", err)
 	}
@@ -382,6 +450,20 @@ func check_admin_role_target(data AdminUserUpdateData, role string) error {
 func bind_admin_role(ctx context.Context, tx pgx.Tx, user_id int32, role string, data AdminUserUpdateData) error {
 	switch role {
 	case RoleStudent:
+		var existingID int32
+		err := tx.QueryRow(ctx, `SELECT student_id FROM students WHERE user_id = $1 LIMIT 1`, user_id).Scan(&existingID)
+		if err == nil {
+			if data.StudentID > 0 && data.StudentID != existingID {
+				return errors.New("user already has another student profile")
+			}
+			return nil
+		}
+		if !errors.Is(err, pgx.ErrNoRows) {
+			return err
+		}
+		if data.StudentID <= 0 {
+			return errors.New("student_id is required when adding student role")
+		}
 		cmd, err := tx.Exec(
 			ctx,
 			`UPDATE students
@@ -398,6 +480,20 @@ func bind_admin_role(ctx context.Context, tx pgx.Tx, user_id int32, role string,
 			return errors.New("student profile not found or already used")
 		}
 	case RoleTeacher:
+		var existingID int32
+		err := tx.QueryRow(ctx, `SELECT teacher_id FROM teachers WHERE user_id = $1 LIMIT 1`, user_id).Scan(&existingID)
+		if err == nil {
+			if data.TeacherID > 0 && data.TeacherID != existingID {
+				return errors.New("user already has another teacher profile")
+			}
+			return nil
+		}
+		if !errors.Is(err, pgx.ErrNoRows) {
+			return err
+		}
+		if data.TeacherID <= 0 {
+			return errors.New("teacher_id is required when adding teacher role")
+		}
 		cmd, err := tx.Exec(
 			ctx,
 			`UPDATE teachers
@@ -414,20 +510,30 @@ func bind_admin_role(ctx context.Context, tx pgx.Tx, user_id int32, role string,
 			return errors.New("teacher profile not found or already used")
 		}
 	case RoleHead:
-		if _, err := tx.Exec(
-			ctx,
-			`INSERT INTO org_scopes (user_id, lectern_id)
-			 VALUES ($1, $2)`,
-			user_id,
-			data.LecternID,
-		); err != nil {
-			return err
+		lecternID := data.LecternID
+		if lecternID <= 0 {
+			if err := tx.QueryRow(ctx,
+				`SELECT lectern_id FROM org_scopes WHERE user_id = $1 AND lectern_id IS NOT NULL LIMIT 1`, user_id,
+			).Scan(&lecternID); err != nil {
+				return errors.New("lectern_id is required for lectern-scoped role")
+			}
+		} else {
+			if _, err := tx.Exec(ctx,
+				`DELETE FROM org_scopes WHERE user_id = $1 AND lectern_id IS NOT NULL`, user_id,
+			); err != nil {
+				return err
+			}
+			if _, err := tx.Exec(ctx,
+				`INSERT INTO org_scopes (user_id, lectern_id) VALUES ($1, $2)`, user_id, lecternID,
+			); err != nil {
+				return err
+			}
 		}
 		cmd, err := tx.Exec(
 			ctx,
 			`UPDATE teachers SET lectern_id = $2 WHERE user_id = $1`,
 			user_id,
-			data.LecternID,
+			lecternID,
 		)
 		if err != nil {
 			return err
@@ -439,27 +545,43 @@ func bind_admin_role(ctx context.Context, tx pgx.Tx, user_id int32, role string,
 				 SELECT 'teacher', id, login, $2, 'Заведующий кафедрой'
 				 FROM users WHERE id = $1`,
 				user_id,
-				data.LecternID,
+				lecternID,
 			)
 		}
 		return err
 	case RoleSecretary, RoleProgramCreator:
-		_, err := tx.Exec(
-			ctx,
-			`INSERT INTO org_scopes (user_id, lectern_id)
-			 VALUES ($1, $2)`,
-			user_id,
-			data.LecternID,
-		)
+		if data.LecternID <= 0 {
+			var existingID int32
+			if err := tx.QueryRow(ctx,
+				`SELECT lectern_id FROM org_scopes WHERE user_id = $1 AND lectern_id IS NOT NULL LIMIT 1`, user_id,
+			).Scan(&existingID); err != nil {
+				return errors.New("lectern_id is required for lectern-scoped role")
+			}
+			return nil
+		}
+		if _, err := tx.Exec(ctx,
+			`DELETE FROM org_scopes WHERE user_id = $1 AND lectern_id IS NOT NULL`, user_id,
+		); err != nil {
+			return err
+		}
+		_, err := tx.Exec(ctx, `INSERT INTO org_scopes (user_id, lectern_id) VALUES ($1, $2)`, user_id, data.LecternID)
 		return err
 	case RoleDean, RoleDirector:
-		_, err := tx.Exec(
-			ctx,
-			`INSERT INTO org_scopes (user_id, faculty_id)
-			 VALUES ($1, $2)`,
-			user_id,
-			data.FacultyID,
-		)
+		if data.FacultyID <= 0 {
+			var existingID int32
+			if err := tx.QueryRow(ctx,
+				`SELECT faculty_id FROM org_scopes WHERE user_id = $1 AND faculty_id IS NOT NULL LIMIT 1`, user_id,
+			).Scan(&existingID); err != nil {
+				return errors.New("faculty_id is required for faculty-scoped role")
+			}
+			return nil
+		}
+		if _, err := tx.Exec(ctx,
+			`DELETE FROM org_scopes WHERE user_id = $1 AND faculty_id IS NOT NULL`, user_id,
+		); err != nil {
+			return err
+		}
+		_, err := tx.Exec(ctx, `INSERT INTO org_scopes (user_id, faculty_id) VALUES ($1, $2)`, user_id, data.FacultyID)
 		return err
 	}
 	return nil
@@ -512,6 +634,30 @@ func (s *Service) admin_user_update(token string, data AdminUserUpdateData) Resp
 		return Response{OK: false, Error: "failed to load user"}
 	}
 
+	roleRows, err := tx.Query(ctx,
+		`SELECT role::text FROM user_roles WHERE user_id = $1 ORDER BY is_primary DESC, role::text`,
+		current.ID,
+	)
+	if err != nil {
+		return Response{OK: false, Error: "failed to load user roles"}
+	}
+	for roleRows.Next() {
+		var assignedRole string
+		if err := roleRows.Scan(&assignedRole); err != nil {
+			roleRows.Close()
+			return Response{OK: false, Error: "failed to load user roles"}
+		}
+		current.Roles = append(current.Roles, assignedRole)
+	}
+	if err := roleRows.Err(); err != nil {
+		roleRows.Close()
+		return Response{OK: false, Error: "failed to load user roles"}
+	}
+	roleRows.Close()
+	if len(current.Roles) == 0 {
+		current.Roles = []string{current.Role}
+	}
+
 	login := current.Login
 	if data.Login != nil {
 		login = strings.TrimSpace(*data.Login)
@@ -534,12 +680,28 @@ func (s *Service) admin_user_update(token string, data AdminUserUpdateData) Resp
 		}
 	}
 
-	role := current.Role
-	if data.Role != nil {
-		role = strings.ToLower(strings.TrimSpace(*data.Role))
-		if !valid_admin_role(role) {
-			return Response{OK: false, Error: "invalid user role"}
+	roles := append([]string(nil), current.Roles...)
+	if data.Roles != nil {
+		roles, err = normalize_admin_roles(*data.Roles)
+		if err != nil {
+			return Response{OK: false, Error: err.Error()}
 		}
+	} else if data.Role != nil {
+		// Backwards compatibility: the old singular role field replaces the set.
+		roles, err = normalize_admin_roles([]string{*data.Role})
+		if err != nil {
+			return Response{OK: false, Error: err.Error()}
+		}
+	}
+
+	primaryRole := current.Role
+	if data.PrimaryRole != nil {
+		primaryRole = strings.ToLower(strings.TrimSpace(*data.PrimaryRole))
+	} else if data.Role != nil {
+		primaryRole = strings.ToLower(strings.TrimSpace(*data.Role))
+	}
+	if !valid_admin_role(primaryRole) || !contains_role(roles, primaryRole) {
+		return Response{OK: false, Error: "primary role must be one of the assigned roles"}
 	}
 
 	status := current.Status
@@ -550,15 +712,23 @@ func (s *Service) admin_user_update(token string, data AdminUserUpdateData) Resp
 		}
 	}
 
-	if actor.ID == current.ID && (role != current.Role || status != current.Status) {
-		return Response{OK: false, Error: "admin cannot change own role or status"}
+	rolesChanged := !same_role_set(current.Roles, roles) || primaryRole != current.Role
+	if actor.ID == current.ID && (rolesChanged || status != current.Status) {
+		return Response{OK: false, Error: "admin cannot change own roles or status"}
 	}
 
-	if current.Role == RoleAdmin && current.Status == "active" && (role != RoleAdmin || status != "active") {
+	if contains_role(current.Roles, RoleAdmin) && current.Status == "active" &&
+		(!contains_role(roles, RoleAdmin) || status != "active") {
+		if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock($1)`, lastActiveAdminLockKey); err != nil {
+			return Response{OK: false, Error: "failed to lock active admin check"}
+		}
 		var active_admins int32
 		if err := tx.QueryRow(
 			ctx,
-			`SELECT COUNT(*) FROM users WHERE role = 'admin' AND status = 'active'`,
+			`SELECT COUNT(DISTINCT u.id)
+			 FROM users u
+			 JOIN user_roles ur ON ur.user_id = u.id AND ur.role = 'admin'
+			 WHERE u.status = 'active'`,
 		).Scan(&active_admins); err != nil {
 			return Response{OK: false, Error: "failed to check active admins"}
 		}
@@ -580,28 +750,33 @@ func (s *Service) admin_user_update(token string, data AdminUserUpdateData) Resp
 		password_hash = string(hash)
 	}
 
-	role_changed := role != current.Role
-	rebind_role := role_changed ||
-		(role == RoleStudent && data.StudentID > 0) ||
-		(role == RoleTeacher && data.TeacherID > 0) ||
-		((role == RoleHead || role == RoleSecretary || role == RoleProgramCreator) && data.LecternID > 0) ||
-		((role == RoleDean || role == RoleDirector) && data.FacultyID > 0)
-	if role_changed {
-		if err := check_admin_role_target(data, role); err != nil {
-			return Response{OK: false, Error: err.Error()}
+	for _, assignedRole := range roles {
+		needsBinding := !contains_role(current.Roles, assignedRole) ||
+			(assignedRole == RoleStudent && data.StudentID > 0) ||
+			(assignedRole == RoleTeacher && data.TeacherID > 0) ||
+			((assignedRole == RoleHead || assignedRole == RoleSecretary || assignedRole == RoleProgramCreator) && data.LecternID > 0) ||
+			((assignedRole == RoleDean || assignedRole == RoleDirector) && data.FacultyID > 0)
+		if !needsBinding {
+			continue
+		}
+		if err := bind_admin_role(ctx, tx, current.ID, assignedRole, data); err != nil {
+			if strings.Contains(err.Error(), "required") || strings.Contains(err.Error(), "profile") {
+				return Response{OK: false, Error: err.Error()}
+			}
+			return Response{OK: false, Error: admin_user_db_error(err)}
 		}
 	}
-	if rebind_role {
-		if _, err := tx.Exec(ctx, `UPDATE students SET user_id = NULL WHERE user_id = $1`, current.ID); err != nil {
-			return Response{OK: false, Error: "failed to detach old student profile"}
-		}
-		if role != RoleHead {
-			if _, err := tx.Exec(ctx, `UPDATE teachers SET user_id = NULL WHERE user_id = $1`, current.ID); err != nil {
-				return Response{OK: false, Error: "failed to detach old teacher profile"}
-			}
-		}
-		if _, err := tx.Exec(ctx, `DELETE FROM org_scopes WHERE user_id = $1`, current.ID); err != nil {
-			return Response{OK: false, Error: "failed to clear old user scope"}
+
+	// Insert assignments before changing users.role: the database trigger can
+	// then promote the requested primary role without losing assigned_by.
+	for _, assignedRole := range roles {
+		if _, err := tx.Exec(ctx,
+			`INSERT INTO user_roles (user_id, role, is_primary, assigned_by)
+			 VALUES ($1, $2, FALSE, $3)
+			 ON CONFLICT (user_id, role) DO NOTHING`,
+			current.ID, assignedRole, actor.ID,
+		); err != nil {
+			return Response{OK: false, Error: admin_user_db_error(err)}
 		}
 	}
 
@@ -618,7 +793,7 @@ func (s *Service) admin_user_update(token string, data AdminUserUpdateData) Resp
 		current.ID,
 		login,
 		password_hash,
-		role,
+		primaryRole,
 		email,
 		status,
 	)
@@ -626,13 +801,20 @@ func (s *Service) admin_user_update(token string, data AdminUserUpdateData) Resp
 		return Response{OK: false, Error: admin_user_db_error(err)}
 	}
 
-	if rebind_role {
-		if err := bind_admin_role(ctx, tx, current.ID, role, data); err != nil {
-			if strings.Contains(err.Error(), "profile not found") {
-				return Response{OK: false, Error: err.Error()}
-			}
-			return Response{OK: false, Error: admin_user_db_error(err)}
-		}
+	if _, err := tx.Exec(ctx,
+		`DELETE FROM user_roles WHERE user_id = $1 AND NOT (role::text = ANY($2::text[]))`,
+		current.ID, roles,
+	); err != nil {
+		return Response{OK: false, Error: "failed to remove user roles"}
+	}
+	if _, err := tx.Exec(ctx, `UPDATE user_roles SET is_primary = FALSE WHERE user_id = $1`, current.ID); err != nil {
+		return Response{OK: false, Error: "failed to update primary role"}
+	}
+	if _, err := tx.Exec(ctx,
+		`UPDATE user_roles SET is_primary = TRUE WHERE user_id = $1 AND role = $2`,
+		current.ID, primaryRole,
+	); err != nil {
+		return Response{OK: false, Error: "failed to update primary role"}
 	}
 
 	if err := tx.Commit(ctx); err != nil {
@@ -644,7 +826,9 @@ func (s *Service) admin_user_update(token string, data AdminUserUpdateData) Resp
 		return Response{OK: false, Error: "user updated but failed to load result"}
 	}
 	if err := s.RecordAuditLog(ctx, actor.ID, actor.Login, actor.Role, "user_updated", "user", strconv.Itoa(int(current.ID)), map[string]any{
-		"old_role": current.Role, "new_role": role, "old_status": current.Status, "new_status": status,
+		"old_roles": current.Roles, "new_roles": roles,
+		"old_primary_role": current.Role, "new_primary_role": primaryRole,
+		"old_status": current.Status, "new_status": status,
 	}, ""); err != nil {
 		log.Printf("failed to audit admin user update: %v", err)
 	}
@@ -676,11 +860,14 @@ func (s *Service) admin_user_delete(token string, user_id int32) Response {
 
 	var role string
 	var status string
+	var hasAdminRole bool
 	err = tx.QueryRow(
 		ctx,
-		`SELECT role::text, status FROM users WHERE id = $1 FOR UPDATE`,
+		`SELECT u.role::text, u.status,
+		        EXISTS (SELECT 1 FROM user_roles ur WHERE ur.user_id = u.id AND ur.role = 'admin')
+		 FROM users u WHERE u.id = $1 FOR UPDATE`,
 		user_id,
-	).Scan(&role, &status)
+	).Scan(&role, &status, &hasAdminRole)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Response{OK: false, Error: "user not found"}
 	}
@@ -691,11 +878,17 @@ func (s *Service) admin_user_delete(token string, user_id int32) Response {
 		return Response{OK: false, Error: "user is already archived"}
 	}
 
-	if role == RoleAdmin && status == "active" {
+	if hasAdminRole && status == "active" {
+		if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock($1)`, lastActiveAdminLockKey); err != nil {
+			return Response{OK: false, Error: "failed to lock active admin check"}
+		}
 		var active_admins int32
 		if err := tx.QueryRow(
 			ctx,
-			`SELECT COUNT(*) FROM users WHERE role = 'admin' AND status = 'active'`,
+			`SELECT COUNT(DISTINCT u.id)
+			 FROM users u
+			 JOIN user_roles ur ON ur.user_id = u.id AND ur.role = 'admin'
+			 WHERE u.status = 'active'`,
 		).Scan(&active_admins); err != nil {
 			return Response{OK: false, Error: "failed to check active admins"}
 		}
@@ -758,7 +951,12 @@ func (s *Service) admin_system_stats(token string) Response {
 	defer cancel()
 
 	roleCounts := make(map[string]int32)
-	rows, err := s.store.Pool().Query(ctx, `SELECT role::text, COUNT(*)::INTEGER FROM users GROUP BY role`)
+	rows, err := s.store.Pool().Query(ctx,
+		`SELECT ur.role::text, COUNT(DISTINCT ur.user_id)::INTEGER
+		 FROM user_roles ur
+		 JOIN users u ON u.id = ur.user_id
+		 WHERE u.status <> 'archived'
+		 GROUP BY ur.role`)
 	if err == nil {
 		for rows.Next() {
 			var r string

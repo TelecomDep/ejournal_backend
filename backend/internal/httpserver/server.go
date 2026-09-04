@@ -106,6 +106,7 @@ func (s *Server) Start() {
 	fiberApp.Post("/register/by-invite", registrationLimit, s.registerByInviteHandler)
 	fiberApp.Post("/login", loginLimit, s.loginHandler)
 	fiberApp.Post("/api/auth/refresh", s.refreshTokenHandler)
+	fiberApp.Post("/api/auth/switch-role", s.switchRoleHandler)
 	fiberApp.Post("/auth/refresh", s.refreshTokenHandler)
 	fiberApp.Get("/api/auth/refresh", s.refreshTokenHandler)
 	fiberApp.Get("/profile", s.profileHandler)
@@ -670,6 +671,53 @@ func (s *Server) refreshTokenHandler(c *fiber.Ctx) error {
 	}
 	if !resp.OK {
 		return c.Status(fiber.StatusUnauthorized).JSON(resp)
+	}
+	return c.JSON(resp)
+}
+
+// switchRoleHandler godoc
+// @Summary Switch active role
+// @Description Issues a new signed session token for a role already assigned to the current user.
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body app.SwitchRoleData true "Role selection"
+// @Success 200 {object} app.Response
+// @Failure 400 {object} app.Response
+// @Failure 401 {object} app.Response
+// @Failure 403 {object} app.Response
+// @Router /api/auth/switch-role [post]
+func (s *Server) switchRoleHandler(c *fiber.Ctx) error {
+	token := c.Get("Authorization")
+	if token == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(app.Response{OK: false, Error: "missing token"})
+	}
+	var body app.SwitchRoleData
+	if err := c.BodyParser(&body); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(app.Response{OK: false, Error: "invalid request body"})
+	}
+	data, err := json.Marshal(body)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(app.Response{OK: false, Error: "failed to prepare request"})
+	}
+	req := app.Request{ID: "http-switch-role", Action: "switch_role", Token: token, Data: data}
+	raw, err := json.Marshal(req)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(app.Response{OK: false, Error: "failed to prepare request"})
+	}
+	resp, err := s.svc.DispatchRequest(string(raw), s.requestTimeout)
+	if err != nil {
+		return c.Status(fiber.StatusServiceUnavailable).JSON(app.Response{OK: false, Error: err.Error()})
+	}
+	if !resp.OK {
+		status := fiber.StatusBadRequest
+		if resp.Error == "missing token" || resp.Error == "invalid token" || resp.Error == "session not found" || resp.Error == "session revoked" {
+			status = fiber.StatusUnauthorized
+		} else if resp.Error == "role is not assigned to user" {
+			status = fiber.StatusForbidden
+		}
+		return c.Status(status).JSON(resp)
 	}
 	return c.JSON(resp)
 }

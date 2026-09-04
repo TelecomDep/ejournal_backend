@@ -7,6 +7,7 @@ type User struct {
 	Login        string    `json:"login"`
 	PasswordHash string    `json:"-"`
 	Role         string    `json:"role"`
+	Roles        []string  `json:"roles"`
 	Email        *string   `json:"email,omitempty"`
 	Status       string    `json:"status"`
 	TwoFaEnabled bool      `json:"two_fa_enabled"`
@@ -18,11 +19,16 @@ type AdminUser struct {
 	ID           int32     `json:"user_id"`
 	Login        string    `json:"login"`
 	Role         string    `json:"role"`
+	Roles        []string  `json:"roles"`
 	Email        *string   `json:"email,omitempty"`
 	Status       string    `json:"status"`
 	TwoFaEnabled bool      `json:"two_fa_enabled"`
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
+	StudentID    *int32    `json:"student_id,omitempty"`
+	TeacherID    *int32    `json:"teacher_id,omitempty"`
+	LecternID    *int32    `json:"lectern_id,omitempty"`
+	FacultyID    *int32    `json:"faculty_id,omitempty"`
 }
 
 type AdminUserFilter struct {

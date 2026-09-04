@@ -1,16 +1,21 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import api from "../../services/api";
 import { SearchableMultiSelect } from "../components/SearchableSelect";
+import { getRoleLabel } from "../navigation";
 
 const PAGE_SIZE = 12;
 
 const ROLE_OPTIONS = [
-  { value: "student", label: "Студенты" },
-  { value: "teacher", label: "Преподаватели" },
-  { value: "head", label: "Заведующие кафедрами" },
-  { value: "dean", label: "Деканы" },
-  { value: "admin", label: "Администраторы" }
-];
+  "student",
+  "teacher",
+  "secretary",
+  "head",
+  "program_creator",
+  "director",
+  "dean",
+  "minister",
+  "admin"
+].map((value) => ({ value, label: getRoleLabel(value) }));
 
 const AUDIENCE_OPTIONS = [
   { value: "all", label: "Все активные пользователи" },
@@ -168,7 +173,9 @@ const AdminNotificationsPage = ({ token, onNotificationCreated }) => {
 
   const userOptions = useMemo(() => {
     return usersList.map((u) => {
-      const roleName = ROLE_OPTIONS.find((r) => r.value === u.role)?.label || u.role || "Пользователь";
+      const roleName = Array.isArray(u.roles) && u.roles.length
+        ? u.roles.map((role) => getRoleLabel(role)).join(", ")
+        : getRoleLabel(u.role);
       return {
         id: u.user_id,
         name: u.full_name || u.login,

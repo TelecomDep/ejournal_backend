@@ -37,6 +37,26 @@ function App() {
     setUserData((current) => (current ? { ...current, ...updates } : current));
   };
 
+  const handleRoleSwitch = async (role) => {
+    if (!token) {
+      throw new Error('Сессия истекла. Войдите снова.');
+    }
+
+    const result = await api.switchRole(token, role);
+    const nextToken = result?.token || result?.access_token;
+    if (!nextToken) {
+      throw new Error('Сервер не вернул новую сессию. Попробуйте ещё раз.');
+    }
+
+    sessionStorage.setItem('ejournal_token', nextToken);
+    // Clearing the old profile prevents a stale menu from being shown while
+    // the profile for the newly signed active role is loaded by the effect.
+    setUserData(null);
+    setError('');
+    setToken(nextToken);
+    return result;
+  };
+
   useEffect(() => {
     if (!token) {
       return undefined;
@@ -185,6 +205,7 @@ function App() {
         navigate={navigate}
         onLogout={handleLogout}
         onUserUpdate={handleUserUpdate}
+        onRoleSwitch={handleRoleSwitch}
         onOpenLegal={handleOpenLegal}
       />
     );

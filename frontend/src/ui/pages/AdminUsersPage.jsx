@@ -6,10 +6,17 @@ import { SearchableSelect } from '../components/SearchableSelect';
 const ROLE_OPTIONS = [
   { value: 'student', label: 'Студент' },
   { value: 'teacher', label: 'Преподаватель' },
+  { value: 'secretary', label: 'Секретарь' },
   { value: 'head', label: 'Зав. кафедрой' },
+  { value: 'program_creator', label: 'Руководитель программы' },
+  { value: 'director', label: 'Директор института' },
   { value: 'dean', label: 'Декан' },
+  { value: 'minister', label: 'Министр образования' },
   { value: 'admin', label: 'Администратор' }
 ];
+
+const LECTERN_ROLES = ['head', 'secretary', 'program_creator'];
+const FACULTY_ROLES = ['dean', 'director'];
 
 const STATUS_OPTIONS = [
   { value: 'active', label: 'Активен' },
@@ -20,7 +27,8 @@ const STATUS_OPTIONS = [
 const EMPTY_CREATE_FORM = {
   login: '',
   password: '',
-  role: 'student',
+  roles: ['student'],
+  primary_role: 'student',
   email: '',
   full_name: '',
   group_id: '',
@@ -37,6 +45,9 @@ const EMPTY_INVITE_FORM = {
 };
 
 const roleLabel = (role) => ROLE_OPTIONS.find((item) => item.value === role)?.label || role || '—';
+const rolesOf = (user) => (
+  Array.isArray(user?.roles) && user.roles.length ? user.roles : [user?.role].filter(Boolean)
+);
 const statusLabel = (status) => STATUS_OPTIONS.find((item) => item.value === status)?.label || status || '—';
 
 const formatDate = (value) => {
@@ -96,10 +107,10 @@ const AdminIcon = ({ name }) => {
 };
 
 const Field = ({ label, children, required = false, wide = false }) => (
-  <label className={`admin-form-field ${wide ? 'is-wide' : ''}`}>
+  <div className={`admin-form-field ${wide ? 'is-wide' : ''}`}>
     <span>{label}{required ? ' *' : ''}</span>
     {children}
-  </label>
+  </div>
 );
 
 /**
@@ -111,13 +122,21 @@ const Field = ({ label, children, required = false, wide = false }) => (
  * }} props
  */
 const RoleSpecificCreateFields = ({ form, onChange, onSelectChange, catalogs = {} }) => {
-  if (form.role === 'student') {
-    return (
-      <>
+  const roles = Array.isArray(form.roles) ? form.roles : [form.role].filter(Boolean);
+  const needsFullName = roles.some((role) => ['student', 'teacher', 'head'].includes(role));
+  const hasTeachingProfile = roles.some((role) => ['teacher', 'head'].includes(role));
+  const hasLecternScope = roles.some((role) => LECTERN_ROLES.includes(role));
+  const hasFacultyScope = roles.some((role) => FACULTY_ROLES.includes(role));
+
+  return (
+    <>
+      {needsFullName && (
         <Field label="ФИО" required wide>
           <input name="full_name" value={form.full_name} onChange={onChange} autoComplete="name" placeholder="Иванов Иван Иванович" />
         </Field>
-        <Field label="Группа" required wide>
+      )}
+      {roles.includes('student') && (
+        <Field label="Группа" wide>
           <SearchableSelect
             options={(catalogs.groups || []).map((g) => ({ id: g.id, name: g.name, sub: g.lectern_name ? `Кафедра: ${g.lectern_name}` : '' }))}
             value={form.group_id}
@@ -125,16 +144,9 @@ const RoleSpecificCreateFields = ({ form, onChange, onSelectChange, catalogs = {
             placeholder="Выберите академическую группу..."
           />
         </Field>
-      </>
-    );
-  }
-  if (form.role === 'teacher') {
-    return (
-      <>
-        <Field label="ФИО" required wide>
-          <input name="full_name" value={form.full_name} onChange={onChange} autoComplete="name" placeholder="Петров Петр Петрович" />
-        </Field>
-        <Field label="Кафедра" required wide>
+      )}
+      {(hasTeachingProfile || hasLecternScope) && (
+        <Field label="Кафедра" required={hasLecternScope} wide>
           <SearchableSelect
             options={(catalogs.lecterns || []).map((l) => ({ id: l.id, name: l.name, sub: l.faculty_name ? `Факультет: ${l.faculty_name}` : '' }))}
             value={form.lectern_id}
@@ -142,63 +154,43 @@ const RoleSpecificCreateFields = ({ form, onChange, onSelectChange, catalogs = {
             placeholder="Выберите кафедру..."
           />
         </Field>
-        <Field label="Должность">
-          <input name="job_title" value={form.job_title} onChange={onChange} placeholder="Старший преподаватель" />
-        </Field>
-      </>
-    );
-  }
-  if (form.role === 'head') {
-    return (
-      <>
-        <Field label="ФИО" required wide>
-          <input name="full_name" value={form.full_name} onChange={onChange} autoComplete="name" placeholder="Петров Петр Петрович" />
-        </Field>
-        <Field label="Кафедра" required wide>
-          <SearchableSelect
-            options={(catalogs.lecterns || []).map((l) => ({ id: l.id, name: l.name, sub: l.faculty_name ? `Факультет: ${l.faculty_name}` : '' }))}
-            value={form.lectern_id}
-            onChange={(id) => onSelectChange('lectern_id', id)}
-            placeholder="Выберите кафедру..."
-          />
-        </Field>
+      )}
+      {hasTeachingProfile && (
         <Field label="Преподавательская должность">
-          <input name="job_title" value={form.job_title} onChange={onChange} placeholder="Заведующий кафедрой" />
+          <input name="job_title" value={form.job_title} onChange={onChange} placeholder={roles.includes('head') ? 'Заведующий кафедрой' : 'Старший преподаватель'} />
         </Field>
-      </>
-    );
-  }
-  if (form.role === 'dean') {
-    return (
-      <Field label="Факультет" required wide>
-        <SearchableSelect
-          options={(catalogs.faculties || []).map((f) => ({ id: f.id, name: f.name }))}
-          value={form.faculty_id}
-          onChange={(id) => onSelectChange('faculty_id', id)}
-          placeholder="Выберите факультет..."
-        />
-      </Field>
-    );
-  }
-  return null;
+      )}
+      {hasFacultyScope && (
+        <Field label="Факультет" required wide>
+          <SearchableSelect
+            options={(catalogs.faculties || []).map((f) => ({ id: f.id, name: f.name }))}
+            value={form.faculty_id}
+            onChange={(id) => onSelectChange('faculty_id', id)}
+            placeholder="Выберите факультет..."
+          />
+        </Field>
+      )}
+    </>
+  );
 };
 
 /**
  * @param {{
  *   role: string,
+ *   fieldName?: string,
  *   value: any,
  *   onSelectChange: (fieldName: string, fieldValue: any) => void,
  *   catalogs?: Record<string, any[]>
  * }} props
  */
-const RoleTargetField = ({ role, value, onSelectChange, catalogs = {} }) => {
+const RoleTargetField = ({ role, value, fieldName = 'target_id', onSelectChange, catalogs = {} }) => {
   if (role === 'student') {
     return (
       <Field label="Привязка студента" required wide>
         <SearchableSelect
           options={(catalogs.students || []).map((s) => ({ id: s.id, name: s.name, sub: s.group_name ? `Группа: ${s.group_name}` : '' }))}
           value={value}
-          onChange={(id) => onSelectChange('target_id', id)}
+          onChange={(id) => onSelectChange(fieldName, id)}
           placeholder="Поиск студента по ФИО или группе..."
         />
       </Field>
@@ -210,31 +202,31 @@ const RoleTargetField = ({ role, value, onSelectChange, catalogs = {} }) => {
         <SearchableSelect
           options={(catalogs.teachers || []).map((t) => ({ id: t.id, name: t.name, sub: t.job_title || t.lectern_name }))}
           value={value}
-          onChange={(id) => onSelectChange('target_id', id)}
+          onChange={(id) => onSelectChange(fieldName, id)}
           placeholder="Поиск преподавателя по ФИО или кафедре..."
         />
       </Field>
     );
   }
-  if (role === 'head') {
+  if (LECTERN_ROLES.includes(role)) {
     return (
       <Field label="Кафедра" required wide>
         <SearchableSelect
           options={(catalogs.lecterns || []).map((l) => ({ id: l.id, name: l.name, sub: l.faculty_name ? `Факультет: ${l.faculty_name}` : '' }))}
           value={value}
-          onChange={(id) => onSelectChange('target_id', id)}
+          onChange={(id) => onSelectChange(fieldName, id)}
           placeholder="Выберите кафедру..."
         />
       </Field>
     );
   }
-  if (role === 'dean') {
+  if (FACULTY_ROLES.includes(role)) {
     return (
       <Field label="Факультет" required wide>
         <SearchableSelect
           options={(catalogs.faculties || []).map((f) => ({ id: f.id, name: f.name }))}
           value={value}
-          onChange={(id) => onSelectChange('target_id', id)}
+          onChange={(id) => onSelectChange(fieldName, id)}
           placeholder="Выберите факультет..."
         />
       </Field>
@@ -477,6 +469,7 @@ const AdminUsersPage = ({ token, currentUser }) => {
     setModal({ type: 'edit', userId: item.user_id, loading: true, error: '', saving: false });
     try {
       const user = await api.getAdminUser(token, item.user_id);
+      const assignedRoles = rolesOf(user);
       setModal({
         type: 'edit',
         userId: item.user_id,
@@ -487,10 +480,14 @@ const AdminUsersPage = ({ token, currentUser }) => {
         form: {
           login: user.login || '',
           email: user.email || '',
-          role: user.role || 'student',
+          roles: assignedRoles,
+          primary_role: user.role || assignedRoles[0] || 'student',
           status: user.status || 'active',
           password: '',
-          target_id: ''
+          student_id: user.student_id || '',
+          teacher_id: user.teacher_id || '',
+          lectern_id: user.lectern_id || '',
+          faculty_id: user.faculty_id || ''
         }
       });
     } catch (requestError) {
@@ -524,13 +521,33 @@ const AdminUsersPage = ({ token, currentUser }) => {
     });
   };
 
+  const toggleModalRole = (role) => {
+    setModal((current) => {
+      if (!current?.form) return current;
+      const currentRoles = Array.isArray(current.form.roles) ? current.form.roles : [];
+      const nextRoles = currentRoles.includes(role)
+        ? currentRoles.filter((item) => item !== role)
+        : [...currentRoles, role];
+      const primaryRole = nextRoles.includes(current.form.primary_role)
+        ? current.form.primary_role
+        : (nextRoles[0] || '');
+      return {
+        ...current,
+        error: '',
+        form: { ...current.form, roles: nextRoles, primary_role: primaryRole }
+      };
+    });
+  };
+
   const validateCreate = (form) => {
     if (!form.login.trim()) return 'Введите логин';
     if (form.password.trim().length < 8) return 'Пароль должен содержать не менее 8 символов';
     if (form.email && !form.email.includes('@')) return 'Введите корректный email';
-    if (['student', 'teacher', 'head'].includes(form.role) && !form.full_name.trim()) return 'Введите ФИО';
-    if (form.role === 'head' && !numberOrUndefined(form.lectern_id)) return 'Выберите кафедру';
-    if (form.role === 'dean' && !numberOrUndefined(form.faculty_id)) return 'Выберите факультет';
+    if (!Array.isArray(form.roles) || !form.roles.length) return 'Назначьте пользователю хотя бы одну роль';
+    if (!form.roles.includes(form.primary_role)) return 'Основная роль должна входить в список назначенных';
+    if (form.roles.some((role) => ['student', 'teacher', 'head'].includes(role)) && !form.full_name.trim()) return 'Введите ФИО';
+    if (form.roles.some((role) => LECTERN_ROLES.includes(role)) && !numberOrUndefined(form.lectern_id)) return 'Выберите кафедру';
+    if (form.roles.some((role) => FACULTY_ROLES.includes(role)) && !numberOrUndefined(form.faculty_id)) return 'Выберите факультет';
     return '';
   };
 
@@ -545,7 +562,8 @@ const AdminUsersPage = ({ token, currentUser }) => {
     const payload = {
       login: form.login.trim(),
       password: form.password.trim(),
-      role: form.role,
+      roles: form.roles,
+      primary_role: form.primary_role,
       email: form.email.trim(),
       full_name: form.full_name.trim(),
       group_id: numberOrUndefined(form.group_id),
@@ -637,24 +655,52 @@ const AdminUsersPage = ({ token, currentUser }) => {
       setModal((current) => ({ ...current, error: 'Новый пароль должен содержать не менее 8 символов' }));
       return;
     }
+    if (!Array.isArray(form.roles) || !form.roles.length) {
+      setModal((current) => ({ ...current, error: 'Назначьте пользователю хотя бы одну роль' }));
+      return;
+    }
+    if (!form.roles.includes(form.primary_role)) {
+      setModal((current) => ({ ...current, error: 'Основная роль должна входить в список назначенных' }));
+      return;
+    }
     if (form.login.trim() !== original.login) payload.login = form.login.trim();
     if (form.email.trim() !== (original.email || '')) payload.email = form.email.trim();
     if (form.status !== original.status) payload.status = form.status;
     if (form.password.trim()) payload.password = form.password.trim();
-    if (form.role !== original.role) {
-      payload.role = form.role;
-      const targetId = numberOrUndefined(form.target_id);
-      if (['student', 'teacher', 'head', 'dean'].includes(form.role) && !targetId) {
-        setModal((current) => ({ ...current, error: 'Укажите идентификатор профиля или области доступа' }));
-        return;
-      }
-      const targetKey = {
-        student: 'student_id',
-        teacher: 'teacher_id',
-        head: 'lectern_id',
-        dean: 'faculty_id'
-      }[form.role];
-      if (targetKey) payload[targetKey] = targetId;
+    const originalRoles = rolesOf(original);
+    const rolesChanged = form.roles.length !== originalRoles.length ||
+      form.roles.some((role) => !originalRoles.includes(role));
+    if (rolesChanged) payload.roles = form.roles;
+    if (form.primary_role !== original.role) payload.primary_role = form.primary_role;
+
+    const addedRoles = form.roles.filter((role) => !originalRoles.includes(role));
+    if (addedRoles.includes('student') && !numberOrUndefined(form.student_id)) {
+      setModal((current) => ({ ...current, error: 'Выберите профиль студента для новой роли' }));
+      return;
+    }
+    if (addedRoles.includes('teacher') && !numberOrUndefined(form.teacher_id)) {
+      setModal((current) => ({ ...current, error: 'Выберите профиль преподавателя для новой роли' }));
+      return;
+    }
+    if (addedRoles.some((role) => LECTERN_ROLES.includes(role)) && !numberOrUndefined(form.lectern_id)) {
+      setModal((current) => ({ ...current, error: 'Выберите кафедру для новой роли' }));
+      return;
+    }
+    if (addedRoles.some((role) => FACULTY_ROLES.includes(role)) && !numberOrUndefined(form.faculty_id)) {
+      setModal((current) => ({ ...current, error: 'Выберите факультет для новой роли' }));
+      return;
+    }
+    if (addedRoles.includes('student') || Number(form.student_id || 0) !== Number(original.student_id || 0)) {
+      if (numberOrUndefined(form.student_id)) payload.student_id = numberOrUndefined(form.student_id);
+    }
+    if (addedRoles.includes('teacher') || Number(form.teacher_id || 0) !== Number(original.teacher_id || 0)) {
+      if (numberOrUndefined(form.teacher_id)) payload.teacher_id = numberOrUndefined(form.teacher_id);
+    }
+    if (addedRoles.some((role) => LECTERN_ROLES.includes(role)) || Number(form.lectern_id || 0) !== Number(original.lectern_id || 0)) {
+      if (numberOrUndefined(form.lectern_id)) payload.lectern_id = numberOrUndefined(form.lectern_id);
+    }
+    if (addedRoles.some((role) => FACULTY_ROLES.includes(role)) || Number(form.faculty_id || 0) !== Number(original.faculty_id || 0)) {
+      if (numberOrUndefined(form.faculty_id)) payload.faculty_id = numberOrUndefined(form.faculty_id);
     }
     if (!Object.keys(payload).length) {
       setModal((current) => ({ ...current, error: 'Нет изменений для сохранения' }));
@@ -823,7 +869,7 @@ const AdminUsersPage = ({ token, currentUser }) => {
               <thead>
                 <tr>
                   <th>Пользователь</th>
-                  <th>Роль</th>
+                  <th>Роли</th>
                   <th>Email</th>
                   <th>Статус</th>
                   <th>2FA</th>
@@ -840,7 +886,15 @@ const AdminUsersPage = ({ token, currentUser }) => {
                         <strong>{item.login || '—'}</strong>
                         <small>#{item.user_id}{isSelf ? ' · вы' : ''}</small>
                       </td>
-                      <td data-label="Роль"><span className={`admin-role-badge is-${item.role}`}>{roleLabel(item.role)}</span></td>
+                      <td data-label="Роли">
+                        <div className="admin-role-list">
+                          {rolesOf(item).map((role) => (
+                            <span key={role} className={`admin-role-badge is-${role}`}>
+                              {roleLabel(role)}{role === item.role ? ' · осн.' : ''}
+                            </span>
+                          ))}
+                        </div>
+                      </td>
                       <td data-label="Email" className="admin-email-cell">{item.email || 'Не привязан'}</td>
                       <td data-label="Статус"><span className={`admin-status-badge is-${item.status}`}>{statusLabel(item.status)}</span></td>
                       <td data-label="2FA"><span className={`admin-twofa ${item.two_fa_enabled ? 'is-enabled' : ''}`}>{item.two_fa_enabled ? 'Включена' : 'Нет'}</span></td>
@@ -1328,12 +1382,26 @@ const AdminUsersPage = ({ token, currentUser }) => {
                     <span>Пароль *</span>
                     <input name="password" type="password" value={modal.form.password} onChange={updateModalForm} autoComplete="new-password" />
                   </label>
-                  <label className="admin-form-field">
-                    <span>Роль *</span>
-                    <select name="role" value={modal.form.role} onChange={updateModalForm}>
-                      <option value="student">Студент</option>
-                      <option value="teacher">Преподаватель</option>
-                      <option value="admin">Администратор</option>
+                  <fieldset className="admin-role-picker admin-form-field is-wide">
+                    <legend>Назначенные роли *</legend>
+                    <p>Выберите все режимы кабинета, которые будут доступны пользователю.</p>
+                    <div className="admin-role-picker-grid">
+                      {ROLE_OPTIONS.map((option) => (
+                        <label key={option.value} className={modal.form.roles.includes(option.value) ? 'is-selected' : ''}>
+                          <input
+                            type="checkbox"
+                            checked={modal.form.roles.includes(option.value)}
+                            onChange={() => toggleModalRole(option.value)}
+                          />
+                          <span>{option.label}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </fieldset>
+                  <label className="admin-form-field is-wide">
+                    <span>Основная роль *</span>
+                    <select name="primary_role" value={modal.form.primary_role} onChange={updateModalForm} disabled={!modal.form.roles.length}>
+                      {modal.form.roles.map((role) => <option key={role} value={role}>{roleLabel(role)}</option>)}
                     </select>
                   </label>
                   <RoleSpecificCreateFields form={modal.form} onChange={updateModalForm} onSelectChange={updateModalFormField} catalogs={catalogs} />
@@ -1370,16 +1438,39 @@ const AdminUsersPage = ({ token, currentUser }) => {
                       <option value="archived">В архиве</option>
                     </select>
                   </label>
-                  <label className="admin-form-field">
-                    <span>Роль</span>
-                    <select name="role" value={modal.form.role} onChange={updateModalForm} disabled={isEditingSelf}>
-                      <option value="student">Студент</option>
-                      <option value="teacher">Преподаватель</option>
-                      <option value="admin">Администратор</option>
+                  <fieldset className="admin-role-picker admin-form-field is-wide" disabled={isEditingSelf}>
+                    <legend>Назначенные роли</legend>
+                    <p>Можно выбрать несколько ролей. Пользователь сможет переключать режим кабинета.</p>
+                    <div className="admin-role-picker-grid">
+                      {ROLE_OPTIONS.map((option) => (
+                        <label key={option.value} className={modal.form.roles.includes(option.value) ? 'is-selected' : ''}>
+                          <input
+                            type="checkbox"
+                            checked={modal.form.roles.includes(option.value)}
+                            onChange={() => toggleModalRole(option.value)}
+                          />
+                          <span>{option.label}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </fieldset>
+                  <label className="admin-form-field is-wide">
+                    <span>Основная роль</span>
+                    <select name="primary_role" value={modal.form.primary_role} onChange={updateModalForm} disabled={isEditingSelf || !modal.form.roles.length}>
+                      {modal.form.roles.map((role) => <option key={role} value={role}>{roleLabel(role)}</option>)}
                     </select>
                   </label>
-                  {modal.form.role !== modal.original.role && (
-                    <RoleTargetField role={modal.form.role} value={modal.form.target_id} onSelectChange={updateModalFormField} catalogs={catalogs} />
+                  {modal.form.roles.includes('student') && (
+                    <RoleTargetField role="student" fieldName="student_id" value={modal.form.student_id} onSelectChange={updateModalFormField} catalogs={catalogs} />
+                  )}
+                  {modal.form.roles.includes('teacher') && (
+                    <RoleTargetField role="teacher" fieldName="teacher_id" value={modal.form.teacher_id} onSelectChange={updateModalFormField} catalogs={catalogs} />
+                  )}
+                  {modal.form.roles.some((role) => LECTERN_ROLES.includes(role)) && (
+                    <RoleTargetField role="head" fieldName="lectern_id" value={modal.form.lectern_id} onSelectChange={updateModalFormField} catalogs={catalogs} />
+                  )}
+                  {modal.form.roles.some((role) => FACULTY_ROLES.includes(role)) && (
+                    <RoleTargetField role="dean" fieldName="faculty_id" value={modal.form.faculty_id} onSelectChange={updateModalFormField} catalogs={catalogs} />
                   )}
                 </div>
                 {modal.error && <div className="admin-form-error" role="alert">{modal.error}</div>}

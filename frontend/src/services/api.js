@@ -100,6 +100,26 @@ const api = {
     }
   },
 
+  // Switch the active role without creating a new account or session.
+  async switchRole(token, role) {
+    const nextRole = typeof role === 'string' ? role.trim() : '';
+    if (!nextRole) {
+      throw new Error('Роль не выбрана');
+    }
+
+    try {
+      const response = await axios.post(
+        `${BACKEND_URL}/api/auth/switch-role`,
+        { role: nextRole },
+        { headers: authHeaders(token) }
+      );
+      return unwrapApiResponse(response.data);
+    } catch (error) {
+      console.error('Ошибка переключения роли:', error);
+      throw error;
+    }
+  },
+
   async uploadAvatar(token, file) {
     try {
       const form = new FormData();

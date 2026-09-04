@@ -51,7 +51,7 @@ Authorization: Bearer <jwt_token>
 
 ### Роли
 
-`student`, `teacher`, `head` (зав. кафедрой), `dean` (декан), `admin`.
+Один пользователь может иметь несколько ролей. Поддерживаются `student`, `teacher`, `secretary`, `head`, `program_creator`, `director`, `dean`, `minister`, `admin`. Поле `role` содержит активную роль текущей сессии, `primary_role` — основную роль пользователя, `roles` — все назначенные роли.
 
 ---
 
@@ -152,12 +152,27 @@ Authorization: Bearer <jwt_token>
 {
   "login": "teacher_test",
   "role": "teacher",
+  "active_role": "teacher",
+  "primary_role": "teacher",
+  "roles": ["teacher", "head"],
   "token": "<jwt_token>",
   "user_ID": "3"
 }
 ```
 
 **Ошибки:** `401` (неверный логин/пароль), `500`.
+
+---
+
+### POST `/api/auth/switch-role` — переключить активную роль
+
+**Auth:** Bearer.
+
+```json
+{ "role": "teacher" }
+```
+
+Сервер проверяет, что роль назначена пользователю, и возвращает новый JWT с подписанной активной ролью. Неназначенная роль возвращает `403`.
 
 ---
 
@@ -172,6 +187,9 @@ Authorization: Bearer <jwt_token>
   "user_id": "3",
   "login": "student_iks_21",
   "role": "student",
+  "active_role": "student",
+  "primary_role": "student",
+  "roles": ["student"],
   "name": "Демин Сергей А.",
   "avatar": "https://server.com/uploads/avatars/avatar.png",
   "group": "ИКС-433",
@@ -961,7 +979,7 @@ Upsert: если оценка по этой точке у студента уж�
 
 ### GET `/api/admin/users/:user_id` — один пользователь
 
-Возвращает логин, роль, email, статус, состояние 2FA и даты создания/обновления.
+Возвращает логин, основную роль (`role`), все назначенные роли (`roles`), email, статус, привязанные профили/области доступа, состояние 2FA и даты создания/обновления.
 
 ### POST `/api/admin/users` — создать пользователя
 
@@ -969,27 +987,28 @@ Upsert: если оценка по этой точке у студента уж�
 
 ```json
 {
-  "login": "teacher_10",
+  "login": "dean_teacher_10",
   "password": "strong_password",
-  "role": "teacher",
+  "roles": ["dean", "teacher", "admin"],
+  "primary_role": "dean",
   "email": "teacher@example.com",
   "full_name": "Иванов Иван Иванович",
-  "lectern_id": 1,
+  "faculty_id": 1,
   "job_title": "Преподаватель"
 }
 ```
 
-Для `student` передаются `full_name` и необязательный `group_id`. Для `teacher` — `full_name`, необязательные `lectern_id` и `job_title`. Для `head` обязателен `lectern_id`, для `dean` — `faculty_id`.
+Для обратной совместимости вместо `roles` и `primary_role` можно передать одно поле `role`. Для `student` передаются `full_name` и необязательный `group_id`. Для `teacher` — `full_name`, необязательные `lectern_id` и `job_title`. Для `head`, `secretary`, `program_creator` обязателен `lectern_id`; для `dean`, `director` — `faculty_id`.
 
 Пользователь и его профиль создаются одной транзакцией.
 
 ### PATCH `/api/admin/users/:user_id` — изменить пользователя
 
-Можно передать только изменяемые поля: `login`, `password`, `email`, `role`, `status`.
+Можно передать только изменяемые поля: `login`, `password`, `email`, `roles`, `primary_role`, `status`. Легаси-поле `role` заменяет весь набор ролей одной ролью.
 
-При смене роли на `student` требуется `student_id`, на `teacher` — `teacher_id`, на `head` — `lectern_id`, на `dean` — `faculty_id`.
+При добавлении `student` требуется `student_id`, при добавлении `teacher` — `teacher_id`; для кафедральных и факультетских ролей передаются `lectern_id` и `faculty_id` соответственно.
 
-Администратор не может изменить собственную роль или статус. Последнего активного администратора нельзя заблокировать или лишить роли.
+Администратор не может изменить собственные роли или статус. Последнего активного администратора нельзя заблокировать или лишить роли. Изменение ролей отзывает старые токены пользователя.
 
 ### DELETE `/api/admin/users/:user_id` — архивировать пользователя
 
@@ -1038,6 +1057,7 @@ Upsert: если оценка по этой точке у студента уж�
 | POST | `/register` | — | Регистрация (invite_code / легаси role_hash) |
 | POST | `/register/by-invite` | — | Регистрация по инвайт-коду |
 | POST | `/login` | — | Вход, выдача JWT |
+| POST | `/api/auth/switch-role` | любая назначенная | Переключить активную роль и получить новый JWT |
 | GET | `/profile` | любая | Профиль текущего пользователя |
 | POST | `/api/auth/forgot-password` | — | Запрос сброса пароля |
 | POST | `/api/auth/reset-password` | — | Сброс пароля по токену |
@@ -1070,8 +1090,8 @@ Upsert: если оценка по этой точке у студента уж�
 | GET | `/api/teaching/schedule/day` | teacher, head | Расписание преподавателя на день |
 | GET | `/api/admin/users` | admin | Список пользователей |
 | GET | `/api/admin/users/:user_id` | admin | Получить пользователя |
-| POST | `/api/admin/users` | admin | Создать пользователя и профиль |
-| PATCH | `/api/admin/users/:user_id` | admin | Изменить пользователя, роль или статус |
+| POST | `/api/admin/users` | admin | Создать пользователя, набор ролей и профили |
+| PATCH | `/api/admin/users/:user_id` | admin | Изменить пользователя, роли, основную роль или статус |
 | DELETE | `/api/admin/users/:user_id` | admin | Архивировать пользователя |
 | GET | `/api/staff/overview` | teacher+ | Обзор групп/людей по роли |
 | GET | `/api/staff/analytics` | teacher+ | Рейтинг, посещаемость и динамика по зоне роли |

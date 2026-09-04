@@ -62,7 +62,7 @@ func (s *Server) adminUserGetHandler(c *fiber.Ctx) error {
 
 // adminUserCreateHandler godoc
 // @Summary Create user
-// @Description Creates a user and the required role profile in one transaction. Admin only.
+// @Description Creates a user with one or more roles and the required profiles in one transaction. Admin only.
 // @Tags admin users
 // @Accept json
 // @Produce json
@@ -84,7 +84,7 @@ func (s *Server) adminUserCreateHandler(c *fiber.Ctx) error {
 
 // adminUserUpdateHandler godoc
 // @Summary Update user
-// @Description Updates user fields, status or role. Admin only.
+// @Description Updates user fields, status, assigned roles or primary role. Admin only.
 // @Tags admin users
 // @Accept json
 // @Produce json
@@ -171,6 +171,7 @@ func adminUserHTTPStatus(resp app.Response) int {
 		return fiber.StatusUnauthorized
 	case "forbidden: admin role required",
 		"admin cannot change own role or status",
+		"admin cannot change own roles or status",
 		"admin cannot archive own account":
 		return fiber.StatusForbidden
 	case "user not found":
@@ -178,6 +179,8 @@ func adminUserHTTPStatus(resp app.Response) int {
 	case "login, email or profile is already used",
 		"student profile not found or already used",
 		"teacher profile not found or already used",
+		"user already has another student profile",
+		"user already has another teacher profile",
 		"cannot disable the last active admin",
 		"user is already archived":
 		return fiber.StatusConflict
@@ -218,4 +221,3 @@ func (s *Server) adminRevokeInviteHandler(c *fiber.Ctx) error {
 	data := app.AdminRevokeInviteData{InviteID: int32(invite_id)}
 	return s.adminUserActionHandler(c, "http-admin-revoke-invite", "admin_revoke_invite", data, fiber.StatusOK)
 }
-

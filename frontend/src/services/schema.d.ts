@@ -677,7 +677,7 @@ export interface paths {
         put?: never;
         /**
          * Create user
-         * @description Creates a user and the required role profile in one transaction. Admin only.
+         * @description Creates a user with one or more roles and the required profiles in one transaction. Admin only.
          */
         post: {
             parameters: {
@@ -894,7 +894,7 @@ export interface paths {
         head?: never;
         /**
          * Update user
-         * @description Updates user fields, status or role. Admin only.
+         * @description Updates user fields, status, assigned roles or primary role. Admin only.
          */
         patch: {
             parameters: {
@@ -1080,6 +1080,77 @@ export interface paths {
                 };
                 /** @description Internal Server Error */
                 500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/switch-role": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Switch active role
+         * @description Issues a new signed session token for a role already assigned to the current user.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Role selection */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["app.SwitchRoleData"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["app.Response"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -5264,7 +5335,10 @@ export interface components {
             lectern_id?: number;
             login?: string;
             password?: string;
+            primary_role?: string;
+            /** @description legacy singular role */
             role?: string;
+            roles?: string[];
         };
         "app.AdminUserUpdateData": {
             email?: string;
@@ -5272,18 +5346,24 @@ export interface components {
             lectern_id?: number;
             login?: string;
             password?: string;
+            primary_role?: string;
+            /** @description legacy alias for replacing the role set */
             role?: string;
+            roles?: string[];
             status?: string;
             student_id?: number;
             teacher_id?: number;
             user_id?: number;
         };
         "app.AndroidAttendanceMarkData": {
+            biometric_signature?: string;
             device_id?: string;
             invite_token?: string;
             lat?: number;
             lesson_id?: number;
             lon?: number;
+            nonce?: string;
+            ts?: number;
         };
         "app.AndroidLessonCreateData": {
             expires_minutes?: number;
@@ -5291,13 +5371,17 @@ export interface components {
             groups?: string[];
             lat?: number;
             lesson_name?: string;
+            lesson_type?: string;
             lon?: number;
             subject?: string;
             subject_id?: number;
             teacher_id?: number;
         };
         "app.AttendanceConfirmData": {
+            device_id?: string;
             invite_token?: string;
+            lat?: number;
+            lon?: number;
         };
         "app.AttendanceGroupStatsData": {
             group_id?: number;
@@ -5467,6 +5551,9 @@ export interface components {
             starts_at?: string;
             status?: string;
             term_num?: number;
+        };
+        "app.SwitchRoleData": {
+            role?: string;
         };
         "app.TeacherAttendanceMarkData": {
             lesson_id?: number;

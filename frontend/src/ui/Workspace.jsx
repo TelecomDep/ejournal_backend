@@ -2,7 +2,12 @@ import React, { useCallback, useEffect, useState } from 'react';
 import api from '../services/api';
 import SibLogo from '../components/SibLogo';
 import LegalFooter from '../components/legal/LegalFooter';
-import { getNavigationForRole, getRoleLabel } from './navigation';
+import {
+  getActiveRole,
+  getNavigationForRole,
+  getRoleLabel,
+  STAFF_ROLES
+} from './navigation';
 import ProfilePage from './pages/ProfilePage';
 import SchedulePage from './pages/SchedulePage';
 import GradesPage from './pages/GradesPage';
@@ -158,28 +163,30 @@ const renderPage = (
   onUnreadCountChange,
   onNotificationCreated
 ) => {
+  const activeRole = getActiveRole(user);
+
   if (activeItem.key === 'dashboard') {
     return <DashboardPage user={user} navigate={navigate} />;
   }
-  if (activeItem.key === 'overview' && ['admin', 'head', 'dean'].includes(user?.role)) {
+  if (activeItem.key === 'overview' && STAFF_ROLES.includes(activeRole)) {
     return <StaffOverviewPage token={token} />;
   }
-  if (activeItem.key === 'analytics' && ['admin', 'head', 'dean'].includes(user?.role)) {
+  if (activeItem.key === 'analytics' && STAFF_ROLES.includes(activeRole)) {
     return <StaffAnalyticsPage token={token} />;
   }
-  if (activeItem.key === 'reports' && ['admin', 'head', 'dean', 'teacher'].includes(user?.role)) {
+  if (activeItem.key === 'reports' && (STAFF_ROLES.includes(activeRole) || activeRole === 'teacher')) {
     return <ReportsPage token={token} user={user} />;
   }
-  if (activeItem.key === 'semesters' && user?.role === 'admin') {
+  if (activeItem.key === 'semesters' && activeRole === 'admin') {
     return <AdminSemestersPage token={token} />;
   }
-  if (activeItem.key === 'users' && user?.role === 'admin') {
+  if (activeItem.key === 'users' && activeRole === 'admin') {
     return <AdminUsersPage token={token} currentUser={user} />;
   }
-  if (activeItem.key === 'notifications' && user?.role === 'admin') {
+  if (activeItem.key === 'notifications' && activeRole === 'admin') {
     return <AdminNotificationsPage token={token} onNotificationCreated={onNotificationCreated} />;
   }
-  if (activeItem.key === 'antifraud' && ['admin', 'teacher'].includes(user?.role)) {
+  if (activeItem.key === 'antifraud' && ['admin', 'teacher'].includes(activeRole)) {
     return <AntifraudPage token={token} user={user} />;
   }
   if (activeItem.key === 'profile') {
@@ -202,16 +209,16 @@ const renderPage = (
   if (activeItem.key === 'schedule') {
     return <SchedulePage user={user} token={token} />;
   }
-  if (activeItem.key === 'grades' && user?.role === 'student') {
+  if (activeItem.key === 'grades' && activeRole === 'student') {
     return <GradesPage user={user} token={token} />;
   }
-  if (activeItem.key === 'attendance' && user?.role === 'student') {
+  if (activeItem.key === 'attendance' && activeRole === 'student') {
     return <AttendancePage user={user} token={token} />;
   }
-  if (activeItem.key === 'analytics' && user?.role === 'student') {
+  if (activeItem.key === 'analytics' && activeRole === 'student') {
     return <AnalyticsPage user={user} token={token} />;
   }
-  if (['teacher', 'head'].includes(user?.role) && ['attendance', 'stats', 'grades'].includes(activeItem.key)) {
+  if (['teacher', 'head'].includes(activeRole) && ['attendance', 'stats', 'grades'].includes(activeItem.key)) {
     const section = activeItem.key === 'stats' ? 'statistics' : activeItem.key;
     return <TeacherPage token={token} section={section} />;
   }
@@ -224,14 +231,35 @@ const renderPage = (
   );
 };
 
-const Workspace = ({ user, token, route, navigate, onLogout, onUserUpdate, onOpenLegal }) => {
+const Workspace = ({
+  user,
+  token,
+  route,
+  navigate,
+  onLogout,
+  onUserUpdate,
+  onRoleSwitch,
+  onOpenLegal
+}) => {
   const [isNavOpen, setIsNavOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
-  const navItems = getNavigationForRole(user?.role);
+  const [roleSwitchPending, setRoleSwitchPending] = useState(false);
+  const [roleSwitchError, setRoleSwitchError] = useState('');
+  const activeRole = getActiveRole(user);
+  const roles = Array.from(new Set(
+    (Array.isArray(user?.roles) ? user.roles : [])
+      .map((role) => (typeof role === 'string' ? role.trim().toLowerCase() : ''))
+      .filter(Boolean)
+  ));
+  if (activeRole && !roles.includes(activeRole)) {
+    roles.unshift(activeRole);
+  }
+  const activeUser = user ? { ...user, role: activeRole } : user;
+  const navItems = getNavigationForRole(activeRole);
   const activeItem = navItems.find((item) => (
     item.route === route || (item.key === 'profile' && route.startsWith('/profile/'))
   )) || navItems[0];
-  const displayName = getDisplayName(user);
+  const displayName = getDisplayName(activeUser);
 
   const refreshUnreadCount = useCallback(async () => {
     try {
@@ -273,6 +301,33 @@ const Workspace = ({ user, token, route, navigate, onLogout, onUserUpdate, onOpe
   const handleNavigate = (to) => {
     navigate(to);
     setIsNavOpen(false);
+  };
+
+  const handleRoleChange = async (event) => {
+    const nextRole = event.target.value;
+    if (!nextRole || nextRole === activeRole || roleSwitchPending) {
+      return;
+    }
+    if (!roles.includes(nextRole)) {
+      setRoleSwitchError('Эта роль недоступна для текущего пользователя.');
+      return;
+    }
+    if (typeof onRoleSwitch !== 'function') {
+      setRoleSwitchError('Переключение ролей пока недоступно.');
+      return;
+    }
+
+    setRoleSwitchError('');
+    setRoleSwitchPending(true);
+    try {
+      await onRoleSwitch(nextRole);
+      navigate('/dashboard');
+      setIsNavOpen(false);
+    } catch (error) {
+      setRoleSwitchError(api.getErrorMessage(error, 'Не удалось переключить роль'));
+    } finally {
+      setRoleSwitchPending(false);
+    }
   };
 
   return (
@@ -342,12 +397,34 @@ const Workspace = ({ user, token, route, navigate, onLogout, onUserUpdate, onOpe
             </button>
 
             <div>
-              <span className="ui-user-role">{getRoleLabel(user?.role)}</span>
+              <span className="ui-user-role">{getRoleLabel(activeRole)}</span>
               <strong>{displayName}</strong>
             </div>
           </div>
 
           <div className="ui-topbar-actions">
+            {roles.length > 1 && (
+              <div className="ui-role-switch">
+                <label htmlFor="ui-active-role">Режим</label>
+                <select
+                  id="ui-active-role"
+                  value={activeRole}
+                  onChange={handleRoleChange}
+                  disabled={roleSwitchPending}
+                  aria-busy={roleSwitchPending}
+                  aria-describedby={roleSwitchError ? 'ui-role-switch-error' : undefined}
+                >
+                  {roles.map((role) => (
+                    <option key={role} value={role}>{getRoleLabel(role)}</option>
+                  ))}
+                </select>
+                {roleSwitchError && (
+                  <span id="ui-role-switch-error" className="ui-role-switch-error" role="alert">
+                    {roleSwitchError}
+                  </span>
+                )}
+              </div>
+            )}
             <button
               type="button"
               className="ui-notification-button"

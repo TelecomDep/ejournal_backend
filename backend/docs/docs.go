@@ -580,7 +580,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Creates a user and the required role profile in one transaction. Admin only.",
+                "description": "Creates a user with one or more roles and the required profiles in one transaction. Admin only.",
                 "consumes": [
                     "application/json"
                 ],
@@ -761,7 +761,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Updates user fields, status or role. Admin only.",
+                "description": "Updates user fields, status, assigned roles or primary role. Admin only.",
                 "consumes": [
                     "application/json"
                 ],
@@ -915,6 +915,63 @@ const docTemplate = `{
                     },
                     "500": {
                         "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/auth/switch-role": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Issues a new signed session token for a role already assigned to the current user.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Switch active role",
+                "parameters": [
+                    {
+                        "description": "Role selection",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/app.SwitchRoleData"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/app.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
                         "schema": {
                             "$ref": "#/definitions/app.Response"
                         }
@@ -4208,8 +4265,18 @@ const docTemplate = `{
                 "password": {
                     "type": "string"
                 },
-                "role": {
+                "primary_role": {
                     "type": "string"
+                },
+                "role": {
+                    "description": "legacy singular role",
+                    "type": "string"
+                },
+                "roles": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 }
             }
         },
@@ -4231,8 +4298,18 @@ const docTemplate = `{
                 "password": {
                     "type": "string"
                 },
-                "role": {
+                "primary_role": {
                     "type": "string"
+                },
+                "role": {
+                    "description": "legacy alias for replacing the role set",
+                    "type": "string"
+                },
+                "roles": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "status": {
                     "type": "string"
@@ -4251,6 +4328,9 @@ const docTemplate = `{
         "app.AndroidAttendanceMarkData": {
             "type": "object",
             "properties": {
+                "biometric_signature": {
+                    "type": "string"
+                },
                 "device_id": {
                     "type": "string"
                 },
@@ -4265,6 +4345,12 @@ const docTemplate = `{
                 },
                 "lon": {
                     "type": "number"
+                },
+                "nonce": {
+                    "type": "string"
+                },
+                "ts": {
+                    "type": "integer"
                 }
             }
         },
@@ -4292,6 +4378,9 @@ const docTemplate = `{
                 "lesson_name": {
                     "type": "string"
                 },
+                "lesson_type": {
+                    "type": "string"
+                },
                 "lon": {
                     "type": "number"
                 },
@@ -4309,8 +4398,17 @@ const docTemplate = `{
         "app.AttendanceConfirmData": {
             "type": "object",
             "properties": {
+                "device_id": {
+                    "type": "string"
+                },
                 "invite_token": {
                     "type": "string"
+                },
+                "lat": {
+                    "type": "number"
+                },
+                "lon": {
+                    "type": "number"
                 }
             }
         },
@@ -4809,6 +4907,14 @@ const docTemplate = `{
                 },
                 "term_num": {
                     "type": "integer"
+                }
+            }
+        },
+        "app.SwitchRoleData": {
+            "type": "object",
+            "properties": {
+                "role": {
+                    "type": "string"
                 }
             }
         },

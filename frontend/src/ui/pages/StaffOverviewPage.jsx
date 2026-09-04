@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import api from '../../services/api';
+import { getRoleLabel } from '../navigation';
 
 const TABS = [
   { key: 'overview', label: 'Обзор' },
@@ -7,13 +8,6 @@ const TABS = [
   { key: 'teachers', label: 'Преподаватели' },
   { key: 'students', label: 'Студенты' }
 ];
-
-const ROLE_LABELS = {
-  admin: 'Администратор',
-  dean: 'Декан',
-  head: 'Зав. кафедрой',
-  teacher: 'Преподаватель'
-};
 
 const clampPct = (value) => Math.max(0, Math.min(100, Math.round(Number(value) || 0)));
 
@@ -141,7 +135,7 @@ const StaffOverviewPage = ({ token }) => {
   const groups = (data?.groups || []).filter((item) => matches(item.group_name, item.lectern_name));
   const teachers = (data?.teachers || []).filter((item) => matches(item.name, item.job_title, item.lectern_name));
   const students = (data?.students || []).filter((item) => matches(item.name, item.group_name, item.lectern_name));
-  const roleLabel = ROLE_LABELS[data?.role] || data?.role || 'Роль';
+  const roleLabel = data?.role ? getRoleLabel(data.role) : 'Роль';
 
   return (
     <section className="staff-overview-page">

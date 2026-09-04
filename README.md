@@ -176,6 +176,7 @@ Swagger UI: `/swagger/index.html` (там же, где фронтенд — ngin
 | `POST /register` | без токена | legacy-регистрация по `role_hash` |
 | `POST /register/by-invite` | без токена | регистрация по инвайт-коду, роль определяется записью в БД |
 | `POST /login` | без токена | возвращает JWT |
+| `POST /api/auth/switch-role` | любой авторизованный | переключить активную роль и получить новый подписанный JWT |
 | `GET /profile` | любой авторизованный | профиль текущего пользователя |
 | `POST /api/auth/forgot-password` | без токена | отправляет письмо со ссылкой восстановления пароля |
 | `POST /api/auth/reset-password` | без токена | подтверждает сброс пароля по токену из письма |
@@ -199,8 +200,8 @@ Swagger UI: `/swagger/index.html` (там же, где фронтенд — ngin
 |---|---|---|
 | `GET /api/admin/users` | admin | список пользователей с пагинацией, поиском и фильтрами |
 | `GET /api/admin/users/:user_id` | admin | получить одного пользователя |
-| `POST /api/admin/users` | admin | создать пользователя и профиль его роли |
-| `PATCH /api/admin/users/:user_id` | admin | изменить данные, роль или статус |
+| `POST /api/admin/users` | admin | создать пользователя с одной или несколькими ролями и нужными профилями |
+| `PATCH /api/admin/users/:user_id` | admin | изменить данные, набор ролей, основную роль или статус |
 | `DELETE /api/admin/users/:user_id` | admin | мягко удалить пользователя (`status=archived`) |
 | `GET /api/admin/stats` | admin, minister | системная статистика: пользователи по ролям, группы, семестр, Go-runtime |
 | `GET /api/admin/org-structure` | admin, minister, director, dean | иерархическое дерево оргструктуры: факультеты → кафедры → группы |

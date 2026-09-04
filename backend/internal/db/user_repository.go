@@ -29,6 +29,37 @@ func NewUserRepository(pool *pgxpool.Pool) *UserRepository {
 	return &UserRepository{pool: pool}
 }
 
+func (r *UserRepository) rolesForUser(ctx context.Context, userID int32, primaryRole string) ([]string, error) {
+	rows, err := r.pool.Query(
+		ctx,
+		`SELECT role::text
+		 FROM user_roles
+		 WHERE user_id = $1
+		 ORDER BY is_primary DESC, role::text`,
+		userID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("load user roles: %w", err)
+	}
+	defer rows.Close()
+
+	roles := make([]string, 0, 1)
+	for rows.Next() {
+		var role string
+		if err := rows.Scan(&role); err != nil {
+			return nil, fmt.Errorf("scan user role: %w", err)
+		}
+		roles = append(roles, role)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate user roles: %w", err)
+	}
+	if len(roles) == 0 && primaryRole != "" {
+		roles = append(roles, primaryRole)
+	}
+	return roles, nil
+}
+
 func (r *UserRepository) Create(ctx context.Context, login, passwordHash, role string) (User, error) {
 	login = strings.TrimSpace(login)
 	passwordHash = strings.TrimSpace(passwordHash)
@@ -72,6 +103,10 @@ func (r *UserRepository) Create(ctx context.Context, login, passwordHash, role s
 		}
 		return User{}, fmt.Errorf("insert user: %w", err)
 	}
+	out.Roles, err = r.rolesForUser(ctx, out.ID, out.Role)
+	if err != nil {
+		return User{}, err
+	}
 
 	return out, nil
 }
@@ -107,6 +142,10 @@ func (r *UserRepository) GetByLogin(ctx context.Context, login string) (User, bo
 	if err != nil {
 		return User{}, false, fmt.Errorf("get user by login: %w", err)
 	}
+	out.Roles, err = r.rolesForUser(ctx, out.ID, out.Role)
+	if err != nil {
+		return User{}, false, err
+	}
 
 	return out, true, nil
 }
@@ -140,6 +179,10 @@ func (r *UserRepository) GetByID(ctx context.Context, id int32) (User, bool, err
 	}
 	if err != nil {
 		return User{}, false, fmt.Errorf("get user by id: %w", err)
+	}
+	out.Roles, err = r.rolesForUser(ctx, out.ID, out.Role)
+	if err != nil {
+		return User{}, false, err
 	}
 
 	return out, true, nil
@@ -187,6 +230,10 @@ func (r *UserRepository) GetByEmail(ctx context.Context, email string) (User, bo
 	}
 	if err != nil {
 		return User{}, false, fmt.Errorf("get user by email: %w", err)
+	}
+	out.Roles, err = r.rolesForUser(ctx, out.ID, out.Role)
+	if err != nil {
+		return User{}, false, err
 	}
 
 	return out, true, nil
@@ -319,7 +366,10 @@ func (r *UserRepository) AdminList(ctx context.Context, filter AdminUserFilter) 
 		ctx,
 		`SELECT COUNT(*)
 		 FROM users
-		 WHERE ($1 = '' OR role::text = $1)
+		 WHERE ($1 = '' OR EXISTS (
+		           SELECT 1 FROM user_roles ur
+		           WHERE ur.user_id = users.id AND ur.role::text = $1
+		       ))
 		   AND ($2 = '' OR status = $2)
 		   AND (
 		       $3 = ''
@@ -336,10 +386,17 @@ func (r *UserRepository) AdminList(ctx context.Context, filter AdminUserFilter) 
 
 	rows, err := r.pool.Query(
 		ctx,
-		`SELECT id, login, role::text, email, status,
-		        is_2fa_enabled, created_at, updated_at
+		`SELECT id, login, role::text,
+		        ARRAY(SELECT ur.role::text
+		              FROM user_roles ur
+		              WHERE ur.user_id = users.id
+		              ORDER BY ur.is_primary DESC, ur.role::text),
+		        email, status, is_2fa_enabled, created_at, updated_at
 		 FROM users
-		 WHERE ($1 = '' OR role::text = $1)
+		 WHERE ($1 = '' OR EXISTS (
+		           SELECT 1 FROM user_roles ur
+		           WHERE ur.user_id = users.id AND ur.role::text = $1
+		       ))
 		   AND ($2 = '' OR status = $2)
 		   AND (
 		       $3 = ''
@@ -366,6 +423,7 @@ func (r *UserRepository) AdminList(ctx context.Context, filter AdminUserFilter) 
 			&item.ID,
 			&item.Login,
 			&item.Role,
+			&item.Roles,
 			&item.Email,
 			&item.Status,
 			&item.TwoFaEnabled,
@@ -391,8 +449,18 @@ func (r *UserRepository) AdminGetByID(ctx context.Context, userID int32) (AdminU
 	var item AdminUser
 	err := r.pool.QueryRow(
 		ctx,
-		`SELECT id, login, role::text, email, status,
-		        is_2fa_enabled, created_at, updated_at
+		`SELECT id, login, role::text,
+		        ARRAY(SELECT ur.role::text
+		              FROM user_roles ur
+		              WHERE ur.user_id = users.id
+		              ORDER BY ur.is_primary DESC, ur.role::text),
+		        email, status, is_2fa_enabled, created_at, updated_at,
+		        (SELECT s.student_id FROM students s WHERE s.user_id = users.id LIMIT 1),
+		        (SELECT t.teacher_id FROM teachers t WHERE t.user_id = users.id LIMIT 1),
+		        (SELECT os.lectern_id FROM org_scopes os
+		         WHERE os.user_id = users.id AND os.lectern_id IS NOT NULL LIMIT 1),
+		        (SELECT os.faculty_id FROM org_scopes os
+		         WHERE os.user_id = users.id AND os.faculty_id IS NOT NULL LIMIT 1)
 		 FROM users
 		 WHERE id = $1`,
 		userID,
@@ -400,11 +468,16 @@ func (r *UserRepository) AdminGetByID(ctx context.Context, userID int32) (AdminU
 		&item.ID,
 		&item.Login,
 		&item.Role,
+		&item.Roles,
 		&item.Email,
 		&item.Status,
 		&item.TwoFaEnabled,
 		&item.CreatedAt,
 		&item.UpdatedAt,
+		&item.StudentID,
+		&item.TeacherID,
+		&item.LecternID,
+		&item.FacultyID,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return AdminUser{}, false, nil

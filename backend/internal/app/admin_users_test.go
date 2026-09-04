@@ -55,6 +55,40 @@ func TestValidateAdminUserCreate(t *testing.T) {
 			},
 		},
 		{
+			name: "dean teacher and admin",
+			data: AdminUserCreateData{
+				Login:       "multi_role_1",
+				Password:    "good_password",
+				Roles:       []string{RoleDean, RoleTeacher, RoleAdmin},
+				PrimaryRole: RoleDean,
+				FullName:    "Иван Иванов",
+				FacultyID:   1,
+			},
+		},
+		{
+			name: "multi role primary is not assigned",
+			data: AdminUserCreateData{
+				Login:       "multi_role_2",
+				Password:    "good_password",
+				Roles:       []string{RoleDean, RoleTeacher},
+				PrimaryRole: RoleAdmin,
+				FullName:    "Иван Иванов",
+				FacultyID:   1,
+			},
+			wantErr: true,
+		},
+		{
+			name: "multi role missing lectern scope",
+			data: AdminUserCreateData{
+				Login:       "multi_role_3",
+				Password:    "good_password",
+				Roles:       []string{RoleTeacher, RoleSecretary},
+				PrimaryRole: RoleTeacher,
+				FullName:    "Иван Иванов",
+			},
+			wantErr: true,
+		},
+		{
 			name: "short password",
 			data: AdminUserCreateData{
 				Login:    "admin_2",
@@ -129,3 +163,41 @@ func TestGenerateInviteCode(t *testing.T) {
 	}
 }
 
+func TestNormalizeAdminRoles(t *testing.T) {
+	roles, err := normalize_admin_roles([]string{" dean ", "teacher", "dean", "ADMIN"})
+	if err != nil {
+		t.Fatalf("normalize_admin_roles() error = %v", err)
+	}
+	want := []string{RoleDean, RoleTeacher, RoleAdmin}
+	if !same_role_set(roles, want) || len(roles) != len(want) {
+		t.Fatalf("normalize_admin_roles() = %#v, want %#v", roles, want)
+	}
+
+	if _, err := normalize_admin_roles(nil); err == nil {
+		t.Fatal("expected empty role set to be rejected")
+	}
+	if _, err := normalize_admin_roles([]string{"super_admin"}); err == nil {
+		t.Fatal("expected invalid role to be rejected")
+	}
+}
+
+func TestNormalizeAdminCreateRoles(t *testing.T) {
+	roles, primary, err := normalize_admin_create_roles(AdminUserCreateData{
+		Roles:       []string{" dean ", "teacher", "dean", "ADMIN"},
+		PrimaryRole: "TEACHER",
+	})
+	if err != nil {
+		t.Fatalf("normalize_admin_create_roles() error = %v", err)
+	}
+	if primary != RoleTeacher || !same_role_set(roles, []string{RoleDean, RoleTeacher, RoleAdmin}) {
+		t.Fatalf("normalize_admin_create_roles() = (%#v, %q)", roles, primary)
+	}
+
+	legacyRoles, legacyPrimary, err := normalize_admin_create_roles(AdminUserCreateData{Role: RoleStudent})
+	if err != nil {
+		t.Fatalf("legacy normalize_admin_create_roles() error = %v", err)
+	}
+	if len(legacyRoles) != 1 || legacyRoles[0] != RoleStudent || legacyPrimary != RoleStudent {
+		t.Fatalf("legacy normalize_admin_create_roles() = (%#v, %q)", legacyRoles, legacyPrimary)
+	}
+}

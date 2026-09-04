@@ -54,8 +54,15 @@ definitions:
         type: string
       password:
         type: string
-      role:
+      primary_role:
         type: string
+      role:
+        description: legacy singular role
+        type: string
+      roles:
+        items:
+          type: string
+        type: array
     type: object
   app.AdminUserUpdateData:
     properties:
@@ -69,8 +76,15 @@ definitions:
         type: string
       password:
         type: string
-      role:
+      primary_role:
         type: string
+      role:
+        description: legacy alias for replacing the role set
+        type: string
+      roles:
+        items:
+          type: string
+        type: array
       status:
         type: string
       student_id:
@@ -82,6 +96,8 @@ definitions:
     type: object
   app.AndroidAttendanceMarkData:
     properties:
+      biometric_signature:
+        type: string
       device_id:
         type: string
       invite_token:
@@ -92,6 +108,10 @@ definitions:
         type: integer
       lon:
         type: number
+      nonce:
+        type: string
+      ts:
+        type: integer
     type: object
   app.AndroidLessonCreateData:
     properties:
@@ -109,6 +129,8 @@ definitions:
         type: number
       lesson_name:
         type: string
+      lesson_type:
+        type: string
       lon:
         type: number
       subject:
@@ -120,8 +142,14 @@ definitions:
     type: object
   app.AttendanceConfirmData:
     properties:
+      device_id:
+        type: string
       invite_token:
         type: string
+      lat:
+        type: number
+      lon:
+        type: number
     type: object
   app.AttendanceGroupStatsData:
     properties:
@@ -444,6 +472,11 @@ definitions:
         type: string
       term_num:
         type: integer
+    type: object
+  app.SwitchRoleData:
+    properties:
+      role:
+        type: string
     type: object
   app.TeacherAttendanceMarkData:
     properties:
@@ -1598,8 +1631,8 @@ paths:
     post:
       consumes:
       - application/json
-      description: Creates a user and the required role profile in one transaction.
-        Admin only.
+      description: Creates a user with one or more roles and the required profiles
+        in one transaction. Admin only.
       parameters:
       - description: User payload
         in: body
@@ -1715,7 +1748,8 @@ paths:
     patch:
       consumes:
       - application/json
-      description: Updates user fields, status or role. Admin only.
+      description: Updates user fields, status, assigned roles or primary role. Admin
+        only.
       parameters:
       - description: User ID
         in: path
@@ -1818,6 +1852,43 @@ paths:
           schema:
             $ref: '#/definitions/app.Response'
       summary: Reset password
+      tags:
+      - auth
+  /api/auth/switch-role:
+    post:
+      consumes:
+      - application/json
+      description: Issues a new signed session token for a role already assigned to
+        the current user.
+      parameters:
+      - description: Role selection
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/app.SwitchRoleData'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/app.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/app.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/app.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/app.Response'
+      security:
+      - BearerAuth: []
+      summary: Switch active role
       tags:
       - auth
   /api/semesters:

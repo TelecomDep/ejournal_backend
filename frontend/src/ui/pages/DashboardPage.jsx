@@ -1,6 +1,5 @@
 import React from 'react';
-
-const STAFF_ROLES = ['admin', 'head', 'dean'];
+import { getActiveRole, getRoleLabel, STAFF_ROLES } from '../navigation';
 
 const getDisplayName = (user) => (
   user?.teacher_name || user?.name || user?.login || 'Пользователь'
@@ -10,8 +9,7 @@ const roleTitle = (role) => {
   if (role === 'teacher') return 'Рабочая панель преподавателя';
   if (role === 'admin') return 'Панель администратора';
   if (role === 'head') return 'Панель заведующего кафедрой';
-  if (role === 'dean') return 'Панель декана';
-  if (STAFF_ROLES.includes(role)) return 'Сводная панель';
+  if (STAFF_ROLES.includes(role)) return `Панель: ${getRoleLabel(role)}`;
   return 'Личный кабинет студента';
 };
 
@@ -120,8 +118,8 @@ const getQuickCards = (role) => {
 };
 
 const DashboardPage = ({ user, navigate }) => {
-  const role = user?.role || 'student';
-  const isStaff = role === 'head' || role === 'dean';
+  const role = getActiveRole(user) || 'student';
+  const isStaff = STAFF_ROLES.includes(role);
   const name = getDisplayName(user);
   const quickCards = getQuickCards(role);
 
@@ -140,17 +138,17 @@ const DashboardPage = ({ user, navigate }) => {
         </div>
       </div>
 
-	  <div className="dashboard-quick-grid">
-		{quickCards.map((card) => (
-		  <QuickCard
-			key={card.to}
-			icon={card.icon}
-			title={card.title}
-			text={card.text}
-			to={card.to}
-			navigate={navigate}
-		  />
-		))}
+      <div className="dashboard-quick-grid">
+        {quickCards.map((card) => (
+          <QuickCard
+            key={card.to}
+            icon={card.icon}
+            title={card.title}
+            text={card.text}
+            to={card.to}
+            navigate={navigate}
+          />
+        ))}
       </div>
     </section>
   );

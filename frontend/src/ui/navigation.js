@@ -2,6 +2,10 @@ const ROLE_LABELS = {
   admin: 'Администратор',
   dean: 'Декан',
   head: 'Зав. кафедрой',
+  secretary: 'Секретарь',
+  program_creator: 'Руководитель программы',
+  director: 'Директор института',
+  minister: 'Министр образования',
   teacher: 'Преподаватель',
   student: 'Студент'
 };
@@ -56,21 +60,35 @@ const TEACHING_STAFF_NAV = [
   { key: 'profile', label: 'Профиль', title: 'Профиль', route: '/profile', icon: '○' }
 ];
 
-const STAFF_ROLES = ['admin', 'head', 'dean'];
+export const STAFF_ROLES = [
+  'admin',
+  'head',
+  'dean',
+  'secretary',
+  'program_creator',
+  'director',
+  'minister'
+];
+
+export const getActiveRole = (user) => {
+  const role = user?.active_role || user?.role || user?.primary_role;
+  return typeof role === 'string' ? role.trim().toLowerCase() : '';
+};
 
 export const getRoleLabel = (role) => ROLE_LABELS[role] || 'Пользователь';
 
 export const getNavigationForRole = (role) => {
-  if (role === 'admin') {
+  const normalizedRole = typeof role === 'string' ? role.trim().toLowerCase() : '';
+  if (normalizedRole === 'admin') {
     return ADMIN_NAV;
   }
-  if (role === 'head') {
+  if (normalizedRole === 'head') {
     return TEACHING_STAFF_NAV;
   }
-  if (STAFF_ROLES.includes(role)) {
+  if (STAFF_ROLES.includes(normalizedRole)) {
     return STAFF_NAV;
   }
-  if (role === 'teacher') {
+  if (normalizedRole === 'teacher') {
     return TEACHER_NAV;
   }
   return STUDENT_NAV;

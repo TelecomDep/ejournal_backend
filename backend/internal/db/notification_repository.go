@@ -182,10 +182,11 @@ func (r *NotificationRepository) Create(
 		tag, exec_err := tx.Exec(
 			ctx,
 			`INSERT INTO notification_recipients (notification_id, user_id)
-			 SELECT $1, id
-			 FROM users
-			 WHERE role::text = $2
-			   AND status = 'active'
+			 SELECT DISTINCT $1, u.id
+			 FROM users u
+			 JOIN user_roles ur ON ur.user_id = u.id
+			 WHERE ur.role::text = $2
+			   AND u.status = 'active'
 			 ON CONFLICT DO NOTHING`,
 			item.NotificationID,
 			recipients.Role,
@@ -260,10 +261,10 @@ func (r *NotificationRepository) Create(
 
 			     UNION
 
-			     SELECT id AS user_id
-			     FROM users
-			     WHERE role::text = 'admin'
-			       AND status = 'active'
+			 SELECT DISTINCT u.id AS user_id
+			 FROM users u
+			 JOIN user_roles ur ON ur.user_id = u.id AND ur.role = 'admin'
+			 WHERE u.status = 'active'
 			 )
 			 INSERT INTO notification_recipients (notification_id, user_id)
 			 SELECT $1, ru.user_id
@@ -737,4 +738,3 @@ func (r *NotificationRepository) DeleteForUser(
 
 	return tag.RowsAffected() > 0, nil
 }
-

@@ -48,6 +48,10 @@ type LoginData struct {
 	TwoFaCode string `json:"two_fa_code,omitempty"`
 }
 
+type SwitchRoleData struct {
+	Role string `json:"role"`
+}
+
 type RegisterData struct {
 	Login      string `json:"login"`
 	Password   string `json:"password"`
@@ -76,12 +80,31 @@ type UpdateEmailData struct {
 }
 
 type User struct {
-	ID     int32
-	UserID string
-	Login  string
-	Pass   string
-	Role   string
-	Email  string
+	ID          int32
+	UserID      string
+	Login       string
+	Pass        string
+	Role        string
+	PrimaryRole string
+	Roles       []string
+	Email       string
+}
+
+func (u User) HasRole(role string) bool {
+	role = strings.ToLower(strings.TrimSpace(role))
+	if role == "" {
+		return false
+	}
+	if len(u.Roles) > 0 {
+		for _, assigned := range u.Roles {
+			if strings.EqualFold(strings.TrimSpace(assigned), role) {
+				return true
+			}
+		}
+		return false
+	}
+	return strings.EqualFold(strings.TrimSpace(u.PrimaryRole), role) ||
+		strings.EqualFold(strings.TrimSpace(u.Role), role)
 }
 
 type AttendanceCreateData struct {
@@ -156,8 +179,9 @@ type AttendanceInviteClaims struct {
 }
 
 type SessionClaims struct {
-	UserID       int32 `json:"user_id"`
-	TokenVersion int64 `json:"token_version"`
+	UserID       int32  `json:"user_id"`
+	TokenVersion int64  `json:"token_version"`
+	ActiveRole   string `json:"active_role,omitempty"`
 	jwt.RegisteredClaims
 }
 
@@ -414,7 +438,7 @@ func (s *Service) userBySessionToken(token string) (User, error) {
 		return User{}, errors.New("missing token")
 	}
 
-	userID, tokenVersion, err := s.validateJWT(token)
+	userID, tokenVersion, activeRole, err := s.validateJWT(token)
 	if err != nil {
 		return User{}, errors.New("invalid token")
 	}
@@ -445,13 +469,33 @@ func (s *Service) userBySessionToken(token string) (User, error) {
 		emailStr = *dbUser.Email
 	}
 
+	roles := append([]string(nil), dbUser.Roles...)
+	if len(roles) == 0 {
+		roles = []string{dbUser.Role}
+	}
+	if strings.TrimSpace(activeRole) == "" {
+		activeRole = dbUser.Role
+	}
+	roleAssigned := false
+	for _, role := range roles {
+		if role == activeRole {
+			roleAssigned = true
+			break
+		}
+	}
+	if !roleAssigned {
+		return User{}, errors.New("session role is no longer assigned")
+	}
+
 	return User{
-		ID:     dbUser.ID,
-		UserID: strconv.FormatInt(int64(dbUser.ID), 10),
-		Login:  dbUser.Login,
-		Pass:   dbUser.PasswordHash,
-		Role:   dbUser.Role,
-		Email:  emailStr,
+		ID:          dbUser.ID,
+		UserID:      strconv.FormatInt(int64(dbUser.ID), 10),
+		Login:       dbUser.Login,
+		Pass:        dbUser.PasswordHash,
+		Role:        activeRole,
+		PrimaryRole: dbUser.Role,
+		Roles:       roles,
+		Email:       emailStr,
 	}, nil
 }
 
@@ -571,11 +615,14 @@ func (s *Service) profileByToken(token string) Response {
 	}
 
 	result := map[string]any{
-		"user_id": user.UserID,
-		"user_ID": user.UserID,
-		"login":   user.Login,
-		"role":    user.Role,
-		"email":   user.Email,
+		"user_id":      user.UserID,
+		"user_ID":      user.UserID,
+		"login":        user.Login,
+		"role":         user.Role,
+		"active_role":  user.Role,
+		"primary_role": user.PrimaryRole,
+		"roles":        user.Roles,
+		"email":        user.Email,
 	}
 
 	ctx, cancel := s.dbContext()
@@ -927,7 +974,7 @@ func (s *Service) registerByInvite(data RegisterByInviteData) Response {
 	}
 
 	userID := strconv.FormatInt(int64(created.ID), 10)
-	token, err := s.generateJWT(created.ID, 1)
+	token, err := s.generateJWTForRole(created.ID, 1, created.Role)
 	if err != nil {
 		return Response{OK: false, Error: "EROR_generateJWT: " + err.Error()}
 	}
@@ -965,17 +1012,15 @@ func (s *Service) refreshToken(sessionToken string) Response {
 		return Response{OK: false, Error: "missing token"}
 	}
 
-	claims := &SessionClaims{}
-	p := jwt.NewParser(jwt.WithoutClaimsValidation())
-	_, _, parseErr := p.ParseUnverified(tokenStr, claims)
-	if parseErr != nil || claims.UserID <= 0 {
-		return Response{OK: false, Error: "invalid token structure"}
+	userID, claimTokenVersion, activeRole, err := s.validateJWT(tokenStr)
+	if err != nil {
+		return Response{OK: false, Error: "invalid token"}
 	}
 
 	ctx, cancel := s.dbContext()
 	defer cancel()
 
-	dbUser, ok, err := s.store.Users.GetByID(ctx, claims.UserID)
+	dbUser, ok, err := s.store.Users.GetByID(ctx, userID)
 	if err != nil || !ok || dbUser.Status != "active" {
 		return Response{OK: false, Error: "cannot refresh session: user not active"}
 	}
@@ -985,11 +1030,25 @@ func (s *Service) refreshToken(sessionToken string) Response {
 		return Response{OK: false, Error: "failed to load token version"}
 	}
 
-	if claims.TokenVersion != tokenVersion {
+	if claimTokenVersion != tokenVersion {
 		return Response{OK: false, Error: "session revoked"}
 	}
 
-	newToken, err := s.generateJWT(dbUser.ID, tokenVersion)
+	if activeRole == "" {
+		activeRole = dbUser.Role
+	}
+	roleAssigned := false
+	for _, role := range dbUser.Roles {
+		if role == activeRole {
+			roleAssigned = true
+			break
+		}
+	}
+	if !roleAssigned {
+		return Response{OK: false, Error: "session role is no longer assigned"}
+	}
+
+	newToken, err := s.generateJWTForRole(dbUser.ID, tokenVersion, activeRole)
 	if err != nil {
 		return Response{OK: false, Error: "failed to generate token"}
 	}
@@ -997,14 +1056,53 @@ func (s *Service) refreshToken(sessionToken string) Response {
 	return Response{
 		OK: true,
 		Result: map[string]any{
-			"token":      newToken,
-			"user_ID":    strconv.FormatInt(int64(dbUser.ID), 10),
-			"user_id":    dbUser.ID,
-			"login":      dbUser.Login,
-			"role":       dbUser.Role,
-			"expires_at": time.Now().UTC().Add(time.Hour).Format(time.RFC3339),
+			"token":        newToken,
+			"user_ID":      strconv.FormatInt(int64(dbUser.ID), 10),
+			"user_id":      dbUser.ID,
+			"login":        dbUser.Login,
+			"role":         activeRole,
+			"active_role":  activeRole,
+			"primary_role": dbUser.Role,
+			"roles":        dbUser.Roles,
+			"expires_at":   time.Now().UTC().Add(time.Hour).Format(time.RFC3339),
 		},
 	}
+}
+
+func (s *Service) switchRole(sessionToken string, data SwitchRoleData) Response {
+	user, err := s.userBySessionToken(sessionToken)
+	if err != nil {
+		return Response{OK: false, Error: err.Error()}
+	}
+	role := strings.ToLower(strings.TrimSpace(data.Role))
+	if !IsValidRole(role) || !user.HasRole(role) {
+		return Response{OK: false, Error: "role is not assigned to user"}
+	}
+
+	ctx, cancel := s.dbContext()
+	defer cancel()
+	var tokenVersion int64
+	if err := s.store.Pool().QueryRow(ctx, `SELECT token_version FROM users WHERE id = $1`, user.ID).Scan(&tokenVersion); err != nil {
+		return Response{OK: false, Error: "failed to load token version"}
+	}
+	newToken, err := s.generateJWTForRole(user.ID, tokenVersion, role)
+	if err != nil {
+		return Response{OK: false, Error: "failed to switch role"}
+	}
+	if err := s.RecordAuditLog(ctx, user.ID, user.Login, user.Role, "role_switched", "session", strconv.Itoa(int(user.ID)), map[string]any{
+		"old_role": user.Role,
+		"new_role": role,
+	}, ""); err != nil {
+		log.Printf("failed to audit role switch: %v", err)
+	}
+	return Response{OK: true, Result: map[string]any{
+		"token":        newToken,
+		"role":         role,
+		"active_role":  role,
+		"primary_role": user.PrimaryRole,
+		"roles":        user.Roles,
+		"expires_at":   time.Now().UTC().Add(time.Hour).Format(time.RFC3339),
+	}}
 }
 
 func (s *Service) login(data LoginData) Response {
@@ -1058,7 +1156,7 @@ func (s *Service) login(data LoginData) Response {
 	}
 
 	userID := strconv.FormatInt(int64(storedUser.ID), 10)
-	token, err := s.generateJWT(storedUser.ID, tokenVersion)
+	token, err := s.generateJWTForRole(storedUser.ID, tokenVersion, storedUser.Role)
 	if err != nil {
 		return Response{OK: false, Error: "EROR_generateJWT: " + err.Error()}
 	}
@@ -1066,11 +1164,14 @@ func (s *Service) login(data LoginData) Response {
 	return Response{
 		OK: true,
 		Result: map[string]any{
-			"token":   token,
-			"user_ID": userID,
-			"login":   storedUser.Login,
-			"role":    storedUser.Role,
-			"email":   storedUser.Email,
+			"token":        token,
+			"user_ID":      userID,
+			"login":        storedUser.Login,
+			"role":         storedUser.Role,
+			"active_role":  storedUser.Role,
+			"primary_role": storedUser.Role,
+			"roles":        storedUser.Roles,
+			"email":        storedUser.Email,
 		},
 	}
 }
@@ -2442,6 +2543,14 @@ func (s *Service) handleRequest(raw string) Response {
 		resp := s.refreshToken(req.Token)
 		resp.ID = req.ID
 		return resp
+	case "switch_role":
+		var data SwitchRoleData
+		if err := json.Unmarshal(req.Data, &data); err != nil {
+			return Response{ID: req.ID, OK: false, Error: "invalid switch_role payload"}
+		}
+		resp := s.switchRole(req.Token, data)
+		resp.ID = req.ID
+		return resp
 	case "login":
 		var data LoginData
 		err := json.Unmarshal(req.Data, &data)
@@ -3083,9 +3192,13 @@ func (s *Service) handleRequest(raw string) Response {
 	}
 }
 
-func (s *Service) generateJWT(userID int32, tokenVersion int64) (string, error) {
+func (s *Service) generateJWTForRole(userID int32, tokenVersion int64, activeRole string) (string, error) {
 	if userID <= 0 || tokenVersion <= 0 {
 		return "", errors.New("invalid session identity")
+	}
+	activeRole = strings.ToLower(strings.TrimSpace(activeRole))
+	if !IsValidRole(activeRole) {
+		return "", errors.New("invalid active role")
 	}
 	jtiBytes := make([]byte, 16)
 	if _, err := rand.Read(jtiBytes); err != nil {
@@ -3095,6 +3208,7 @@ func (s *Service) generateJWT(userID int32, tokenVersion int64) (string, error) 
 	claims := SessionClaims{
 		UserID:       userID,
 		TokenVersion: tokenVersion,
+		ActiveRole:   activeRole,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    "ejournal",
 			Subject:   strconv.FormatInt(int64(userID), 10),
@@ -3110,7 +3224,7 @@ func (s *Service) generateJWT(userID int32, tokenVersion int64) (string, error) 
 	return token.SignedString(s.jwtSecret)
 }
 
-func (s *Service) validateJWT(tokenString string) (int32, int64, error) {
+func (s *Service) validateJWT(tokenString string) (int32, int64, string, error) {
 	claims := &SessionClaims{}
 	token, err := jwt.ParseWithClaims(
 		tokenString,
@@ -3122,19 +3236,19 @@ func (s *Service) validateJWT(tokenString string) (int32, int64, error) {
 		jwt.WithExpirationRequired(),
 	)
 	if err != nil {
-		return 0, 0, err
+		return 0, 0, "", err
 	}
 
 	if !token.Valid {
-		return 0, 0, errors.New("token is not valid")
+		return 0, 0, "", errors.New("token is not valid")
 	}
 	if claims.UserID <= 0 || claims.TokenVersion <= 0 {
-		return 0, 0, errors.New("session claims are incomplete")
+		return 0, 0, "", errors.New("session claims are incomplete")
 	}
 	if claims.Subject != strconv.FormatInt(int64(claims.UserID), 10) {
-		return 0, 0, errors.New("session subject does not match user")
+		return 0, 0, "", errors.New("session subject does not match user")
 	}
-	return claims.UserID, claims.TokenVersion, nil
+	return claims.UserID, claims.TokenVersion, strings.ToLower(strings.TrimSpace(claims.ActiveRole)), nil
 }
 
 func (s *Service) deleteEmail(sessionToken string) Response {
