@@ -231,7 +231,7 @@ def write_rating_sheet(sheet, department_name: str, semester_title: str, subject
     sheet.cell(last_data_row + 2, 1).font = Font(italic=True, color=MUTED, size=9)
     sheet.merge_cells(start_row=last_data_row + 2, start_column=1, end_row=last_data_row + 2, end_column=last_column)
 
-    set_widths(sheet, {1: 8, 2: 30, 3: 14, rating_column: 15, attendance_column: 15})
+    set_widths(sheet, {1: 8, 2: 22, 3: 14, rating_column: 15, attendance_column: 15})
     for column in range(subject_start, rating_column):
         sheet.column_dimensions[get_column_letter(column)].width = 14
 

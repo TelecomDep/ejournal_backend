@@ -1,7 +1,10 @@
 .ui-shell {
+  height: 100vh;
+  height: 100dvh;
   min-height: 100vh;
   display: grid;
   grid-template-columns: 248px minmax(0, 1fr);
+  overflow: hidden;
   background: #f4f7ff;
   color: #101b37;
   font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -68,17 +71,20 @@
 .ui-nav {
   min-height: 0;
   display: grid;
-  gap: 12px;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  scrollbar-width: thin;
-  scrollbar-color: #c7d4ec transparent;
+  align-content: start;
+  gap: clamp(5px, 1.1vh, 12px);
+  overflow: hidden;
+  scrollbar-width: none;
+}
+
+.ui-nav::-webkit-scrollbar {
+  display: none;
 }
 
 .ui-nav-button {
   position: relative;
   width: 100%;
-  min-height: 54px;
+  min-height: clamp(44px, 7vh, 54px);
   display: flex;
   align-items: center;
   gap: 14px;
@@ -169,10 +175,13 @@
 
 .ui-content {
   min-width: 0;
-  min-height: 100vh;
-  min-height: 100dvh;
+  height: 100vh;
+  height: 100dvh;
+  min-height: 0;
   display: flex;
   flex-direction: column;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .ui-topbar {
@@ -201,6 +210,7 @@
 }
 
 .ui-topbar-actions {
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1379,15 +1389,15 @@
   }
 
   .ui-nav {
-    display: flex;
+    display: grid;
     gap: 6px;
-    overflow-x: auto;
-    padding-bottom: 2px;
+    overflow: hidden;
+    padding-bottom: 0;
   }
 
   .ui-nav-button {
-    width: auto;
-    flex: 0 0 auto;
+    width: 100%;
+    flex: initial;
     padding-right: 14px;
   }
 
@@ -1424,6 +1434,11 @@
     padding: 16px 12px;
   }
 
+  .ui-topbar {
+    gap: 8px;
+    padding: 12px;
+  }
+
   .ui-topbar-actions {
     gap: 6px;
   }
@@ -1446,7 +1461,7 @@
 
   .ui-role-switch select {
     min-width: 0;
-    width: min(142px, 42vw);
+    width: min(116px, 31vw);
     padding-left: 9px;
     padding-right: 22px;
     font-size: 12px;
@@ -2297,9 +2312,33 @@
 
 .ui-topbar-user {
   min-width: 0;
+  flex: 1 1 auto;
   display: flex;
   align-items: center;
   gap: 12px;
+}
+
+.ui-topbar-user > div {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.ui-topbar-user strong,
+.ui-topbar-user .ui-user-role {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 520px) {
+  .ui-topbar-user {
+    gap: 8px;
+  }
+
+  .ui-topbar-user strong {
+    font-size: 15px;
+  }
 }
 
 .ui-menu-button {
@@ -5775,6 +5814,13 @@
   cursor: wait;
 }
 
+.attendance-status-control {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
 .attendance-source {
   color: #526079;
   font-size: 13px;
@@ -5791,16 +5837,8 @@
 }
 
 .attendance-source.is-fraud {
-  color: #b91c1c;
+  color: #8a5a08;
   font-weight: 750;
-}
-
-.attendance-live-table tr.is-fraud-row {
-  background: #fff5f5 !important;
-}
-
-.attendance-live-table tr.is-fraud-row:hover {
-  background: #ffebeb !important;
 }
 
 .attendance-live-student-col {
@@ -5809,49 +5847,15 @@
   gap: 8px;
 }
 
-.attendance-fraud-tag {
-  display: inline-flex;
-  align-items: center;
-  padding: 2px 6px;
-  border-radius: 4px;
-  background: #fef2f2;
-  border: 1px solid #fecaca;
-  color: #dc2626;
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.02em;
-}
-
-.attendance-status-fraud {
-  display: inline-flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 3px;
-}
-
-.attendance-fraud-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 5px 10px;
-  border: 1px solid #fecaca;
-  border-radius: 8px;
-  background: #fee2e2;
-  color: #b91c1c;
-  font-size: 12px;
-  font-weight: 800;
-  line-height: 1.2;
-}
-
 .attendance-fraud-reason {
-  color: #dc2626;
+  color: #8a5a08;
   font-size: 11px;
   font-weight: 600;
   padding-left: 2px;
 }
 
 .attendance-live-fraud-count {
-  color: #dc2626;
+  color: #8a5a08;
   font-weight: 700;
 }
 
@@ -6143,8 +6147,8 @@
   .ui-nav {
     display: grid;
     gap: 5px;
-    overflow-y: auto;
-    padding: 0 4px 12px 0;
+    overflow: hidden;
+    padding: 0 4px 0 0;
   }
 
   .ui-nav-button {
