@@ -429,10 +429,12 @@ const AdminUsersPage = ({ token, currentUser }) => {
     withTwoFa: items.filter((item) => item.two_fa_enabled).length
   }), [items]);
 
+  const inviteIsRegistered = (invite) => Boolean(invite.used_at || invite.registered_as);
+
   const inviteStats = useMemo(() => ({
     total: invites.length,
-    pending: invites.filter((inv) => !inv.used_at).length,
-    registered: invites.filter((inv) => !!inv.used_at).length
+    pending: invites.filter((inv) => !inviteIsRegistered(inv)).length,
+    registered: invites.filter((inv) => inviteIsRegistered(inv)).length
   }), [invites]);
 
   const copyInviteLink = (code) => {
@@ -1055,7 +1057,8 @@ const AdminUsersPage = ({ token, currentUser }) => {
               </thead>
               <tbody>
                 {!invitesLoading && filteredInvites.map((item) => {
-                  const isUsed = !!item.used_at;
+                  const isRegistered = inviteIsRegistered(item);
+                  const isRevocable = !item.used_at;
                   const isSelected = selectedInviteIds.has(item.invite_id);
                   return (
                     <tr key={item.invite_id} style={{ background: isSelected ? '#f0f9ff' : undefined }}>
@@ -1080,13 +1083,14 @@ const AdminUsersPage = ({ token, currentUser }) => {
                         </span>
                       </td>
                       <td data-label="Статус">
-                        <span className={`admin-status-badge ${isUsed ? 'is-active' : 'is-blocked'}`}>
-                          {isUsed ? 'Зарегистрирован' : 'Ожидает входа'}
+                        <span className={`admin-status-badge ${isRegistered ? 'is-active' : 'is-blocked'}`}>
+                          {isRegistered ? 'Зарегистрирован' : 'Ожидает регистрации'}
                         </span>
                       </td>
                       <td data-label="Даты">
                         <div><small>Создан: {formatDateTime(item.created_at)}</small></div>
-                        {isUsed && <div><small style={{ color: '#16a34a' }}>Зарег.: {formatDateTime(item.used_at)}</small></div>}
+                        {item.used_at && <div><small style={{ color: '#16a34a' }}>Зарег.: {formatDateTime(item.used_at)}</small></div>}
+                        {!item.used_at && item.registered_as && <div><small style={{ color: '#16a34a' }}>Профиль уже связан</small></div>}
                       </td>
                       <td data-label="Логин">
                         {item.registered_as ? <strong>{item.registered_as}</strong> : <span style={{ color: '#94a3b8' }}>—</span>}
@@ -1100,7 +1104,7 @@ const AdminUsersPage = ({ token, currentUser }) => {
                           >
                             <AdminIcon name="copy" />
                           </button>
-                          {!isUsed && (
+                          {isRevocable && (
                             <button
                               type="button"
                               className="is-danger"
@@ -1221,7 +1225,8 @@ const AdminUsersPage = ({ token, currentUser }) => {
               </thead>
               <tbody>
                 {!invitesLoading && filteredInvites.map((item) => {
-                  const isUsed = !!item.used_at;
+                  const isRegistered = inviteIsRegistered(item);
+                  const isRevocable = !item.used_at;
                   const isSelected = selectedInviteIds.has(item.invite_id);
                   return (
                     <tr key={item.invite_id} style={{ background: isSelected ? '#f0f9ff' : undefined }}>
@@ -1246,13 +1251,14 @@ const AdminUsersPage = ({ token, currentUser }) => {
                         </span>
                       </td>
                       <td data-label="Статус">
-                        <span className={`admin-status-badge ${isUsed ? 'is-active' : 'is-blocked'}`}>
-                          {isUsed ? 'Зарегистрирован' : 'Ожидает входа'}
+                        <span className={`admin-status-badge ${isRegistered ? 'is-active' : 'is-blocked'}`}>
+                          {isRegistered ? 'Зарегистрирован' : 'Ожидает регистрации'}
                         </span>
                       </td>
                       <td data-label="Даты">
                         <div><small>Создан: {formatDateTime(item.created_at)}</small></div>
-                        {isUsed && <div><small style={{ color: '#16a34a' }}>Зарег.: {formatDateTime(item.used_at)}</small></div>}
+                        {item.used_at && <div><small style={{ color: '#16a34a' }}>Зарег.: {formatDateTime(item.used_at)}</small></div>}
+                        {!item.used_at && item.registered_as && <div><small style={{ color: '#16a34a' }}>Профиль уже связан</small></div>}
                       </td>
                       <td data-label="Логин">
                         {item.registered_as ? <strong>{item.registered_as}</strong> : <span style={{ color: '#94a3b8' }}>—</span>}
@@ -1266,7 +1272,7 @@ const AdminUsersPage = ({ token, currentUser }) => {
                           >
                             <AdminIcon name="copy" />
                           </button>
-                          {!isUsed && (
+                          {isRevocable && (
                             <button
                               type="button"
                               className="is-danger"

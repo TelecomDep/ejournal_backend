@@ -917,6 +917,32 @@ func (s *Service) registerByInvite(data RegisterByInviteData, metas ...RequestMe
 		return Response{OK: false, Error: "invalid invite role"}
 	}
 
+	// Old imports and manual profile links can leave a second unused invite
+	// behind. Do not create a second account for a profile that is already
+	// linked; return the same safe response as for a consumed invite.
+	if studentID.Valid {
+		var linkedUserID sql.NullInt32
+		if err := tx.QueryRow(ctx, `
+			SELECT user_id FROM students WHERE student_id = $1 FOR UPDATE
+		`, studentID.Int32).Scan(&linkedUserID); err != nil {
+			return Response{OK: false, Error: "invalid invite configuration"}
+		}
+		if linkedUserID.Valid {
+			return Response{OK: false, Error: "invalid or used invite_code"}
+		}
+	}
+	if teacherID.Valid {
+		var linkedUserID sql.NullInt32
+		if err := tx.QueryRow(ctx, `
+			SELECT user_id FROM teachers WHERE teacher_id = $1 FOR UPDATE
+		`, teacherID.Int32).Scan(&linkedUserID); err != nil {
+			return Response{OK: false, Error: "invalid invite configuration"}
+		}
+		if linkedUserID.Valid {
+			return Response{OK: false, Error: "invalid or used invite_code"}
+		}
+	}
+
 	var created db.User
 	err = tx.QueryRow(
 		ctx,
