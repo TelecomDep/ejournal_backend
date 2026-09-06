@@ -52,8 +52,6 @@ data/
 ej-db/
 ejvenv/
 internal/app/svc_bckp
-parser
-parsers/
 ssl/
 certbot/
 tests/karate.jar
@@ -62,3 +60,10 @@ target/
 schema.dbml
 
 output/
+
+# Submodule private data protection
+parser/.env
+parser/.env.*
+parser/data/
+parser/backups/
+parser/logs/
