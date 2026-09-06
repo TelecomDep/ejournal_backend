@@ -67,3 +67,9 @@ parser/.env.*
 parser/data/
 parser/backups/
 parser/logs/
+
+# Spreadsheets, database dumps & student lists
+*.sql
+*.xlsx
+*.xls
+*.csv
