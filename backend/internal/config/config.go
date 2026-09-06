@@ -18,6 +18,7 @@ type AppConfig struct {
 	RoleHashStudent      string
 	DefaultGroupID       int32
 	AllowEarlyAttendance bool
+	RateLimitEnabled     bool
 	UploadDir            string
 	SMTPHost             string
 	SMTPPort             string
@@ -43,6 +44,7 @@ func Load() AppConfig {
 		RoleHashStudent:      getEnv("ROLE_HASH_STUDENT", "STUDENT-HASH-2026"),
 		DefaultGroupID:       getEnvInt32("DEFAULT_STUDENT_GROUP_ID", 1),
 		AllowEarlyAttendance: getEnvBool("ALLOW_EARLY_ATTENDANCE", false),
+		RateLimitEnabled:     getEnvBool("RATE_LIMIT_ENABLED", true),
 		UploadDir:            getEnv("UPLOAD_DIR", "uploads"),
 		SMTPHost:             getEnv("SMTP_HOST", ""),
 		SMTPPort:             getEnv("SMTP_PORT", "587"),
