@@ -490,23 +490,9 @@ func (r *AttendanceRepository) SetStudentAttendanceStatus(
 		markedAt = time.Now().UTC()
 	}
 
-	var isFraud bool
-	err := r.pool.QueryRow(
-		ctx,
-		`SELECT is_fraud FROM attendance_session_students WHERE session_id = $1 AND student_id = $2`,
-		sessionID,
-		studentID,
-	).Scan(&isFraud)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return "not_found", nil
-	}
-	if err != nil {
-		return "", fmt.Errorf("check student attendance fraud: %w", err)
-	}
-	if isFraud {
-		return "fraud_locked", nil
-	}
-
+	// A failed automatic check must never prevent the teacher from recording
+	// the real attendance status. Keep the antifraud fields intact for audit,
+	// while marked_by makes the teacher override explicit.
 	cmd, err := r.pool.Exec(
 		ctx,
 		`UPDATE attendance_session_students

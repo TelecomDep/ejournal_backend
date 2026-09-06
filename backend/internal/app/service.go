@@ -2013,9 +2013,6 @@ func (s *Service) attendanceManualMarkByTeacher(sessionToken string, data Teache
 	if err != nil {
 		return Response{OK: false, Error: "failed to update attendance status"}
 	}
-	if result == "fraud_locked" {
-		return Response{OK: false, Error: "нельзя изменить статус: зафиксирована попытка нарушения (антифрод)"}
-	}
 	if result == "not_found" {
 		return Response{OK: false, Error: "student not found in this session's roster"}
 	}

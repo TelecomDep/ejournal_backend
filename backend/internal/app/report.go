@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/go-pdf/fpdf"
 	"github.com/xuri/excelize/v2"
@@ -36,6 +37,23 @@ type PerformanceReport struct {
 	Subjects     []PerformanceReportSubject
 	Rows         []PerformanceReportRow
 	GroupNames   []string
+}
+
+func shortPersonName(name string) string {
+	parts := strings.Fields(name)
+	if len(parts) < 2 {
+		return strings.Join(parts, " ")
+	}
+
+	var initials strings.Builder
+	for _, part := range parts[1:] {
+		for _, letter := range part {
+			initials.WriteRune(unicode.ToUpper(letter))
+			initials.WriteRune('.')
+			break
+		}
+	}
+	return parts[0] + " " + initials.String()
 }
 
 func (s *Service) StaffPerformanceReport(sessionToken string, semesterID *int32) (*PerformanceReport, Response) {
@@ -254,7 +272,7 @@ func BuildPerformanceReportXLSX(report *PerformanceReport) (*bytes.Buffer, error
 		if err := f.SetCellStyle(sheet, "A1", lastCol+"1", headerStyle); err != nil {
 			return err
 		}
-		if err := f.SetColWidth(sheet, "B", "B", 30); err != nil {
+		if err := f.SetColWidth(sheet, "B", "B", 22); err != nil {
 			return err
 		}
 		if err := f.SetColWidth(sheet, "C", lastCol, 14); err != nil {
@@ -270,7 +288,7 @@ func BuildPerformanceReportXLSX(report *PerformanceReport) (*bytes.Buffer, error
 		var ratingCount int
 
 		for i, row := range rows {
-			cells := []any{i + 1, row.StudentName, row.GroupName}
+			cells := []any{i + 1, shortPersonName(row.StudentName), row.GroupName}
 			for j, subj := range report.Subjects {
 				if pct, ok := row.SubjectPercent[subj.ID]; ok {
 					cells = append(cells, pct)
@@ -425,7 +443,7 @@ func BuildPerformanceReportPDF(report *PerformanceReport) (*bytes.Buffer, error)
 	}
 	headers = append(headers, "Рейтинг", "Посещ. %")
 
-	numW, nameW, groupW := 10.0, 55.0, 25.0
+	numW, nameW, groupW := 10.0, 40.0, 25.0
 	flexCols := len(report.Subjects) + 2
 	flexW := (usableW - numW - nameW - groupW) / float64(flexCols)
 	if flexW < 16 {
@@ -465,7 +483,7 @@ func BuildPerformanceReportPDF(report *PerformanceReport) (*bytes.Buffer, error)
 
 		for i, row := range rows {
 			pdf.CellFormat(colWidths[0], rowHeight, fmt.Sprintf("%d", i+1), "1", 0, "C", false, 0, "")
-			pdf.CellFormat(colWidths[1], rowHeight, row.StudentName, "1", 0, "L", false, 0, "")
+			pdf.CellFormat(colWidths[1], rowHeight, shortPersonName(row.StudentName), "1", 0, "L", false, 0, "")
 			pdf.CellFormat(colWidths[2], rowHeight, row.GroupName, "1", 0, "L", false, 0, "")
 
 			for j, subj := range report.Subjects {

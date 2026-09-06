@@ -27,9 +27,9 @@ const formatTime = (value) => {
 };
 
 const sourceLabel = (value, isFraud) => {
-  if (isFraud) return "Антифрод: заблокировано";
-  if (value === "self") return "Студент";
   if (value === "teacher") return "Преподаватель";
+  if (isFraud) return "Автопроверка";
+  if (value === "self") return "Студент";
   return "Нет отметки";
 };
 
@@ -44,6 +44,8 @@ const fraudReasonLabel = (reason) => {
   }
   return reason || "Нарушение антифрода";
 };
+
+const needsManualReview = (student) => Boolean(student?.is_fraud) && student?.marked_by !== "teacher";
 
 const formatCompactStudentName = (value) => {
   const parts = String(value || "").trim().split(/\s+/).filter(Boolean);
@@ -65,7 +67,7 @@ const updateSnapshotStudent = (snapshot, studentId, status) => {
       }
       : student
   ));
-  const markedCount = students.filter((student) => student.status !== "absent" && !student.is_fraud).length;
+  const markedCount = students.filter((student) => student.status !== "absent").length;
   const rosterSize = students.length;
 
   return {
@@ -94,7 +96,7 @@ const mergePendingStatuses = (payload, pendingStatuses) => {
       marked_by: "teacher"
     };
   });
-  const markedCount = students.filter((student) => student.status !== "absent" && !student.is_fraud).length;
+  const markedCount = students.filter((student) => student.status !== "absent").length;
 
   return {
     ...payload,
@@ -208,11 +210,6 @@ const AttendanceLiveTable = ({ token, session, compactStudentIdentity = false })
   }, [loadRoster]);
 
   const handleStatusChange = useCallback(async (studentId, status) => {
-    const student = (snapshot?.students || []).find((s) => Number(s.student_id) === Number(studentId));
-    if (student?.is_fraud) {
-      setError("Нельзя изменить статус: у студента зафиксирована попытка мошенничества (антифрод)");
-      return;
-    }
     const sequence = statusSequenceRef.current + 1;
     statusSequenceRef.current = sequence;
     pendingStatusesRef.current.set(Number(studentId), {
@@ -244,7 +241,7 @@ const AttendanceLiveTable = ({ token, session, compactStudentIdentity = false })
     } finally {
       if (mountedRef.current) setUpdatingStudentId(0);
     }
-  }, [lessonId, loadRoster, snapshot?.students, token]);
+  }, [lessonId, loadRoster, token]);
 
   const handleStatusSelectChange = useCallback((event, studentId) => {
     const select = event.currentTarget;
@@ -271,9 +268,9 @@ const AttendanceLiveTable = ({ token, session, compactStudentIdentity = false })
   const visibleStudents = useMemo(() => {
     const studentQuery = studentSearch.trim().toLocaleLowerCase("ru-RU");
     return (snapshot?.students || []).filter((student) => {
-      if (statusFilter === "marked" && (student.status === "absent" || student.is_fraud)) return false;
-      if (statusFilter === "unmarked" && student.status !== "absent" && !student.is_fraud) return false;
-      if (statusFilter === "fraud" && !student.is_fraud) return false;
+      if (statusFilter === "marked" && student.status === "absent") return false;
+      if (statusFilter === "unmarked" && student.status !== "absent") return false;
+      if (statusFilter === "fraud" && !needsManualReview(student)) return false;
       if (studentQuery && !(student.student_name || "").toLocaleLowerCase("ru-RU").includes(studentQuery)) return false;
       if (groupFilter !== "all" && String(student.group_name || "") !== groupFilter) return false;
       return true;
@@ -294,11 +291,6 @@ const AttendanceLiveTable = ({ token, session, compactStudentIdentity = false })
               {row.original.group_name ? `Группа ${row.original.group_name}` : "Группа не указана"}
             </small>
           )}
-          {row.original.is_fraud && (
-            <span className="attendance-fraud-tag" title={fraudReasonLabel(row.original.fraud_reason)}>
-              ⚠️ ЧИТЕР
-            </span>
-          )}
         </div>
       )
     },
@@ -311,36 +303,30 @@ const AttendanceLiveTable = ({ token, session, compactStudentIdentity = false })
       header: "Статус",
       cell: ({ row, getValue }) => {
         const isFraud = Boolean(row.original.is_fraud);
-        if (isFraud) {
-          return (
-            <div className="attendance-status-fraud" title={fraudReasonLabel(row.original.fraud_reason)}>
-              <span className="attendance-fraud-badge">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="M12 3 5 6v5c0 4.6 2.7 8.1 7 10 4.3-1.9 7-5.4 7-10V6l-7-3Z" />
-                  <path d="m12 8v4" />
-                  <path d="M12 16h.01" />
-                </svg>
-                Нарушение (антифрод)
-              </span>
-              <small className="attendance-fraud-reason">{fraudReasonLabel(row.original.fraud_reason)}</small>
-            </div>
-          );
-        }
         return (
-          <select
-            className={`attendance-status-select is-${getValue()}`}
-            value={getValue()}
-            aria-label={`Статус посещаемости: ${row.original.student_name}`}
-            disabled={Number(updatingStudentId) === Number(row.original.student_id)}
-            onFocus={handleStatusInteractionStart}
-            onPointerDown={handleStatusInteractionStart}
-            onBlur={handleStatusInteractionEnd}
-            onChange={(event) => handleStatusSelectChange(event, row.original.student_id)}
-          >
-            {STATUS_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>{option.label}</option>
-            ))}
-          </select>
+          <div className="attendance-status-control">
+            <select
+              className={`attendance-status-select is-${getValue()}`}
+              value={getValue()}
+              aria-label={`Статус посещаемости: ${row.original.student_name}`}
+              disabled={Number(updatingStudentId) === Number(row.original.student_id)}
+              onFocus={handleStatusInteractionStart}
+              onPointerDown={handleStatusInteractionStart}
+              onBlur={handleStatusInteractionEnd}
+              onChange={(event) => handleStatusSelectChange(event, row.original.student_id)}
+            >
+              {STATUS_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+            {isFraud && (
+              <small className="attendance-fraud-reason" title={fraudReasonLabel(row.original.fraud_reason)}>
+                {row.original.marked_by === "teacher"
+                  ? "Статус подтверждён преподавателем"
+                  : `Нужна ручная проверка: ${fraudReasonLabel(row.original.fraud_reason)}`}
+              </small>
+            )}
+          </div>
         );
       }
     },
@@ -355,7 +341,7 @@ const AttendanceLiveTable = ({ token, session, compactStudentIdentity = false })
       cell: ({ row, getValue }) => {
         const isFraud = Boolean(row.original.is_fraud);
         return (
-          <span className={`attendance-source ${isFraud ? "is-fraud" : `is-${getValue() || "empty"}`}`}>
+          <span className={`attendance-source ${getValue() === "teacher" ? "is-teacher" : isFraud ? "is-fraud" : `is-${getValue() || "empty"}`}`}>
             {sourceLabel(row.original.marked_at ? getValue() : "", isFraud)}
           </span>
         );
@@ -371,7 +357,7 @@ const AttendanceLiveTable = ({ token, session, compactStudentIdentity = false })
 
   const rosterSize = Number(snapshot?.roster_size ?? session?.roster_size ?? 0);
   const markedCount = Number(snapshot?.marked_count ?? session?.marked_count ?? 0);
-  const fraudCount = Number((snapshot?.students || []).filter((s) => s.is_fraud).length);
+  const reviewCount = Number((snapshot?.students || []).filter(needsManualReview).length);
   const lastUpdated = snapshot?.server_time ? formatTime(snapshot.server_time) : "";
 
   return (
@@ -384,9 +370,9 @@ const AttendanceLiveTable = ({ token, session, compactStudentIdentity = false })
           </div>
           <p>
             Отметились <strong>{markedCount}</strong> из <strong>{rosterSize}</strong>
-            {fraudCount > 0 && (
+            {reviewCount > 0 && (
               <span className="attendance-live-fraud-count">
-                {" "}• <strong style={{ color: "#dc2626" }}>{fraudCount}</strong> заблокировано антифродом
+                {" "}• <strong>{reviewCount}</strong> требуют ручной проверки
               </span>
             )}
             {lastUpdated ? `, обновлено в ${lastUpdated}` : ""}
@@ -418,7 +404,7 @@ const AttendanceLiveTable = ({ token, session, compactStudentIdentity = false })
               <option value="all">Всех</option>
               <option value="marked">Отмеченных</option>
               <option value="unmarked">Не отмеченных</option>
-              {fraudCount > 0 && <option value="fraud">Нарушения ({fraudCount})</option>}
+              <option value="fraud">Требуют проверки ({reviewCount})</option>
             </select>
           </label>
         </div>
@@ -455,7 +441,7 @@ const AttendanceLiveTable = ({ token, session, compactStudentIdentity = false })
               ))
             ) : table.getRowModel().rows.length ? (
               table.getRowModel().rows.map((row) => (
-                <tr key={row.id} className={row.original.is_fraud ? "is-fraud-row" : ""}>
+                <tr key={row.id}>
                   {row.getVisibleCells().map((cell) => (
                     <td key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</td>
                   ))}
@@ -475,7 +461,7 @@ const AttendanceLiveTable = ({ token, session, compactStudentIdentity = false })
       </div>
 
       <p className="attendance-live-note">
-        Статус можно исправить прямо в таблице. Изменение сохраняется сразу (для записей с нарушением антифрода ручное изменение заблокировано).
+        Статус можно исправить прямо в таблице. Ручное решение преподавателя имеет приоритет над автоматической проверкой.
       </p>
     </section>
   );

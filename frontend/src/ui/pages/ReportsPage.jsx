@@ -48,6 +48,52 @@ const formatDate = (value) => {
   return new Intl.DateTimeFormat('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(date);
 };
 
+const openReportTab = () => {
+  const reportTab = window.open('', '_blank');
+  if (!reportTab) return null;
+
+  reportTab.opener = null;
+  reportTab.document.title = 'Формирование отчёта';
+  reportTab.document.body.style.cssText = [
+    'margin:0',
+    'min-height:100vh',
+    'display:grid',
+    'place-items:center',
+    'font-family:Inter,system-ui,sans-serif',
+    'background:#f4f7ff',
+    'color:#101b37'
+  ].join(';');
+
+  const message = reportTab.document.createElement('p');
+  message.textContent = 'Формируем отчёт…';
+  message.style.cssText = 'font-size:18px;font-weight:700';
+  reportTab.document.body.replaceChildren(message);
+  return reportTab;
+};
+
+const showExcelReport = (reportTab, url, filename) => {
+  reportTab.document.title = filename;
+  const panel = reportTab.document.createElement('div');
+  panel.style.cssText = 'padding:32px;text-align:center';
+
+  const title = reportTab.document.createElement('h1');
+  title.textContent = 'Excel-отчёт сформирован';
+  title.style.cssText = 'margin:0 0 12px;font-size:26px';
+
+  const description = reportTab.document.createElement('p');
+  description.textContent = 'Браузер не показывает файлы Excel напрямую. Скачайте отчёт только если он вам нужен.';
+  description.style.cssText = 'margin:0 0 22px;color:#526079;line-height:1.5';
+
+  const link = reportTab.document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.textContent = 'Скачать Excel';
+  link.style.cssText = 'display:inline-flex;padding:12px 18px;border-radius:10px;background:#1f55d8;color:#fff;text-decoration:none;font-weight:700';
+
+  panel.append(title, description, link);
+  reportTab.document.body.replaceChildren(panel);
+};
+
 const ReportsPage = ({ token, user }) => {
   const [semesters, setSemesters] = useState([]);
   const [selectedSemesterId, setSelectedSemesterId] = useState('');
@@ -156,6 +202,15 @@ const ReportsPage = ({ token, user }) => {
   const excelReady = isTeacher ? Boolean(selectedSubjectId) : Boolean(selectedDepartmentId);
 
   const downloadReport = async (format) => {
+    const reportTab = isTeacher ? openReportTab() : null;
+    if (isTeacher && !reportTab) {
+      setFeedback({
+        type: 'error',
+        text: 'Браузер заблокировал новую вкладку. Разрешите всплывающие окна для этого сайта.'
+      });
+      return;
+    }
+
     setDownloading(format);
     setFeedback(null);
     try {
@@ -171,15 +226,26 @@ const ReportsPage = ({ token, user }) => {
           : {}
       );
       const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-      setFeedback({ type: 'success', text: `Отчёт ${format.toUpperCase()} сформирован и загружен.` });
+      if (reportTab) {
+        if (format === 'pdf') {
+          reportTab.location.replace(url);
+        } else {
+          showExcelReport(reportTab, url, filename);
+        }
+        window.setTimeout(() => URL.revokeObjectURL(url), 5 * 60 * 1000);
+        setFeedback({ type: 'success', text: `Отчёт ${format.toUpperCase()} открыт в новой вкладке.` });
+      } else {
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+        setFeedback({ type: 'success', text: `Отчёт ${format.toUpperCase()} сформирован и загружен.` });
+      }
     } catch (error) {
+      if (reportTab && !reportTab.closed) reportTab.close();
       setFeedback({
         type: 'error',
         text: api.getErrorMessage(error, 'Не удалось сформировать отчёт')
@@ -320,7 +386,11 @@ const ReportsPage = ({ token, user }) => {
               }
             >
               <DownloadIcon />
-              <span>{downloading === format.key ? 'Формирование...' : `Скачать ${format.title}`}</span>
+              <span>
+                {downloading === format.key
+                  ? 'Формирование...'
+                  : `${isTeacher ? 'Открыть' : 'Скачать'} ${format.title}`}
+              </span>
             </button>
           </article>
         ))}

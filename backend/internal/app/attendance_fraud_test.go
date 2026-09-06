@@ -11,7 +11,7 @@ func TestAttendanceSessionStudentIncludesFraudFields(t *testing.T) {
 	now := time.Now().UTC()
 	student := db.AttendanceSessionStudent{
 		StudentID:   101,
-		StudentName: "Тестовый Читер",
+		StudentName: "Тестовый Студент",
 		GroupID:     1,
 		GroupName:   "TEST-101",
 		Status:      "absent",
