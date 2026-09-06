@@ -18,6 +18,22 @@ const LoginPage = ({ onLogin, onRegister, loading, error, onOpenLegal }) => {
   const [resetToken, setResetToken] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [registerConfirmPassword, setRegisterConfirmPassword] = useState('');
+
+  // Keyboard state detection (Caps Lock & Russian layout)
+  const [capsLockActive, setCapsLockActive] = useState(false);
+
+  const handlePasswordKeyEvent = (event) => {
+    if (event.getModifierState) {
+      setCapsLockActive(event.getModifierState('CapsLock'));
+    }
+  };
+
+  const hasRussianInPassword = (
+    /[а-яА-ЯёЁ]/.test(password) ||
+    (view === 'register' && /[а-яА-ЯёЁ]/.test(registerConfirmPassword)) ||
+    (view === 'reset' && (/[а-яА-ЯёЁ]/.test(newPassword) || /[а-яА-ЯёЁ]/.test(confirmPassword)))
+  );
 
   // Internal flow messages & errors
   const [localError, setLocalError] = useState('');
@@ -61,6 +77,22 @@ const LoginPage = ({ onLogin, onRegister, loading, error, onOpenLegal }) => {
     setLocalMessage('');
 
     if (view === 'register') {
+      if (!login.trim()) {
+        setLocalError('Пожалуйста, введите логин');
+        return;
+      }
+      if (!registrationCode.trim()) {
+        setLocalError('Пожалуйста, введите код регистрации (инвайт-код)');
+        return;
+      }
+      if (password.length < 8) {
+        setLocalError('Пароль должен содержать минимум 8 символов');
+        return;
+      }
+      if (password !== registerConfirmPassword) {
+        setLocalError('Пароли не совпадают');
+        return;
+      }
       if (!personalDataConsent) {
         setLocalError('Для регистрации необходимо подтвердить согласие на обработку персональных данных');
         return;
@@ -116,6 +148,30 @@ const LoginPage = ({ onLogin, onRegister, loading, error, onOpenLegal }) => {
     }
   };
 
+  const renderKeyboardWarning = () => {
+    if (!capsLockActive && !hasRussianInPassword) return null;
+    return (
+      <div className="keyboard-warning-container" role="alert">
+        {capsLockActive && (
+          <div className="keyboard-warning-item keyboard-warning--caps">
+            <svg className="keyboard-warning-svg" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+              <path d="M12 4l-6 6h4v8h4v-8h4l-6-6zM5 20h14v2H5v-2z" />
+            </svg>
+            <span>Внимание: включен <strong>Caps Lock</strong></span>
+          </div>
+        )}
+        {hasRussianInPassword && (
+          <div className="keyboard-warning-item keyboard-warning--layout">
+            <svg className="keyboard-warning-svg" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" />
+            </svg>
+            <span>Внимание: обнаружена <strong>русская раскладка</strong> (в пароле есть кириллица)</span>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="login-page">
       <div className="login-card">
@@ -154,7 +210,7 @@ const LoginPage = ({ onLogin, onRegister, loading, error, onOpenLegal }) => {
 
         <form className="login-form" onSubmit={handleSubmit}>
           <div key={view} className={`login-form-panel login-form-panel--${view}`}>
-            {(view === 'login' || view === 'register') && (
+            {view === 'login' && (
               <>
                 <label>
                   Логин
@@ -173,15 +229,15 @@ const LoginPage = ({ onLogin, onRegister, loading, error, onOpenLegal }) => {
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
+                    onKeyDown={handlePasswordKeyEvent}
+                    onKeyUp={handlePasswordKeyEvent}
                     placeholder="Введите пароль"
                     required
                   />
                 </label>
-              </>
-            )}
 
-            {view === 'login' && (
-              <>
+                {renderKeyboardWarning()}
+
                 {error === 'requires_2fa' && (
                   <label>
                     Код 2FA
@@ -210,15 +266,54 @@ const LoginPage = ({ onLogin, onRegister, loading, error, onOpenLegal }) => {
             {view === 'register' && (
               <>
                 <label>
+                  Логин
+                  <input
+                    type="text"
+                    value={login}
+                    onChange={(e) => setLogin(e.target.value)}
+                    placeholder="Придумайте логин"
+                    required
+                  />
+                </label>
+
+                <label>
                   Код регистрации
                   <input
                     type="text"
                     value={registrationCode}
                     onChange={(e) => setRegistrationCode(e.target.value)}
-                    placeholder="Введите инвайт-код из БД"
+                    placeholder="Введите инвайт-код из деканата или кафедры"
                     required
                   />
                 </label>
+
+                <label>
+                  Пароль
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    onKeyDown={handlePasswordKeyEvent}
+                    onKeyUp={handlePasswordKeyEvent}
+                    placeholder="Придумайте пароль (от 8 символов)"
+                    required
+                  />
+                </label>
+
+                <label>
+                  Подтверждение пароля
+                  <input
+                    type="password"
+                    value={registerConfirmPassword}
+                    onChange={(e) => setRegisterConfirmPassword(e.target.value)}
+                    onKeyDown={handlePasswordKeyEvent}
+                    onKeyUp={handlePasswordKeyEvent}
+                    placeholder="Повторите пароль"
+                    required
+                  />
+                </label>
+
+                {renderKeyboardWarning()}
 
                 <div className="registration-consents-group">
                   <div className="registration-consent-item">
@@ -300,7 +395,9 @@ const LoginPage = ({ onLogin, onRegister, loading, error, onOpenLegal }) => {
                     type="password"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="Новый пароль"
+                    onKeyDown={handlePasswordKeyEvent}
+                    onKeyUp={handlePasswordKeyEvent}
+                    placeholder="Новый пароль (от 8 символов)"
                     required
                   />
                 </label>
@@ -311,10 +408,14 @@ const LoginPage = ({ onLogin, onRegister, loading, error, onOpenLegal }) => {
                     type="password"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
+                    onKeyDown={handlePasswordKeyEvent}
+                    onKeyUp={handlePasswordKeyEvent}
                     placeholder="Повторите новый пароль"
                     required
                   />
                 </label>
+
+                {renderKeyboardWarning()}
               </>
             )}
           </div>
