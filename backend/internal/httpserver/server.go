@@ -95,10 +95,18 @@ func (s *Server) Start() {
 	}))
 	fiberApp.Use(s.maintenanceMiddleware)
 
-	loginLimit := newAuthLoginLimiter()
-	registrationLimit := newAuthRegistrationLimiter()
-	recoveryLimit := limiter.New(limiter.Config{Max: 5, Expiration: 15 * time.Minute})
-	verificationLimit := limiter.New(limiter.Config{Max: 10, Expiration: 5 * time.Minute})
+	passthrough := func(c *fiber.Ctx) error { return c.Next() }
+	var loginLimit fiber.Handler = passthrough
+	var registrationLimit fiber.Handler = passthrough
+	var recoveryLimit fiber.Handler = passthrough
+	var verificationLimit fiber.Handler = passthrough
+
+	if s.cfg.RateLimitEnabled {
+		loginLimit = newAuthLoginLimiter()
+		registrationLimit = newAuthRegistrationLimiter()
+		recoveryLimit = limiter.New(limiter.Config{Max: 5, Expiration: 15 * time.Minute})
+		verificationLimit = limiter.New(limiter.Config{Max: 10, Expiration: 5 * time.Minute})
+	}
 
 	fiberApp.Post("/register", registrationLimit, s.registerHandler)
 	fiberApp.Get("/healthz", s.healthHandler)

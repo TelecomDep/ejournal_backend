@@ -1,0 +1,3 @@
+[submodule "parser"]
+	path = parser
+	url = https://github.com/FacelessProfile/Sibsutis_parsers.git

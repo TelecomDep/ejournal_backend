@@ -31,6 +31,7 @@ type AppConfig struct {
 	TrustedProxies              string
 	AllowDemoAccounts           bool
 	AllowLegacyRoleRegistration bool
+	RateLimitEnabled            bool
 }
 
 func Load() AppConfig {
@@ -58,6 +59,7 @@ func Load() AppConfig {
 		TrustedProxies:              getEnv("TRUSTED_PROXIES", "127.0.0.1,::1"),
 		AllowDemoAccounts:           getEnvBool("ALLOW_DEMO_ACCOUNTS", false),
 		AllowLegacyRoleRegistration: getEnvBool("ALLOW_LEGACY_ROLE_REGISTRATION", false),
+		RateLimitEnabled:            getEnvBool("RATE_LIMIT_ENABLED", true),
 	}
 
 	if err := cfg.ValidateSecurity(); err != nil {
