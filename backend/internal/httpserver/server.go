@@ -95,8 +95,8 @@ func (s *Server) Start() {
 	}))
 	fiberApp.Use(s.maintenanceMiddleware)
 
-	loginLimit := limiter.New(limiter.Config{Max: 10, Expiration: 5 * time.Minute})
-	registrationLimit := limiter.New(limiter.Config{Max: 5, Expiration: 5 * time.Minute})
+	loginLimit := newAuthLoginLimiter()
+	registrationLimit := newAuthRegistrationLimiter()
 	recoveryLimit := limiter.New(limiter.Config{Max: 5, Expiration: 15 * time.Minute})
 	verificationLimit := limiter.New(limiter.Config{Max: 10, Expiration: 5 * time.Minute})
 
@@ -599,7 +599,7 @@ func (s *Server) semesterTransitionHandler(c *fiber.Ctx, requestID, action strin
 
 // registerHandler godoc
 // @Summary Register user
-// @Description Registers a user by one-time invite_code. Legacy role_hash registration remains supported for existing clients.
+// @Description Registers a user by one-time invite_code. If agreement is provided, it must accept the current agreement version; legacy clients may omit it.
 // @Tags auth
 // @Accept json
 // @Produce json
@@ -619,7 +619,15 @@ func (s *Server) registerHandler(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(app.Response{OK: false, Error: "Error marshalling request"})
 	}
 
-	req := app.Request{ID: "http-register", Action: "register", Data: data}
+	req := app.Request{
+		ID:     "http-register",
+		Action: "register",
+		Data:   data,
+		Meta: &app.RequestMeta{
+			IP:        c.IP(),
+			UserAgent: c.Get("User-Agent"),
+		},
+	}
 	raw, err := json.Marshal(req)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(app.Response{OK: false, Error: "Error marshalling envelope"})
@@ -753,7 +761,7 @@ func (s *Server) loginHandler(c *fiber.Ctx) error {
 
 // registerByInviteHandler godoc
 // @Summary Register user by invite code
-// @Description Creates student, teacher, or admin account by one-time invite code from database.
+// @Description Creates student, teacher, or admin account by one-time invite code from database. If agreement is provided, it is stored atomically with account creation and must accept the current version; legacy clients may omit it.
 // @Tags auth
 // @Accept json
 // @Produce json
@@ -774,7 +782,15 @@ func (s *Server) registerByInviteHandler(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(app.Response{OK: false, Error: "Error marshalling request"})
 	}
 
-	req := app.Request{ID: "http-register-by-invite", Action: "register_by_invite", Data: data}
+	req := app.Request{
+		ID:     "http-register-by-invite",
+		Action: "register_by_invite",
+		Data:   data,
+		Meta: &app.RequestMeta{
+			IP:        c.IP(),
+			UserAgent: c.Get("User-Agent"),
+		},
+	}
 	raw, err := json.Marshal(req)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(app.Response{OK: false, Error: "Error marshalling envelope"})

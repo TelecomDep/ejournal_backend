@@ -23,7 +23,7 @@ WHERE login = 'student_test' AND role = 'student'
 ON CONFLICT (student_id) DO NOTHING;
 
 INSERT INTO users (login, password_hash, role)
-VALUES ('admin_test', crypt('123456', gen_salt('bf', 10)), 'admin')
+VALUES ('admin_test', crypt('Akajcd019238_', gen_salt('bf', 10)), 'admin')
 ON CONFLICT (login) DO NOTHING;
 -- +goose StatementEnd
 

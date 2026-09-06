@@ -4085,7 +4085,7 @@ const docTemplate = `{
         },
         "/register": {
             "post": {
-                "description": "Registers a user by one-time invite_code. Legacy role_hash registration remains supported for existing clients.",
+                "description": "Registers a user by one-time invite_code. If agreement is provided, it must accept the current agreement version; legacy clients may omit it.",
                 "consumes": [
                     "application/json"
                 ],
@@ -4131,7 +4131,7 @@ const docTemplate = `{
         },
         "/register/by-invite": {
             "post": {
-                "description": "Creates student, teacher, or admin account by one-time invite code from database.",
+                "description": "Creates student, teacher, or admin account by one-time invite code from database. If agreement is provided, it is stored atomically with account creation and must accept the current version; legacy clients may omit it.",
                 "consumes": [
                     "application/json"
                 ],
@@ -4819,6 +4819,9 @@ const docTemplate = `{
         "app.RegisterByInviteData": {
             "type": "object",
             "properties": {
+                "agreement": {
+                    "$ref": "#/definitions/app.UserAgreementDecisionData"
+                },
                 "invite_code": {
                     "type": "string"
                 },
@@ -4833,6 +4836,9 @@ const docTemplate = `{
         "app.RegisterData": {
             "type": "object",
             "properties": {
+                "agreement": {
+                    "$ref": "#/definitions/app.UserAgreementDecisionData"
+                },
                 "invite_code": {
                     "type": "string"
                 },

@@ -66,6 +66,10 @@ func main() {
 		dbStore,
 		mailer,
 	)
+	svc.SetDemoAccountsEnabled(cfg.AllowDemoAccounts)
+	if cfg.AllowDemoAccounts {
+		log.Print("Presentation mode: built-in demo accounts are enabled; use an isolated database")
+	}
 	svc.StartWorkerPool(workersCount)
 	log.Printf("Internal worker pool started with %d workers", workersCount)
 

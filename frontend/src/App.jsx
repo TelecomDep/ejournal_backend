@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import api from './services/api';
 import LoginPage from './components/LoginPage';
 import Workspace from './ui/Workspace';
@@ -17,6 +17,10 @@ function App() {
     () => getJoinInviteToken() || sessionStorage.getItem('ejournal_pending_invite') || ''
   );
   const [attendanceNotice, setAttendanceNotice] = useState(null);
+  const [attendanceSubmitting, setAttendanceSubmitting] = useState(false);
+  const attendanceRequestRef = useRef(false);
+  const attendanceContextRef = useRef({ token, pendingInvite });
+  attendanceContextRef.current = { token, pendingInvite };
   const [legalModalOpen, setLegalModalOpen] = useState(false);
   const [legalInitialDoc, setLegalInitialDoc] = useState('privacy');
   const { route, navigate } = useHashRoute();
@@ -97,56 +101,54 @@ function App() {
     }
   }, [route]);
 
-  useEffect(() => {
-    if (!token || !userData || !pendingInvite) {
-      return undefined;
-    }
+  const closePendingAttendance = () => {
+    sessionStorage.removeItem('ejournal_pending_invite');
+    setPendingInvite('');
+    navigate(['teacher', 'head'].includes(userData?.role) ? '/teacher/attendance' : '/attendance');
+  };
 
-    let cancelled = false;
-    (async () => {
+  const handleConfirmPendingAttendance = async () => {
+    if (!token || !userData || !pendingInvite || attendanceRequestRef.current) return;
+
+    attendanceRequestRef.current = true;
+    setAttendanceSubmitting(true);
+    setAttendanceNotice(null);
+    try {
+      // Keep the permission request directly attached to the user's click.
       const location = await getBrowserLocation();
-      if (cancelled) return null;
-      if (!location) {
-        throw new Error('Для отметки посещения необходимо разрешить доступ к геолокации.');
-      }
-      return api.confirmAttendance(token, pendingInvite, {
+      if (attendanceContextRef.current.token !== token || attendanceContextRef.current.pendingInvite !== pendingInvite) return;
+      const result = await api.confirmAttendance(token, pendingInvite, {
         deviceId: getBrowserDeviceId(),
-        ...(location || {})
+        ...location
       });
-    })()
-      .then((result) => {
-        if (!cancelled) {
-          if (result?.is_fraud) {
-            const reason = result.fraud_reason === 'student is too far from lesson location'
-              ? 'Вы находитесь слишком далеко от места занятия.'
-              : 'Это устройство уже использовалось для отметки другого студента.';
-            setAttendanceNotice({ type: 'error', text: `Отметка отклонена антифродом. ${reason}` });
-          } else {
-            setAttendanceNotice({ type: 'success', text: 'Посещение успешно отмечено!' });
-          }
-        }
-      })
-      .catch((err) => {
-        if (!cancelled) {
-          setAttendanceNotice({
-            type: 'error',
-            text: api.getErrorMessage(err, 'Не удалось отметить посещение')
-          });
-        }
-      })
-      .finally(() => {
-        if (cancelled) {
-          return;
-        }
-        sessionStorage.removeItem('ejournal_pending_invite');
-        setPendingInvite('');
-        navigate(['teacher', 'head'].includes(userData.role) ? '/teacher/attendance' : '/attendance');
-      });
+      if (attendanceContextRef.current.token !== token || attendanceContextRef.current.pendingInvite !== pendingInvite) return;
 
-    return () => {
-      cancelled = true;
-    };
-  }, [token, userData, pendingInvite]);
+      if (result?.is_fraud) {
+        const reason = result.fraud_reason === 'student is too far from lesson location'
+          ? 'Вы находитесь слишком далеко от места занятия.'
+          : 'Это устройство уже использовалось для отметки другого студента.';
+        setAttendanceNotice({ type: 'error', text: `Отметка отклонена антифродом. ${reason}` });
+      } else {
+        setAttendanceNotice({ type: 'success', text: 'Посещение успешно отмечено!' });
+      }
+      closePendingAttendance();
+    } catch (err) {
+      if (attendanceContextRef.current.token !== token || attendanceContextRef.current.pendingInvite !== pendingInvite) return;
+      if (api.getErrorMessage(err, '') === 'attendance already confirmed') {
+        setAttendanceNotice({ type: 'success', text: 'Посещение уже отмечено.' });
+        closePendingAttendance();
+        return;
+      }
+      // Keep the invite so the student can change Safari settings and retry.
+      setAttendanceNotice({
+        type: 'error',
+        text: api.getErrorMessage(err, 'Не удалось отметить посещение')
+      });
+    } finally {
+      attendanceRequestRef.current = false;
+      setAttendanceSubmitting(false);
+    }
+  };
 
   const handleLogin = async (login, password, twoFaCode = '') => {
     setLoading(true);
@@ -169,17 +171,19 @@ function App() {
     setLoading(true);
     setError('');
     try {
-      const result = await api.register(login, password, registrationCode);
+      if (!personalDataConsent) {
+        throw new Error('Для регистрации необходимо подтвердить согласие на обработку персональных данных.');
+      }
+      const result = await api.register(login, password, registrationCode, {
+        version: '2026-09-01',
+        decision: 'accepted'
+      });
+      if (!result?.token) {
+        throw new Error('Сервер не вернул сессию. Попробуйте войти с указанным логином и паролем.');
+      }
       sessionStorage.setItem('ejournal_token', result.token);
       setToken(result.token);
-      navigate('/dashboard');
-      api.recordAgreementDecision(
-        result.token,
-        personalDataConsent ? 'accepted' : 'declined',
-        '2026-09-01'
-      ).catch(() => {
-        // Consent logging is best-effort and must not block registration.
-      });
+      if (!pendingInvite) navigate('/dashboard');
     } catch (err) {
       setError(api.getErrorMessage(err, 'Не удалось зарегистрироваться'));
     } finally {
@@ -226,6 +230,34 @@ function App() {
         >
           <span>{attendanceNotice.text}</span>
           <button type="button" aria-label="Закрыть" onClick={() => setAttendanceNotice(null)}>×</button>
+        </div>
+      )}
+      {token && userData && pendingInvite && (
+        <div className="attendance-location-backdrop" role="presentation">
+          <section
+            className="attendance-location-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="attendance-location-title"
+          >
+            <h2 id="attendance-location-title">Подтверждение посещения</h2>
+            <p>
+              Для отметки нужна ваша геолокация. Нажмите кнопку ниже и разрешите браузеру
+              использовать местоположение, когда появится системный запрос.
+            </p>
+            <p className="attendance-location-hint">
+              Если доступ уже был запрещён: Настройки iPhone → Конфиденциальность и безопасность →
+              Службы геолокации → Safari.
+            </p>
+            <div className="attendance-location-actions">
+              <button type="button" className="attendance-location-cancel" onClick={closePendingAttendance} disabled={attendanceSubmitting}>
+                Отмена
+              </button>
+              <button type="button" className="attendance-location-confirm" onClick={handleConfirmPendingAttendance} disabled={attendanceSubmitting}>
+                {attendanceSubmitting ? 'Определяем местоположение…' : 'Разрешить и отметиться'}
+              </button>
+            </div>
+          </section>
         </div>
       )}
       {body}

@@ -65,6 +65,12 @@ jobs:
 
       # 3. Интеграционные тесты API (быстрый опрос готовности вместо sleep 15)
       - name: Start Backend Services
+        env:
+          JWT_SECRET: ci-only-ephemeral-database-signing-key-2026
+          ALLOW_DEMO_ACCOUNTS: 'true'
+          ALLOW_LEGACY_ROLE_REGISTRATION: 'true'
+          ROLE_HASH_TEACHER: TEACHER-HASH-2026
+          ROLE_HASH_STUDENT: STUDENT-HASH-2026
         run: docker compose up -d ejournal-backend
 
       - name: Wait for API to be ready
@@ -90,6 +96,8 @@ jobs:
 
       - name: Stop Backend Services
         if: always()
+        env:
+          JWT_SECRET: ci-only-ephemeral-database-signing-key-2026
         run: docker compose down -v
 
   # ==========================================
@@ -136,5 +144,4 @@ jobs:
             
             # 5. Очистка старых дампов (>14 дней)
             find "${BACKUP_DIR}" -name "*.sql" -mtime +14 -delete 2>/dev/null || true
-
 

@@ -368,7 +368,7 @@ const SecurityPanel = ({ user, token }) => {
 	const updateAgreement = async (decision) => {
 		try {
 			setAgreementAction(decision);
-			const result = await api.recordAgreementDecision(token, decision, agreement?.version || '2026-08-01');
+			const result = await api.recordAgreementDecision(token, decision, agreement?.version || '2026-09-01');
 			setAgreement(result);
 		} catch (err) {
 			setError(api.getErrorMessage(err, 'Не удалось сохранить решение'));

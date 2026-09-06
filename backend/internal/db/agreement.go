@@ -14,6 +14,10 @@ type Agreement struct {
 	pool *pgxpool.Pool
 }
 
+type agreementQueryRower interface {
+	QueryRow(context.Context, string, ...any) pgx.Row
+}
+
 func NewAgreement(pool *pgxpool.Pool) *Agreement {
 	return &Agreement{pool: pool}
 }
@@ -30,10 +34,45 @@ func (r *Agreement) RecordDecision(
 	ip string,
 	userAgent string,
 ) (int64, time.Time, error) {
+	return recordAgreementDecision(ctx, r.pool, userID, agreementKey, version, decision, documentHash, actorLogin, actorRole, ip, userAgent)
+}
+
+// RecordDecisionTx writes an agreement decision using the caller's
+// transaction. Registration uses this method so the account, profile binding,
+// invite consumption, and consent decision commit or roll back together.
+func (r *Agreement) RecordDecisionTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	userID int32,
+	agreementKey string,
+	version string,
+	decision string,
+	documentHash string,
+	actorLogin string,
+	actorRole string,
+	ip string,
+	userAgent string,
+) (int64, time.Time, error) {
+	return recordAgreementDecision(ctx, tx, userID, agreementKey, version, decision, documentHash, actorLogin, actorRole, ip, userAgent)
+}
+
+func recordAgreementDecision(
+	ctx context.Context,
+	queryer agreementQueryRower,
+	userID int32,
+	agreementKey string,
+	version string,
+	decision string,
+	documentHash string,
+	actorLogin string,
+	actorRole string,
+	ip string,
+	userAgent string,
+) (int64, time.Time, error) {
 	var decisionID int64
 	var decidedAt time.Time
 
-	err := r.pool.QueryRow(ctx, `
+	err := queryer.QueryRow(ctx, `
 		INSERT INTO user_agreement_decisions (
 			user_id,
 			agreement_key,

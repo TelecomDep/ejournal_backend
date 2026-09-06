@@ -5183,7 +5183,7 @@ export interface paths {
         put?: never;
         /**
          * Register user
-         * @description Registers a user by one-time invite_code. Legacy role_hash registration remains supported for existing clients.
+         * @description Registers a user by one-time invite_code. If agreement is provided, it must accept the current agreement version; legacy clients may omit it.
          */
         post: {
             parameters: {
@@ -5245,7 +5245,7 @@ export interface paths {
         put?: never;
         /**
          * Register user by invite code
-         * @description Creates student, teacher, or admin account by one-time invite code from database.
+         * @description Creates student, teacher, or admin account by one-time invite code from database. If agreement is provided, it is stored atomically with account creation and must accept the current version; legacy clients may omit it.
          */
         post: {
             parameters: {
@@ -5519,11 +5519,13 @@ export interface components {
             system?: boolean;
         };
         "app.RegisterByInviteData": {
+            agreement?: components["schemas"]["app.UserAgreementDecisionData"];
             invite_code?: string;
             login?: string;
             password?: string;
         };
         "app.RegisterData": {
+            agreement?: components["schemas"]["app.UserAgreementDecisionData"];
             invite_code?: string;
             login?: string;
             password?: string;
