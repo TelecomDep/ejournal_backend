@@ -1388,9 +1388,11 @@ func (s *Service) admin_list_invites(token string, data AdminInvitesListData) Re
 
 	status := strings.ToLower(strings.TrimSpace(data.Status))
 	if status == "pending" {
-		query += " AND ri.used_at IS NULL"
+		// A profile can already be linked to a user while an older duplicate
+		// invite remains unused. Such an invite is not pending registration.
+		query += " AND ri.used_at IS NULL AND u.id IS NULL"
 	} else if status == "used" {
-		query += " AND ri.used_at IS NOT NULL"
+		query += " AND (ri.used_at IS NOT NULL OR u.id IS NOT NULL)"
 	}
 
 	query += " ORDER BY ri.created_at DESC"

@@ -53,17 +53,19 @@ type SwitchRoleData struct {
 }
 
 type RegisterData struct {
-	Login      string `json:"login"`
-	Password   string `json:"password"`
-	InviteCode string `json:"invite_code,omitempty"`
-	RoleHash   string `json:"role_hash,omitempty"`
-	Role       string `json:"role,omitempty"`
+	Login      string                     `json:"login"`
+	Password   string                     `json:"password"`
+	InviteCode string                     `json:"invite_code,omitempty"`
+	RoleHash   string                     `json:"role_hash,omitempty"`
+	Role       string                     `json:"role,omitempty"`
+	Agreement  *UserAgreementDecisionData `json:"agreement,omitempty"`
 }
 
 type RegisterByInviteData struct {
-	InviteCode string `json:"invite_code"`
-	Login      string `json:"login"`
-	Password   string `json:"password"`
+	InviteCode string                     `json:"invite_code"`
+	Login      string                     `json:"login"`
+	Password   string                     `json:"password"`
+	Agreement  *UserAgreementDecisionData `json:"agreement,omitempty"`
 }
 
 type ForgotPasswordData struct {
@@ -205,6 +207,7 @@ type Service struct {
 	roleHashStudent      string
 	defaultGroupID       int32
 	allowEarlyAttendance bool
+	allowDemoAccounts    bool
 	store                *db.Store
 	mailer               *Mailer
 	requestQueue         chan requestJob
@@ -337,6 +340,9 @@ func NewService(jwtSecret, siteBaseURL, roleHashTeacher, roleHashStudent string,
 
 func (s *Service) resolveRoleByHash(roleHash string) (string, bool) {
 	roleHash = normalizeRoleHash(roleHash)
+	if roleHash == "" {
+		return "", false
+	}
 	switch roleHash {
 	case s.roleHashTeacher:
 		return "teacher", true
@@ -453,7 +459,7 @@ func (s *Service) userBySessionToken(token string) (User, error) {
 	if !ok {
 		return User{}, errors.New("session not found")
 	}
-	if dbUser.Status != "active" {
+	if dbUser.Status != "active" || !s.accountLoginAllowed(dbUser.Login) {
 		return User{}, errors.New("account is not active")
 	}
 	var currentTokenVersion int64
@@ -766,13 +772,27 @@ func (s *Service) parseAttendanceInviteToken(inviteToken string) (*AttendanceInv
 	return claims, nil
 }
 
-func (s *Service) register(data RegisterData) Response {
+func (s *Service) register(data RegisterData, metas ...RequestMeta) Response {
+	agreement, agreementProvided, agreementError := registrationAgreement(
+		data.Agreement,
+	)
+	if agreementError != "" {
+		return Response{OK: false, Error: agreementError}
+	}
+
 	if strings.TrimSpace(data.InviteCode) != "" {
-		return s.registerByInvite(RegisterByInviteData{
+		inviteData := RegisterByInviteData{
 			InviteCode: data.InviteCode,
 			Login:      data.Login,
 			Password:   data.Password,
-		})
+		}
+		if agreementProvided {
+			inviteData.Agreement = &agreement
+		}
+		return s.registerByInvite(inviteData, metas...)
+	}
+	if agreementProvided {
+		return Response{OK: false, Error: "agreement requires invite registration"}
 	}
 
 	login := strings.TrimSpace(data.Login)
@@ -834,10 +854,16 @@ func (s *Service) register(data RegisterData) Response {
 	}
 }
 
-func (s *Service) registerByInvite(data RegisterByInviteData) Response {
+func (s *Service) registerByInvite(data RegisterByInviteData, metas ...RequestMeta) Response {
 	inviteCode := normalizeInviteCode(data.InviteCode)
 	login := strings.TrimSpace(data.Login)
 	password := strings.TrimSpace(data.Password)
+	agreement, agreementProvided, agreementError := registrationAgreement(
+		data.Agreement,
+	)
+	if agreementError != "" {
+		return Response{OK: false, Error: agreementError}
+	}
 
 	if inviteCode == "" {
 		return Response{OK: false, Error: "invite_code is required"}
@@ -889,6 +915,32 @@ func (s *Service) registerByInvite(data RegisterByInviteData) Response {
 	case "student", "teacher", "admin":
 	default:
 		return Response{OK: false, Error: "invalid invite role"}
+	}
+
+	// Old imports and manual profile links can leave a second unused invite
+	// behind. Do not create a second account for a profile that is already
+	// linked; return the same safe response as for a consumed invite.
+	if studentID.Valid {
+		var linkedUserID sql.NullInt32
+		if err := tx.QueryRow(ctx, `
+			SELECT user_id FROM students WHERE student_id = $1 FOR UPDATE
+		`, studentID.Int32).Scan(&linkedUserID); err != nil {
+			return Response{OK: false, Error: "invalid invite configuration"}
+		}
+		if linkedUserID.Valid {
+			return Response{OK: false, Error: "invalid or used invite_code"}
+		}
+	}
+	if teacherID.Valid {
+		var linkedUserID sql.NullInt32
+		if err := tx.QueryRow(ctx, `
+			SELECT user_id FROM teachers WHERE teacher_id = $1 FOR UPDATE
+		`, teacherID.Int32).Scan(&linkedUserID); err != nil {
+			return Response{OK: false, Error: "invalid invite configuration"}
+		}
+		if linkedUserID.Valid {
+			return Response{OK: false, Error: "invalid or used invite_code"}
+		}
 	}
 
 	var created db.User
@@ -969,6 +1021,25 @@ func (s *Service) registerByInvite(data RegisterByInviteData) Response {
 		return Response{OK: false, Error: "invalid or used invite_code"}
 	}
 
+	if agreementProvided {
+		meta := requestMeta(metas)
+		if _, _, err = s.store.Agreement.RecordDecisionTx(
+			ctx,
+			tx,
+			created.ID,
+			userAgreementKey,
+			agreement.Version,
+			agreement.Decision,
+			currentAgreementDocumentHash(),
+			created.Login,
+			created.Role,
+			meta.IP,
+			meta.UserAgent,
+		); err != nil {
+			return Response{OK: false, Error: "failed to save agreement decision"}
+		}
+	}
+
 	if err = tx.Commit(ctx); err != nil {
 		return Response{OK: false, Error: "failed to commit registration"}
 	}
@@ -1021,7 +1092,7 @@ func (s *Service) refreshToken(sessionToken string) Response {
 	defer cancel()
 
 	dbUser, ok, err := s.store.Users.GetByID(ctx, userID)
-	if err != nil || !ok || dbUser.Status != "active" {
+	if err != nil || !ok || dbUser.Status != "active" || !s.accountLoginAllowed(dbUser.Login) {
 		return Response{OK: false, Error: "cannot refresh session: user not active"}
 	}
 
@@ -1110,6 +1181,10 @@ func (s *Service) login(data LoginData) Response {
 	password := strings.TrimSpace(data.Password)
 	if login == "" || password == "" {
 		return Response{OK: false, Error: "login and password are required"}
+	}
+	if !s.accountLoginAllowed(login) {
+		_ = bcrypt.CompareHashAndPassword(dummyPasswordHash, []byte(password))
+		return Response{OK: false, Error: "invalid credentials"}
 	}
 
 	ctx, cancel := s.dbContext()
@@ -1289,6 +1364,23 @@ func (s *Service) createAttendanceLinkByTeacher(sessionToken string, data Attend
 	semester, err := s.semesterForWrite(ctx, data.SemesterID)
 	if err != nil {
 		return Response{OK: false, Error: err.Error()}
+	}
+
+	allowed, err := s.teacherCanManageSubject(ctx, teacherProfile.ID, subject.ID, semester.ID)
+	if err != nil {
+		return Response{OK: false, Error: "failed to check teacher subject access"}
+	}
+	if !allowed {
+		return Response{OK: false, Error: "forbidden: teacher is not assigned to subject"}
+	}
+	for _, groupID := range groupIDs {
+		allowed, err = s.teacherCanAccessGroup(ctx, teacherProfile.ID, groupID, semester.ID, &subject.ID)
+		if err != nil {
+			return Response{OK: false, Error: "failed to check teacher group access"}
+		}
+		if !allowed {
+			return Response{OK: false, Error: "forbidden: group is not assigned to teacher for this subject"}
+		}
 	}
 
 	effectiveTTL := normalizeInviteTTL(data.ExpiresMinutes)
@@ -1921,9 +2013,6 @@ func (s *Service) attendanceManualMarkByTeacher(sessionToken string, data Teache
 	if err != nil {
 		return Response{OK: false, Error: "failed to update attendance status"}
 	}
-	if result == "fraud_locked" {
-		return Response{OK: false, Error: "нельзя изменить статус: зафиксирована попытка нарушения (антифрод)"}
-	}
 	if result == "not_found" {
 		return Response{OK: false, Error: "student not found in this session's roster"}
 	}
@@ -2528,7 +2617,11 @@ func (s *Service) handleRequest(raw string) Response {
 		if err := json.Unmarshal(req.Data, &data); err != nil {
 			return Response{ID: req.ID, OK: false, Error: "invalid registration payload"}
 		}
-		resp := s.register(data)
+		var meta RequestMeta
+		if req.Meta != nil {
+			meta = *req.Meta
+		}
+		resp := s.register(data, meta)
 		resp.ID = req.ID
 		return resp
 	case "register_by_invite":
@@ -2536,7 +2629,11 @@ func (s *Service) handleRequest(raw string) Response {
 		if err := json.Unmarshal(req.Data, &data); err != nil {
 			return Response{ID: req.ID, OK: false, Error: "invalid register_by_invite payload"}
 		}
-		resp := s.registerByInvite(data)
+		var meta RequestMeta
+		if req.Meta != nil {
+			meta = *req.Meta
+		}
+		resp := s.registerByInvite(data, meta)
 		resp.ID = req.ID
 		return resp
 	case "auth_refresh", "refresh_token":

@@ -65,13 +65,21 @@ const api = {
   },
 
   // Register endpoint
-  async register(login, password, registrationCode) {
+  async register(login, password, registrationCode, agreement = null) {
+    const payload = {
+      login,
+      password,
+      invite_code: registrationCode
+    };
+    if (agreement && typeof agreement === 'object') {
+      payload.agreement = {
+        version: String(agreement.version || '').trim(),
+        decision: String(agreement.decision || '').trim().toLowerCase()
+      };
+    }
+
     try {
-      const response = await axios.post(`${BACKEND_URL}/register/by-invite`, {
-        login,
-        password,
-        invite_code: registrationCode
-      }, {
+      const response = await axios.post(`${BACKEND_URL}/register/by-invite`, payload, {
         headers: {
           'Content-Type': 'application/json'
         }
@@ -287,7 +295,8 @@ const api = {
         `${BACKEND_URL}/api/student/attendance/confirm`,
         payload,
         {
-          headers: authHeaders(token)
+          headers: authHeaders(token),
+          timeout: ATTENDANCE_REQUEST_TIMEOUT_MS
         }
       );
       return unwrapApiResponse(response.data);

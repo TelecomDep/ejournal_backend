@@ -106,12 +106,12 @@ def compute_sha256(file_path: Path) -> str:
 def get_current_table_counts(container=DEFAULT_CONTAINER, db=DEFAULT_DB):
     """Queries row counts for all tables in the database."""
     sql = """
-    SELECT table_name FROM information_schema.tables 
+    SELECT table_name FROM information_schema.tables
     WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
     ORDER BY table_name;
     """
     tables = [t.strip() for t in exec_docker_psql(sql, db, container).splitlines() if t.strip()]
-    
+
     counts = {}
     for table in tables:
         count_str = exec_docker_psql(f"SELECT count(*) FROM {table};", db, container)
@@ -137,7 +137,7 @@ def create_backup(backups_dir=BACKUPS_DIR, container=DEFAULT_CONTAINER, db=DEFAU
     manifest_file = backups_dir / f"{backup_id}_manifest.json"
 
     print(f"\n[+] Начало резервного копирования базы '{db}' (ID: {backup_id})...")
-    
+
     # 1. Row counts before backup
     print("[+] Сбор статистики по таблицам...")
     table_counts = get_current_table_counts(container, db)
@@ -241,7 +241,7 @@ def validate_backup(manifest_path: Path) -> bool:
         if not info:
             print(f"[✘] В манифесте отсутствует запись для '{key}'")
             return False
-        
+
         target_file = base_dir / info["filename"]
         if not target_file.exists():
             print(f"[✘] Файл не найден на диске: {target_file}")
@@ -389,7 +389,7 @@ def main():
                 manifest_path = get_latest_manifest(manifest_path)
         else:
             manifest_path = get_latest_manifest(backups_dir)
-        
+
         if not manifest_path or not manifest_path.exists():
             print("[✘] Не найден манифест для проверки.")
             sys.exit(1)

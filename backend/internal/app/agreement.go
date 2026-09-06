@@ -9,7 +9,7 @@ import (
 
 const (
 	userAgreementKey        = "user_agreement"
-	currentAgreementVersion = "2026-08-01"
+	currentAgreementVersion = "2026-09-01"
 	currentAgreementText    = "Я даю согласие на обработку персональных данных"
 )
 
@@ -21,6 +21,45 @@ func currentAgreementDocumentHash() string {
 type UserAgreementDecisionData struct {
 	Version  string `json:"version"`
 	Decision string `json:"decision"`
+}
+
+func requestMeta(metas []RequestMeta) RequestMeta {
+	if len(metas) == 0 {
+		return RequestMeta{}
+	}
+	return metas[0]
+}
+
+// registrationAgreement validates the optional consent accepted by
+// registration endpoints. Existing mobile clients do not send consent yet,
+// so an entirely omitted agreement remains a legacy-compatible request. Once
+// it is present, however, registration requires an explicit acceptance of the
+// current document version.
+func registrationAgreement(
+	agreement *UserAgreementDecisionData,
+) (UserAgreementDecisionData, bool, string) {
+	if agreement == nil {
+		return UserAgreementDecisionData{}, false, ""
+	}
+	version := strings.TrimSpace(agreement.Version)
+	decision := strings.ToLower(strings.TrimSpace(agreement.Decision))
+	if version == "" {
+		return UserAgreementDecisionData{}, true, "agreement version is required"
+	}
+	if version != currentAgreementVersion {
+		return UserAgreementDecisionData{}, true, "agreement version is not current"
+	}
+	if decision == "" {
+		return UserAgreementDecisionData{}, true, "agreement decision is required"
+	}
+	if decision != "accepted" && decision != "declined" {
+		return UserAgreementDecisionData{}, true, "decision must be accepted or declined"
+	}
+	if decision != "accepted" {
+		return UserAgreementDecisionData{}, true, "agreement must be accepted for registration"
+	}
+
+	return UserAgreementDecisionData{Version: version, Decision: decision}, true, ""
 }
 
 type UserAgreementStatus struct {

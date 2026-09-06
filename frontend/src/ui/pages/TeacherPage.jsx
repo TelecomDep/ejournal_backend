@@ -92,6 +92,8 @@ const TeacherPage = ({ token, section = 'attendance' }) => {
     expiresMinutes: 20
   });
   const [sessionLoading, setSessionLoading] = useState(false);
+  const [sessionLocationUnavailable, setSessionLocationUnavailable] = useState(false);
+  const [skipDistanceCheck, setSkipDistanceCheck] = useState(false);
   const saveActiveSession = (session) => {
     setSessionResult(session);
     if (session) {
@@ -281,7 +283,16 @@ const TeacherPage = ({ token, section = 'attendance' }) => {
 
     setSessionLoading(true);
     try {
-      const location = await getBrowserLocation();
+      let location = null;
+      if (!skipDistanceCheck) {
+        try {
+          location = await getBrowserLocation();
+          setSessionLocationUnavailable(false);
+        } catch (locationError) {
+          setSessionLocationUnavailable(true);
+          throw locationError;
+        }
+      }
       const response = await api.createAttendanceLink(
         token,
         asNumber(sessionForm.subjectId),
@@ -292,7 +303,11 @@ const TeacherPage = ({ token, section = 'attendance' }) => {
         location
       );
       saveActiveSession(response);
-      setMessage('QR и ссылка для отметки посещаемости созданы.');
+      setMessage(skipDistanceCheck
+        ? 'QR создан без проверки расстояния. Проверяйте присутствие студентов в аудитории.'
+        : 'QR и ссылка для отметки посещаемости созданы.');
+      setSkipDistanceCheck(false);
+      setSessionLocationUnavailable(false);
     } catch (err) {
       setError(api.getErrorMessage(err, 'Не удалось создать ссылку посещаемости'));
     } finally {
@@ -539,6 +554,17 @@ const TeacherPage = ({ token, section = 'attendance' }) => {
                 {!sessionGroups.length && <p className="teacher-empty">Для выбранного предмета нет привязанных учебных групп.</p>}
               </div>
             </div>
+
+            {sessionLocationUnavailable && (
+              <div className="teacher-field teacher-field-wide" role="status">
+                <p>Не удалось получить координаты преподавателя. Разрешите геолокацию и повторите попытку либо явно выберите режим ниже.</p>
+                <label>
+                  <input type="checkbox" checked={skipDistanceCheck} onChange={(event) => setSkipDistanceCheck(event.target.checked)} disabled={sessionLoading} />
+                  Создать QR без проверки расстояния до преподавателя
+                </label>
+                <small>В этом режиме проверка радиуса 200 м отключена. Геолокация студентов и проверка повторного устройства сохраняются; присутствие в аудитории проверяет преподаватель.</small>
+              </div>
+            )}
 
             <div className="teacher-actions">
               <button type="submit" className="teacher-primary" disabled={sessionLoading || noSubjects}>

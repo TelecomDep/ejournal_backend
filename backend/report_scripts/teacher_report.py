@@ -163,7 +163,7 @@ def build_report(args: argparse.Namespace) -> str:
     report.auto_filter.ref = f"A{header_row}:{report.cell(row - 1, last_column).coordinate}"
     report.sheet_view.showGridLines = False
     report.row_dimensions[3].height = 28
-    set_widths(report, {1: 7, 2: 29, 3: 13})
+    set_widths(report, {1: 7, 2: 22, 3: 13})
     for column in range(lecture_start, summary_start):
         report.column_dimensions[get_column_letter(column)].width = 12
     set_widths(report, {summary_start: 17, last_column: 18})

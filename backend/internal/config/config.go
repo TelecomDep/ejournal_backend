@@ -2,6 +2,7 @@ package config
 
 import (
 	"bufio"
+	"fmt"
 	"log"
 	"os"
 	"strconv"
@@ -9,62 +10,84 @@ import (
 )
 
 type AppConfig struct {
-	JWTSecret            string
-	SiteBaseURL          string
-	AppPort              string
-	CORSAllowOrigins     string
-	DBDSN                string
-	RoleHashTeacher      string
-	RoleHashStudent      string
-	DefaultGroupID       int32
-	AllowEarlyAttendance bool
-	RateLimitEnabled     bool
-	UploadDir            string
-	SMTPHost             string
-	SMTPPort             string
-	SMTPUser             string
-	SMTPPassword         string
-	SMTPFrom             string
-	SMTPTLSServerName    string
-	SMTPCAFile           string
-	MetricsToken         string
-	TrustedProxies       string
+	JWTSecret                   string
+	SiteBaseURL                 string
+	AppPort                     string
+	CORSAllowOrigins            string
+	DBDSN                       string
+	RoleHashTeacher             string
+	RoleHashStudent             string
+	DefaultGroupID              int32
+	AllowEarlyAttendance        bool
+	UploadDir                   string
+	SMTPHost                    string
+	SMTPPort                    string
+	SMTPUser                    string
+	SMTPPassword                string
+	SMTPFrom                    string
+	SMTPTLSServerName           string
+	SMTPCAFile                  string
+	MetricsToken                string
+	TrustedProxies              string
+	AllowDemoAccounts           bool
+	AllowLegacyRoleRegistration bool
+	RateLimitEnabled            bool
 }
 
 func Load() AppConfig {
 	loadDotEnv(".env")
 
 	cfg := AppConfig{
-		JWTSecret:            strings.TrimSpace(os.Getenv("JWT_SECRET")),
-		SiteBaseURL:          getEnv("SITE_BASE_URL", "http://localhost:3000"),
-		AppPort:              getEnv("APP_PORT", "8888"),
-		CORSAllowOrigins:     getEnv("CORS_ALLOW_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000"),
-		DBDSN:                strings.TrimSpace(os.Getenv("DB_DSN")),
-		RoleHashTeacher:      getEnv("ROLE_HASH_TEACHER", "TEACHER-HASH-2026"),
-		RoleHashStudent:      getEnv("ROLE_HASH_STUDENT", "STUDENT-HASH-2026"),
-		DefaultGroupID:       getEnvInt32("DEFAULT_STUDENT_GROUP_ID", 1),
-		AllowEarlyAttendance: getEnvBool("ALLOW_EARLY_ATTENDANCE", false),
-		RateLimitEnabled:     getEnvBool("RATE_LIMIT_ENABLED", true),
-		UploadDir:            getEnv("UPLOAD_DIR", "uploads"),
-		SMTPHost:             getEnv("SMTP_HOST", ""),
-		SMTPPort:             getEnv("SMTP_PORT", "587"),
-		SMTPUser:             getEnv("SMTP_USER", ""),
-		SMTPPassword:         getEnv("SMTP_PASSWORD", ""),
-		SMTPFrom:             getEnv("SMTP_FROM", ""),
-		SMTPTLSServerName:    getEnv("SMTP_TLS_SERVER_NAME", ""),
-		SMTPCAFile:           getEnv("SMTP_CA_FILE", ""),
-		MetricsToken:         strings.TrimSpace(os.Getenv("METRICS_TOKEN")),
-		TrustedProxies:       getEnv("TRUSTED_PROXIES", "127.0.0.1,::1"),
+		JWTSecret:                   strings.TrimSpace(os.Getenv("JWT_SECRET")),
+		SiteBaseURL:                 getEnv("SITE_BASE_URL", "http://localhost:3000"),
+		AppPort:                     getEnv("APP_PORT", "8888"),
+		CORSAllowOrigins:            getEnv("CORS_ALLOW_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000"),
+		DBDSN:                       strings.TrimSpace(os.Getenv("DB_DSN")),
+		RoleHashTeacher:             strings.TrimSpace(os.Getenv("ROLE_HASH_TEACHER")),
+		RoleHashStudent:             strings.TrimSpace(os.Getenv("ROLE_HASH_STUDENT")),
+		DefaultGroupID:              getEnvInt32("DEFAULT_STUDENT_GROUP_ID", 1),
+		AllowEarlyAttendance:        getEnvBool("ALLOW_EARLY_ATTENDANCE", false),
+		UploadDir:                   getEnv("UPLOAD_DIR", "uploads"),
+		SMTPHost:                    getEnv("SMTP_HOST", ""),
+		SMTPPort:                    getEnv("SMTP_PORT", "587"),
+		SMTPUser:                    getEnv("SMTP_USER", ""),
+		SMTPPassword:                getEnv("SMTP_PASSWORD", ""),
+		SMTPFrom:                    getEnv("SMTP_FROM", ""),
+		SMTPTLSServerName:           getEnv("SMTP_TLS_SERVER_NAME", ""),
+		SMTPCAFile:                  getEnv("SMTP_CA_FILE", ""),
+		MetricsToken:                strings.TrimSpace(os.Getenv("METRICS_TOKEN")),
+		TrustedProxies:              getEnv("TRUSTED_PROXIES", "127.0.0.1,::1"),
+		AllowDemoAccounts:           getEnvBool("ALLOW_DEMO_ACCOUNTS", false),
+		AllowLegacyRoleRegistration: getEnvBool("ALLOW_LEGACY_ROLE_REGISTRATION", false),
+		RateLimitEnabled:            getEnvBool("RATE_LIMIT_ENABLED", true),
 	}
 
-	if cfg.JWTSecret == "" {
-		log.Fatal("JWT_SECRET not set")
+	if err := cfg.ValidateSecurity(); err != nil {
+		log.Fatal(err)
 	}
-	if strings.EqualFold(strings.TrimSpace(cfg.RoleHashTeacher), strings.TrimSpace(cfg.RoleHashStudent)) {
-		log.Fatal("ROLE_HASH_TEACHER and ROLE_HASH_STUDENT must be different")
+	if !cfg.AllowLegacyRoleRegistration {
+		cfg.RoleHashTeacher = ""
+		cfg.RoleHashStudent = ""
 	}
 
 	return cfg
+}
+
+// ValidateSecurity rejects deployable configurations with documented placeholder
+// secrets. Production disables seeded demo accounts and legacy role codes by default.
+func (cfg AppConfig) ValidateSecurity() error {
+	secret := strings.TrimSpace(cfg.JWTSecret)
+	lower := strings.ToLower(secret)
+	if len(secret) < 32 || strings.Contains(lower, "change-me") ||
+		strings.Contains(lower, "generate-a-") || strings.Contains(lower, "replace-with-") ||
+		strings.Count(secret, secret[:1]) == len(secret) {
+		return fmt.Errorf("JWT_SECRET must be a newly generated random secret of at least 32 characters (use openssl rand -hex 32)")
+	}
+	if cfg.AllowLegacyRoleRegistration && (cfg.RoleHashTeacher == "" || cfg.RoleHashStudent == "" ||
+		strings.EqualFold(cfg.RoleHashTeacher, cfg.RoleHashStudent)) {
+		return fmt.Errorf("legacy registration requires two distinct non-empty role codes")
+	}
+	return nil
 }
 
 func loadDotEnv(path string) {

@@ -113,9 +113,20 @@ def has_personal_data_consent(student: dict) -> bool:
     return bool(consent)
 
 
+def short_person_name(value: str) -> str:
+    """Convert a full name to the compact report form: Surname I.O."""
+    parts = str(value or "").split()
+    if len(parts) < 2:
+        return " ".join(parts)
+
+    initials = "".join(f"{part[0].upper()}." for part in parts[1:] if part)
+    return f"{parts[0]} {initials}"
+
+
 def student_display_label(student: dict) -> str:
     if has_personal_data_consent(student):
-        return student.get("student_label") or student.get("student_ref", "")
+        label = student.get("student_label") or student.get("student_ref", "")
+        return short_person_name(label)
     return student.get("student_ref") or student.get("student_label", "")
 
 

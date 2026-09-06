@@ -13,5 +13,5 @@
     "lib": ["DOM", "DOM.Iterable", "ESNext"]
   },
   "include": ["src/**/*", "src/services/schema.d.ts"],
-	"exclude": ["node_modules", "**/node_modules/*", "build", "dist", "**/*.test.js", "**/*.test.jsx"]
+	"exclude": ["node_modules", "**/node_modules/*", "build", "dist", "**/*.test.js", "**/*.test.jsx", "**/*.test.mjs"]
 }

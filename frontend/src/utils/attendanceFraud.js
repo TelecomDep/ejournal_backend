@@ -28,27 +28,47 @@ export const getBrowserDeviceId = () => {
   }
 };
 
-export const getBrowserLocation = (options = {}) => new Promise((resolve) => {
+const getGeolocationError = (error) => {
+  switch (error?.code) {
+    case 1:
+      return new Error(
+        'Доступ к геолокации запрещён. Разрешите этому сайту доступ к местоположению в настройках браузера. На iPhone также проверьте службы геолокации для Safari в настройках устройства.'
+      );
+    case 2:
+      return new Error('Не удалось определить местоположение. Проверьте, что геолокация включена, и попробуйте ещё раз.');
+    case 3:
+      return new Error('Определение местоположения заняло слишком много времени. Подойдите к окну или выйдите на открытое место и повторите попытку.');
+    default:
+      return new Error('Не удалось получить геолокацию. Проверьте настройки браузера и попробуйте ещё раз.');
+  }
+};
+
+export const getBrowserLocation = (options = {}) => new Promise((resolve, reject) => {
+  if (typeof window !== 'undefined' && window.isSecureContext === false) {
+    reject(new Error('Геолокация доступна только при защищённом подключении HTTPS.'));
+    return;
+  }
+
   if (typeof navigator === 'undefined' || !navigator.geolocation) {
-    resolve(null);
+    reject(new Error('Этот браузер не поддерживает определение геолокации.'));
     return;
   }
 
   navigator.geolocation.getCurrentPosition(
     ({ coords }) => {
-      const lat = Number(coords?.latitude);
-      const lon = Number(coords?.longitude);
+      const lat = coords?.latitude;
+      const lon = coords?.longitude;
       if (Number.isFinite(lat) && Number.isFinite(lon) && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180) {
         resolve({ lat, lon });
       } else {
-        resolve(null);
+        reject(new Error('Браузер вернул некорректные координаты. Попробуйте ещё раз.'));
       }
     },
-    () => resolve(null),
+    (error) => reject(getGeolocationError(error)),
     {
-      enableHighAccuracy: false,
-      timeout: 3000,
-      maximumAge: 30000,
+      enableHighAccuracy: true,
+      timeout: 15000,
+      maximumAge: 0,
       ...options
     }
   );

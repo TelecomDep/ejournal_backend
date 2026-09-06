@@ -34,14 +34,16 @@ services:
       dockerfile: Dockerfile
     container_name: ejournal-backend
     environment:
-      JWT_SECRET: ${JWT_SECRET:-dev-secret-change-me}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET to a random secret of at least 32 characters}
       SITE_BASE_URL: ${SITE_BASE_URL:-https://${DOMAIN:-lms.signal.qlabs.pro}}
       APP_PORT: ${APP_PORT:-8888}
       CORS_ALLOW_ORIGINS: ${CORS_ALLOW_ORIGINS:-https://${DOMAIN:-lms.signal.qlabs.pro},http://localhost:8888,http://127.0.0.1:8888,http://localhost:3000,http://127.0.0.1:3000}
       TRUSTED_PROXIES: ${TRUSTED_PROXIES:-127.0.0.1,::1,172.16.0.0/12}
       DB_DSN: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-ejournal}?sslmode=disable
-      ROLE_HASH_TEACHER: ${ROLE_HASH_TEACHER:-TEACHER-HASH-2026}
-      ROLE_HASH_STUDENT: ${ROLE_HASH_STUDENT:-STUDENT-HASH-2026}
+      ALLOW_DEMO_ACCOUNTS: ${ALLOW_DEMO_ACCOUNTS:-false}
+      ALLOW_LEGACY_ROLE_REGISTRATION: ${ALLOW_LEGACY_ROLE_REGISTRATION:-false}
+      ROLE_HASH_TEACHER: ${ROLE_HASH_TEACHER:-}
+      ROLE_HASH_STUDENT: ${ROLE_HASH_STUDENT:-}
       DEFAULT_STUDENT_GROUP_ID: ${DEFAULT_STUDENT_GROUP_ID:-1}
       ALLOW_EARLY_ATTENDANCE: ${ALLOW_EARLY_ATTENDANCE:-true}
       RATE_LIMIT_ENABLED: ${RATE_LIMIT_ENABLED:-true}
